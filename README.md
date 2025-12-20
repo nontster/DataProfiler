@@ -140,11 +140,43 @@ DataProfiler/
 ├── .env                   # Environment variables (git ignored)
 ├── .gitignore             # Git ignore rules
 ├── configuration.yml      # Soda Core data source configuration
+├── docker-compose.yml     # Docker test environment
 ├── generate_and_scan.py   # Main script
+├── init-scripts/          # PostgreSQL init scripts
+│   └── 01-sample-data.sql
+├── pytest.ini             # Pytest configuration
 ├── README.md              # Documentation
 ├── requirements.txt       # Python dependencies
+├── tests/                 # Unit tests
+│   ├── __init__.py
+│   ├── test_config.py
+│   ├── test_connections.py
+│   ├── test_metadata.py
+│   └── test_profiler.py
 └── venv/                  # Python virtual environment (git ignored)
 ```
+
+## 🧪 Testing
+
+### Run All Tests
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Run tests
+pytest
+
+# Run with verbose output
+pytest -v
+
+# Run with coverage report
+pytest --cov=generate_and_scan --cov-report=term-missing
+```
+
+### Test Coverage
+
+Current coverage: **79%** (31 tests)
 
 ## 🔄 Workflow
 
