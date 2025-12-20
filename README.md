@@ -161,6 +161,52 @@ flowchart LR
 3. **Data Profiling** - Soda Core สแกนและเก็บสถิติ
 4. **Result Storage** - บันทึกผลลัพธ์ลง ClickHouse table `data_profiles`
 
+## 🐳 Docker Development Environment
+
+สำหรับการทดสอบ สามารถใช้ Docker Compose เพื่อสร้าง PostgreSQL และ ClickHouse:
+
+### เริ่มต้น Services
+
+```bash
+# Start ทุก services
+docker-compose up -d
+
+# ดู logs
+docker-compose logs -f
+
+# ตรวจสอบสถานะ
+docker-compose ps
+```
+
+### Sample Data
+
+Docker จะสร้างข้อมูลตัวอย่างโดยอัตโนมัติ:
+
+| ตาราง      | รายละเอียด                                             |
+| ---------- | ------------------------------------------------------ |
+| `users`    | 10 records - ข้อมูลผู้ใช้ (มี NULL values สำหรับทดสอบ) |
+| `products` | 8 records - ข้อมูลสินค้า                               |
+
+### ทดสอบ DataProfiler
+
+```bash
+# Profile ตาราง users
+python generate_and_scan.py users
+
+# Profile ตาราง products
+python generate_and_scan.py products
+```
+
+### หยุด Services
+
+```bash
+# Stop ทุก services
+docker-compose down
+
+# Stop และลบข้อมูลทั้งหมด
+docker-compose down -v
+```
+
 ## 📋 ClickHouse Schema
 
 ตาราง `data_profiles` ที่ระบบสร้างอัตโนมัติ:
