@@ -119,7 +119,7 @@ function App() {
                     <BarChart data={profile.columns} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                       <XAxis type="number" domain={[0, 1]} stroke="#9ca3af" />
-                      <YAxis dataKey="column_name" type="category" width={100} stroke="#9ca3af" />
+                      <YAxis dataKey="column_name" type="category" width={130} stroke="#9ca3af" tick={{ fontSize: 12 }} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                         formatter={(value) => [value?.toFixed(2), 'Proportion']}
@@ -140,7 +140,7 @@ function App() {
                     <BarChart data={profile.columns} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                       <XAxis type="number" domain={[0, 1]} stroke="#9ca3af" />
-                      <YAxis dataKey="column_name" type="category" width={100} stroke="#9ca3af" />
+                      <YAxis dataKey="column_name" type="category" width={130} stroke="#9ca3af" tick={{ fontSize: 12 }} />
                       <Tooltip 
                         contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}
                         formatter={(value) => [value?.toFixed(2), 'Proportion']}
