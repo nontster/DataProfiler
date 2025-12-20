@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   dataprofiler-net:
     driver: bridge
@@ -44,7 +42,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8123/ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -66,6 +64,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       clickhouse:
         condition: service_healthy
@@ -74,8 +73,8 @@ services:
   # Custom Dashboard Backend (Flask)
   backend:
     build:
-      context: ./dashboard
-      dockerfile: Dockerfile.backend
+      context: .
+      dockerfile: dashboard/Dockerfile.backend
     container_name: dataprofiler-backend
     networks:
       - dataprofiler-net
@@ -85,6 +84,12 @@ services:
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password123}
+      # Override config for internal execution (e.g. main.py)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE:-postgres}
     depends_on:
       clickhouse:
         condition: service_healthy

@@ -1,0 +1,28 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+
+# Node
+node_modules/
+npm-debug.log
+
+# Docker Volumes
+postgres_data/
+clickhouse_data/
+clickhouse_logs/
+grafana_data/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
