@@ -230,66 +230,58 @@ pytest -v
 pytest --cov=src --cov-report=term-missing
 ```
 
-## 🐳 Docker Development Environment
+## 🐳 Docker Full Stack Environment
 
-For testing, use Docker Compose to set up PostgreSQL and ClickHouse:
+This project is fully containerized. You can spin up the entire stack (DBs, Backend, Frontend, Grafana) with one command.
 
 ```bash
 # Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Check status
-docker-compose ps
+docker-compose up -d --build
 ```
 
-### Sample Data
+### Services Overview
 
-Docker automatically creates sample data:
+| Service        | URL / Port            | Description                          |
+| -------------- | --------------------- | ------------------------------------ |
+| **Frontend**   | http://localhost:8080 | Main Data Profiler Dashboard (React) |
+| **Grafana**    | http://localhost:3000 | Advanced Visualization (Admin)       |
+| **Backend**    | Internal (5001)       | API Service (Flask)                  |
+| **ClickHouse** | localhost:8123        | HTTP Interface                       |
+| **PostgreSQL** | localhost:5432        | Source Database                      |
 
-| Table      | Description                                           |
-| ---------- | ----------------------------------------------------- |
-| `users`    | 10 records - User data (with NULL values for testing) |
-| `products` | 8 records - Product data                              |
+### Credentials
+
+- **Grafana**: User: `admin`, Pass: `admin` (or set via `GRAFANA_ADMIN_PASSWORD` in .env)
+- **Databases**: User: `default`/`postgres`, Pass: `password123`
+
+### Sample Data & Testing
+
+Docker automatically creates sample data in PostgreSQL. You can run the profiler from your host machine (if Python is installed) or use `docker exec`:
+
+```bash
+# Run profiler inside backend container
+docker-compose exec backend python ../main.py users --app order-service --env production
+```
 
 ### Stop Services
 
 ```bash
-# Stop all services
-docker-compose down
-
-# Stop and remove all data
-docker-compose down -v
+docker-compose down -v  # Stop and remove volumes
 ```
 
-## 📊 Dashboard
+## 📊 Dashboard Development
 
-DataProfiler includes a Web Dashboard for visualizing profile data.
-
-### Features
-
-- **Sidebar Navigation** - Table list with row/column counts
-- **Bar Charts** - Not Null Proportion, Distinct Proportion
-- **Column Details Table** - All metrics in table format
-- **Dark Theme** - Modern UI
-
-### Running the Dashboard
+If you want to run the dashboard manually (outside Docker) for development:
 
 ```bash
-# 1. Start Backend API (port 5001)
+# 1. Start Backend API
 cd dashboard/backend
-source ../venv/bin/activate
 python app.py
 
-# 2. Start Frontend (port 5173)
+# 2. Start Frontend
 cd dashboard/frontend
-npm install  # First time only
 npm run dev
-
-# 3. Open Browser
-open http://localhost:5173
+# Access at http://localhost:5173
 ```
 
 ### Technology Stack

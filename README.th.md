@@ -248,50 +248,43 @@ flowchart LR
 3. **Data Profiling** - Soda Core สแกนและเก็บสถิติ
 4. **Result Storage** - บันทึกผลลัพธ์ลง ClickHouse table `data_profiles`
 
-## 🐳 Docker Development Environment
+## 🐳 Docker Full Stack Environment
 
-สำหรับการทดสอบ สามารถใช้ Docker Compose เพื่อสร้าง PostgreSQL และ ClickHouse:
-
-### เริ่มต้น Services
+โปรเจกต์นี้รองรับการทำงานแบบ Full Stack Containerized สามารถรันระบบทั้งหมด (DBs, Backend, Frontend, Grafana) ได้ด้วยคำสั่งเดียว:
 
 ```bash
-# Start ทุก services
-docker-compose up -d
-
-# ดู logs
-docker-compose logs -f
-
-# ตรวจสอบสถานะ
-docker-compose ps
+# Start all services
+docker-compose up -d --build
 ```
 
-### Sample Data
+### ภาพรวม Services
 
-Docker จะสร้างข้อมูลตัวอย่างโดยอัตโนมัติ:
+| Service        | URL / Port            | รายละเอียด                           |
+| -------------- | --------------------- | ------------------------------------ |
+| **Frontend**   | http://localhost:8080 | Main Data Profiler Dashboard (React) |
+| **Grafana**    | http://localhost:3000 | Advanced Visualization (Admin)       |
+| **Backend**    | Internal (5001)       | API Service (Flask)                  |
+| **ClickHouse** | localhost:8123        | HTTP Interface                       |
+| **PostgreSQL** | localhost:5432        | Source Database                      |
 
-| ตาราง      | รายละเอียด                                             |
-| ---------- | ------------------------------------------------------ |
-| `users`    | 10 records - ข้อมูลผู้ใช้ (มี NULL values สำหรับทดสอบ) |
-| `products` | 8 records - ข้อมูลสินค้า                               |
+### ข้อมูลการเข้าใช้งาน (Credentials)
 
-### ทดสอบ DataProfiler
+- **Grafana**: User: `admin`, Pass: `admin` (หรือตั้งค่าผ่าน `GRAFANA_ADMIN_PASSWORD` ใน .env)
+- **Databases**: User: `default`/`postgres`, Pass: `password123`
+
+### ข้อมูลตัวอย่าง & การทดสอบ
+
+Docker จะสร้างข้อมูลตัวอย่างใน PostgreSQL ให้อัตโนมัติ สามารถสั่งรัน Profiler ผ่าน Docker ได้เลย:
 
 ```bash
-# Profile ตาราง users
-python main.py users
-
-# Profile ตาราง products
-python main.py products
+# รัน profiler ภายใน backend container
+docker-compose exec backend python ../main.py users --app order-service --env production
 ```
 
-### หยุด Services
+### การหยุดการทำงาน
 
 ```bash
-# Stop ทุก services
-docker-compose down
-
-# Stop และลบข้อมูลทั้งหมด
-docker-compose down -v
+docker-compose down -v  # หยุดและลบ volumes
 ```
 
 ## 📋 ClickHouse Schema
@@ -311,32 +304,19 @@ CREATE TABLE data_profiles (
 ) ENGINE = MergeTree() ORDER BY (scan_time, table_name)
 ```
 
-## 📊 Dashboard
+## 📊 การพัฒนา Dashboard
 
-DataProfiler มาพร้อม Web Dashboard สำหรับ visualize ข้อมูล profile
-
-### Features
-
-- **Sidebar Navigation** - รายการตารางพร้อมจำนวน rows/columns
-- **Bar Charts** - Not Null Proportion, Distinct Proportion
-- **Column Details Table** - แสดงทุก metrics ในรูปแบบตาราง
-- **Dark Theme** - Modern UI
-
-### การใช้งาน Dashboard
+หากต้องการรัน Dashboard แบบ Manual (ไม่อยู่ใน Docker) เพื่อการพัฒนา:
 
 ```bash
-# 1. Start Backend API (port 5001)
+# 1. Start Backend API
 cd dashboard/backend
-source ../venv/bin/activate
 python app.py
 
-# 2. Start Frontend (port 5173)
+# 2. Start Frontend
 cd dashboard/frontend
-npm install  # ครั้งแรกเท่านั้น
 npm run dev
-
-# 3. เปิด Browser
-open http://localhost:5173
+# เข้าใช้งานที่ http://localhost:5173
 ```
 
 ### Technology Stack
@@ -347,6 +327,42 @@ open http://localhost:5173
 | Frontend  | React + Vite       |
 | Styling   | TailwindCSS        |
 | Charts    | Recharts           |
+
+## 📈 Grafana Dashboard (ทางเลือกเสริม)
+
+โปรเจกต์นี้มาพร้อมกับ **Grafana** ที่เชื่อมต่อกับ ClickHouse ให้โดยอัตโนมัติ
+
+### ฟีเจอร์
+
+- **Direct ClickHouse Integration**: เชื่อมต่อโดยตรง ไม่ต้องผ่าน middleware
+- **Customizable**: สร้าง Dashboard ที่ซับซ้อนด้วย SQL
+- **Alerting**: รองรับระบบแจ้งเตือนของ Grafana
+- **User Management**: ระบบจัดการผู้ใช้งาน
+
+### การใช้งาน
+
+Grafana ถูกรวมอยู่ใน `docker-compose.yml` แล้ว:
+
+1. Start services:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+2. เข้าใช้งาน Grafana:
+
+   - URL: http://localhost:3000
+   - User: `admin`
+   - Password: `admin`
+
+3. สร้าง Dashboard:
+   - DataSource: **ClickHouse** (ถูกตั้งค่าไว้แล้ว)
+   - Example Query:
+     ```sql
+     SELECT table_name, max(row_count) as rows
+     FROM data_profiles
+     GROUP BY table_name
+     ```
 
 ## ⚠️ Limitations
 

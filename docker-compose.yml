@@ -1,10 +1,16 @@
 version: '3.8'
 
+networks:
+  dataprofiler-net:
+    driver: bridge
+
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
     container_name: dataprofiler-postgres
+    networks:
+      - dataprofiler-net
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
@@ -25,6 +31,8 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24-alpine
     container_name: dataprofiler-clickhouse
+    networks:
+      - dataprofiler-net
     environment:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password123}
@@ -46,10 +54,13 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: dataprofiler-grafana
+    networks:
+      - dataprofiler-net
+    user: "0" # Fix permission issues
     environment:
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     ports:
       - "3000:3000"
     volumes:
@@ -58,6 +69,40 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Custom Dashboard Backend (Flask)
+  backend:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile.backend
+    container_name: dataprofiler-backend
+    networks:
+      - dataprofiler-net
+    environment:
+      FLASK_ENV: production
+      CLICKHOUSE_HOST: clickhouse
+      CLICKHOUSE_PORT: 8123
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password123}
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Custom Dashboard Frontend (React + Nginx)
+  frontend:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile.frontend
+    container_name: dataprofiler-frontend
+    networks:
+      - dataprofiler-net
+    ports:
+      - "8080:80" # Exposed on port 8080 to avoid conflict with other apps
+    depends_on:
+      backend:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
