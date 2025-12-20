@@ -111,25 +111,51 @@ data_source my_postgres:
 
 ## 🚀 Usage
 
-### รันแบบ Default
+### Basic Usage
 
 ```bash
+# Profile 'users' table (default)
 python main.py
+
+# Profile a specific table
+python main.py products
 ```
 
-ระบบจะ Profile ตาราง `users` เป็นค่าเริ่มต้น
-
-### ระบุชื่อตาราง
+### Output Formats
 
 ```bash
-python main.py <table_name>
+# Console table (default)
+python main.py users --format table
+
+# Markdown (dbt-profiler style)
+python main.py users --format markdown
+
+# JSON
+python main.py users --format json
+
+# CSV
+python main.py users --format csv
 ```
 
-**ตัวอย่าง:**
+### Save to File
 
 ```bash
-python main.py customers
-python main.py orders
+python main.py users --format markdown --output profiles/users.md
+python main.py users --format json --output profiles/users.json
+python main.py users --format csv --output profiles/users.csv
+```
+
+### Additional Options
+
+```bash
+# Skip storing to ClickHouse
+python main.py users --no-store
+
+# Verbose logging
+python main.py users -v
+
+# Show help
+python main.py --help
 ```
 
 ## 📁 Project Structure
