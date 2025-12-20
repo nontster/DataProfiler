@@ -1,0 +1,177 @@
+# DataProfiler
+
+เครื่องมือสำหรับทำ **Data Profiling** อัตโนมัติจาก PostgreSQL โดยใช้ [Soda Core](https://www.soda.io/) และจัดเก็บผลลัพธ์ลง ClickHouse
+
+## 🎯 ภาพรวม
+
+DataProfiler ทำหน้าที่:
+
+1. **ดึงข้อมูล Schema** อัตโนมัติจาก PostgreSQL (information_schema)
+2. **สแกนและวิเคราะห์** ข้อมูลในตารางด้วย Soda Core
+3. **จัดเก็บผลลัพธ์** การ Profile ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
+
+## 📊 ข้อมูลที่ Profile
+
+สำหรับแต่ละ Column ระบบจะเก็บข้อมูลสถิติดังนี้:
+
+| Metric           | คำอธิบาย                        |
+| ---------------- | ------------------------------- |
+| `distinct_count` | จำนวนค่าที่ไม่ซ้ำกัน            |
+| `missing_count`  | จำนวนค่าที่เป็น NULL            |
+| `min`            | ค่าต่ำสุด                       |
+| `max`            | ค่าสูงสุด                       |
+| `avg`            | ค่าเฉลี่ย (เฉพาะ numeric types) |
+
+## 🛠️ Requirements
+
+- Python 3.10+
+- PostgreSQL
+- ClickHouse
+- Dependencies:
+  - `psycopg2` - PostgreSQL adapter
+  - `clickhouse-connect` - ClickHouse client
+  - `soda-core-postgres` - Soda Core for PostgreSQL
+  - `jinja2` - Template engine
+
+## 📦 Installation
+
+1. Clone repository:
+
+```bash
+git clone <repository-url>
+cd DataProfiler
+```
+
+2. สร้าง Virtual Environment และ Activate:
+
+```bash
+# สร้าง venv
+python -m venv venv
+
+# Activate (macOS/Linux)
+source venv/bin/activate
+
+# Activate (Windows)
+venv\Scripts\activate
+```
+
+3. ติดตั้ง Dependencies จาก requirements.txt:
+
+```bash
+pip install -r requirements.txt
+```
+
+> **หมายเหตุ:** หากต้องการอัปเดต dependencies ให้รัน `pip install -r requirements.txt --upgrade`
+
+## ⚙️ Configuration
+
+### Database Configuration
+
+แก้ไขไฟล์ `configuration.yml` สำหรับการเชื่อมต่อ PostgreSQL:
+
+```yaml
+data_source my_postgres:
+  type: postgres
+  host: localhost
+  port: 5432
+  username: postgres
+  password: password123
+  database: postgres
+  schema: public
+```
+
+### ClickHouse Configuration
+
+แก้ไขการตั้งค่า ClickHouse ในไฟล์ `generate_and_scan.py`:
+
+```python
+def get_ch_client():
+    return clickhouse_connect.get_client(
+        host='localhost',
+        port=8123,
+        username='default',
+        password='password123'
+    )
+```
+
+## 🚀 Usage
+
+### รันแบบ Default
+
+```bash
+python generate_and_scan.py
+```
+
+ระบบจะ Profile ตาราง `users` เป็นค่าเริ่มต้น
+
+### ระบุชื่อตาราง
+
+```bash
+python generate_and_scan.py <table_name>
+```
+
+**ตัวอย่าง:**
+
+```bash
+python generate_and_scan.py customers
+python generate_and_scan.py orders
+```
+
+## 📁 Project Structure
+
+```
+DataProfiler/
+├── configuration.yml      # Soda Core data source configuration
+├── generate_and_scan.py   # Main script
+├── README.md              # Documentation
+└── venv/                  # Python virtual environment
+```
+
+## 🔄 Workflow
+
+```mermaid
+flowchart LR
+    A[PostgreSQL] -->|1. Discover Schema| B[DataProfiler]
+    B -->|2. Generate SodaCL| C[Soda Core]
+    C -->|3. Profile Data| B
+    B -->|4. Store Results| D[ClickHouse]
+```
+
+1. **Schema Discovery** - ดึงข้อมูล Column และ Data Type จาก `information_schema`
+2. **Template Generation** - สร้าง SodaCL YAML แบบ Dynamic ด้วย Jinja2
+3. **Data Profiling** - Soda Core สแกนและเก็บสถิติ
+4. **Result Storage** - บันทึกผลลัพธ์ลง ClickHouse table `data_profiles`
+
+## 📋 ClickHouse Schema
+
+ตาราง `data_profiles` ที่ระบบสร้างอัตโนมัติ:
+
+```sql
+CREATE TABLE data_profiles (
+    scan_time DateTime DEFAULT now(),
+    table_name String,
+    column_name String,
+    distinct_count Nullable(Int64),
+    missing_count Nullable(Int64),
+    min Nullable(String),
+    max Nullable(String),
+    avg Nullable(Float64)
+) ENGINE = MergeTree() ORDER BY (scan_time, table_name)
+```
+
+## ⚠️ Limitations
+
+Data Types ที่ไม่รองรับในปัจจุบัน:
+
+- `timestamp`
+- `timestamp without time zone`
+- `date`
+- `bytea`
+
+## 📝 License
+
+[MIT License](LICENSE)
+
+## 🤝 Contributing
+
+Pull requests ยินดีต้อนรับ! สำหรับการเปลี่ยนแปลงใหญ่ กรุณาเปิด Issue ก่อนเพื่อหารือ
