@@ -1,14 +1,42 @@
+import os
 import psycopg2
 import clickhouse_connect
 from jinja2 import Template
 from soda.scan import Scan
-import json
+from dotenv import load_dotenv
 import textwrap
 import sys
 
+# Load environment variables from .env file
+load_dotenv()
+
+# --- Configuration from Environment Variables ---
+POSTGRES_CONFIG = {
+    'host': os.getenv('POSTGRES_HOST', 'localhost'),
+    'port': int(os.getenv('POSTGRES_PORT', 5432)),
+    'database': os.getenv('POSTGRES_DATABASE', 'postgres'),
+    'user': os.getenv('POSTGRES_USER', 'postgres'),
+    'password': os.getenv('POSTGRES_PASSWORD', ''),
+    'schema': os.getenv('POSTGRES_SCHEMA', 'public'),
+}
+
+CLICKHOUSE_CONFIG = {
+    'host': os.getenv('CLICKHOUSE_HOST', 'localhost'),
+    'port': int(os.getenv('CLICKHOUSE_PORT', 8123)),
+    'username': os.getenv('CLICKHOUSE_USER', 'default'),
+    'password': os.getenv('CLICKHOUSE_PASSWORD', ''),
+}
+
+
 # --- 1. Setup ClickHouse ---
 def get_ch_client():
-    return clickhouse_connect.get_client(host='localhost', port=8123, username='default', password='password123')
+    return clickhouse_connect.get_client(
+        host=CLICKHOUSE_CONFIG['host'],
+        port=CLICKHOUSE_CONFIG['port'],
+        username=CLICKHOUSE_CONFIG['username'],
+        password=CLICKHOUSE_CONFIG['password']
+    )
+
 
 def init_clickhouse():
     try:
@@ -29,20 +57,36 @@ def init_clickhouse():
     except Exception as e:
         print(f"❌ ClickHouse Init Error: {e}")
 
+
 # --- 2. Metadata Discovery & Filtering ---
 def get_table_metadata(table_name):
-    conn = psycopg2.connect(host="localhost", database="postgres", user="postgres", password="password123")
+    conn = psycopg2.connect(
+        host=POSTGRES_CONFIG['host'],
+        port=POSTGRES_CONFIG['port'],
+        database=POSTGRES_CONFIG['database'],
+        user=POSTGRES_CONFIG['user'],
+        password=POSTGRES_CONFIG['password']
+    )
     cur = conn.cursor()
-    query = f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{table_name}' AND table_schema = 'public';"
-    cur.execute(query)
+    
+    # ใช้ Parameterized Query เพื่อป้องกัน SQL Injection
+    query = """
+        SELECT column_name, data_type 
+        FROM information_schema.columns 
+        WHERE table_name = %s AND table_schema = %s
+    """
+    cur.execute(query, (table_name, POSTGRES_CONFIG['schema']))
     columns = cur.fetchall()
+    
     cur.close()
     conn.close()
     return [{"name": col[0], "type": col[1]} for col in columns]
 
+
 def is_profile_supported(pg_type):
     unsupported = ['timestamp', 'timestamp without time zone', 'date', 'bytea']
     return pg_type not in unsupported
+
 
 # --- 3. Main Workflow ---
 def run_poc(table_name):
@@ -118,6 +162,7 @@ def run_poc(table_name):
     else:
         print("❌ No profiling data collected.")
         # ไม่ต้อง Debug JSON แล้วเพราะเรารู้แล้วว่าข้อมูลมาถูกทาง
+
 
 if __name__ == "__main__":
     # ถ้ามีการใส่ชื่อตารางมาตอนรัน ให้ใช้ชื่อนั้น ถ้าไม่มีให้ใช้ 'users' เป็นค่าเริ่มต้น

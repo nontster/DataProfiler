@@ -32,6 +32,7 @@ DataProfiler ทำหน้าที่:
   - `clickhouse-connect` - ClickHouse client
   - `soda-core-postgres` - Soda Core for PostgreSQL
   - `jinja2` - Template engine
+  - `python-dotenv` - Environment variable management
 
 ## 📦 Installation
 
@@ -65,33 +66,47 @@ pip install -r requirements.txt
 
 ## ⚙️ Configuration
 
-### Database Configuration
+### 1. สร้างไฟล์ Environment Variables
 
-แก้ไขไฟล์ `configuration.yml` สำหรับการเชื่อมต่อ PostgreSQL:
+คัดลอก `.env.example` เป็น `.env` และแก้ไขค่าตามจริง:
+
+```bash
+cp .env.example .env
+```
+
+แก้ไขไฟล์ `.env`:
+
+```bash
+# PostgreSQL Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_actual_password
+POSTGRES_SCHEMA=public
+
+# ClickHouse Configuration
+CLICKHOUSE_HOST=localhost
+CLICKHOUSE_PORT=8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=your_actual_password
+```
+
+> ⚠️ **สำคัญ:** ไฟล์ `.env` ถูก ignore โดย git อยู่แล้ว ไม่ต้องกังวลเรื่อง commit credentials
+
+### 2. Soda Core Configuration
+
+แก้ไขไฟล์ `configuration.yml` สำหรับ Soda Core:
 
 ```yaml
 data_source my_postgres:
   type: postgres
-  host: localhost
-  port: 5432
-  username: postgres
-  password: password123
-  database: postgres
-  schema: public
-```
-
-### ClickHouse Configuration
-
-แก้ไขการตั้งค่า ClickHouse ในไฟล์ `generate_and_scan.py`:
-
-```python
-def get_ch_client():
-    return clickhouse_connect.get_client(
-        host='localhost',
-        port=8123,
-        username='default',
-        password='password123'
-    )
+  host: ${POSTGRES_HOST}
+  port: ${POSTGRES_PORT}
+  username: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  database: ${POSTGRES_DATABASE}
+  schema: ${POSTGRES_SCHEMA}
 ```
 
 ## 🚀 Usage
@@ -121,10 +136,14 @@ python generate_and_scan.py orders
 
 ```
 DataProfiler/
+├── .env.example           # Environment variables template
+├── .env                   # Environment variables (git ignored)
+├── .gitignore             # Git ignore rules
 ├── configuration.yml      # Soda Core data source configuration
 ├── generate_and_scan.py   # Main script
 ├── README.md              # Documentation
-└── venv/                  # Python virtual environment
+├── requirements.txt       # Python dependencies
+└── venv/                  # Python virtual environment (git ignored)
 ```
 
 ## 🔄 Workflow

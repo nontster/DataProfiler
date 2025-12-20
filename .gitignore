@@ -47,7 +47,8 @@ Thumbs.db
 
 # Secrets (อย่า commit ไฟล์ที่มี credentials จริง)
 # configuration.yml  # Uncomment ถ้าใช้ credentials จริง
-*.env
+.env
 .env.*
+!.env.example
 secrets.yml
 secrets.yaml
