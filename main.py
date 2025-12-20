@@ -75,6 +75,18 @@ Examples:
         help='Enable verbose/debug logging'
     )
     
+    parser.add_argument(
+        '--app',
+        default='default',
+        help='Application name (default: default)'
+    )
+
+    parser.add_argument(
+        '--env',
+        default='development',
+        help='Environment name (e.g., uat, production)'
+    )
+
     return parser.parse_args()
 
 
@@ -82,7 +94,9 @@ def run_profiler(
     table_name: str,
     output_format: str = 'table',
     output_file: Optional[str] = None,
-    store_to_clickhouse: bool = True
+    store_to_clickhouse: bool = True,
+    application: str = 'default',
+    environment: str = 'development'
 ) -> Optional[int]:
     """
     Run the data profiler for a specific table.
@@ -92,11 +106,13 @@ def run_profiler(
         output_format: Output format (table, markdown, json, csv)
         output_file: Optional file path to save output
         store_to_clickhouse: Whether to store results in ClickHouse
+        application: Application name
+        environment: Environment name
         
     Returns:
         Number of column profiles generated, or None if failed
     """
-    logger.info(f"Starting profiler for table: '{table_name}'")
+    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}]")
     
     # Step 1: Initialize ClickHouse (if storing)
     if store_to_clickhouse:
@@ -145,7 +161,7 @@ def run_profiler(
     
     # Step 5: Store in ClickHouse (if enabled)
     if store_to_clickhouse:
-        if insert_profiles(table_profile):
+        if insert_profiles(table_profile, application=application, environment=environment):
             logger.info(f"✅ Results stored in ClickHouse (data_profiles)")
         else:
             logger.warning("Failed to store results in ClickHouse")
@@ -169,7 +185,9 @@ def main():
         table_name=args.table,
         output_format=args.format,
         output_file=args.output,
-        store_to_clickhouse=not args.no_store
+        store_to_clickhouse=not args.no_store,
+        application=args.app,
+        environment=args.env
     )
     
     if result is None:

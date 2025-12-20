@@ -40,6 +40,7 @@ def get_clickhouse_client():
 def init_clickhouse() -> bool:
     """
     Initialize ClickHouse table for storing profiling results.
+    Supports multi-application and multi-environment profiles.
     
     Returns:
         bool: True if initialization successful, False otherwise
@@ -47,13 +48,25 @@ def init_clickhouse() -> bool:
     try:
         client = get_clickhouse_client()
         
-        # data_profiles table with dbt-profiler style metrics
+        # data_profiles table with multi-tenancy support
         client.command("""
             CREATE TABLE IF NOT EXISTS data_profiles (
+                -- Metadata
                 scan_time DateTime DEFAULT now(),
+                
+                -- Multi-tenancy columns
+                application String DEFAULT 'default',
+                environment LowCardinality(String) DEFAULT 'development',
+                database_host String DEFAULT '',
+                database_name String DEFAULT '',
+                schema_name String DEFAULT 'public',
+                
+                -- Table/Column info
                 table_name String,
                 column_name String,
                 data_type String,
+                
+                -- Metrics
                 row_count Int64,
                 not_null_proportion Nullable(Float64),
                 distinct_proportion Nullable(Float64),
@@ -65,22 +78,31 @@ def init_clickhouse() -> bool:
                 median Nullable(Float64),
                 std_dev_population Nullable(Float64),
                 std_dev_sample Nullable(Float64)
-            ) ENGINE = MergeTree() ORDER BY (scan_time, table_name, column_name)
+                
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(scan_time)
+            ORDER BY (application, environment, table_name, scan_time, column_name)
         """)
         
-        logger.info("✅ ClickHouse table 'data_profiles' is ready")
+        logger.info("✅ ClickHouse table 'data_profiles' is ready (multi-env schema)")
         return True
     except (ClickHouseError, DatabaseConnectionError) as e:
         logger.error(f"❌ ClickHouse initialization failed: {e}")
         return False
 
 
-def insert_profiles(table_profile) -> bool:
+def insert_profiles(
+    table_profile,
+    application: str = "default",
+    environment: str = "development"
+) -> bool:
     """
     Insert profiling records into ClickHouse.
     
     Args:
         table_profile: TableProfile object with column profiles
+        application: Application/service name (e.g., 'order-service')
+        environment: Environment name (e.g., 'uat', 'production')
         
     Returns:
         bool: True if insert successful, False otherwise
@@ -95,6 +117,11 @@ def insert_profiles(table_profile) -> bool:
         data = []
         for col in table_profile.column_profiles:
             row = [
+                application,
+                environment,
+                Config.POSTGRES_HOST,
+                Config.POSTGRES_DATABASE,
+                Config.POSTGRES_SCHEMA,
                 col.table_name,
                 col.column_name,
                 col.data_type,
@@ -116,6 +143,7 @@ def insert_profiles(table_profile) -> bool:
             'data_profiles', 
             data, 
             column_names=[
+                'application', 'environment', 'database_host', 'database_name', 'schema_name',
                 'table_name', 'column_name', 'data_type', 'row_count',
                 'not_null_proportion', 'distinct_proportion', 'distinct_count',
                 'is_unique', 'min', 'max', 'avg', 'median',
@@ -123,7 +151,7 @@ def insert_profiles(table_profile) -> bool:
             ]
         )
         
-        logger.info(f"✅ Inserted {len(data)} profiles into data_profiles")
+        logger.info(f"✅ Inserted {len(data)} profiles [{application}/{environment}]")
         return True
         
     except ClickHouseError as e:
