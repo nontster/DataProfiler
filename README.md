@@ -1,40 +1,42 @@
+🌐 **Language:** **English** | [ภาษาไทย](README.th.md)
+
 # DataProfiler
 
-เครื่องมือสำหรับทำ **Data Profiling** อัตโนมัติจาก PostgreSQL แบบ [dbt-profiler](https://github.com/data-mie/dbt-profiler) style และจัดเก็บผลลัพธ์ลง ClickHouse
+Automated **Data Profiling** tool for PostgreSQL with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics, storing results in ClickHouse.
 
 ![Dashboard Screenshot](docs/images/dashboard.png)
 
-## 🎯 ภาพรวม
+## 🎯 Overview
 
-DataProfiler ทำหน้าที่:
+DataProfiler provides:
 
-1. **ดึงข้อมูล Schema** อัตโนมัติจาก PostgreSQL (information_schema)
-2. **คำนวณ Metrics** แบบ dbt-profiler style ด้วย SQL queries
-3. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
-4. **Export ได้หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
-5. **Web Dashboard** สำหรับ visualize ข้อมูล (React + TailwindCSS)
+1. **Automatic Schema Discovery** from PostgreSQL (information_schema)
+2. **dbt-profiler Style Metrics** calculation via SQL queries
+3. **Result Storage** in ClickHouse for analysis and tracking
+4. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
+5. **Web Dashboard** for data visualization (React + TailwindCSS)
 
-## 📊 ข้อมูลที่ Profile
+## 📊 Profiled Metrics
 
-สำหรับแต่ละ Column ระบบจะเก็บข้อมูลสถิติดังนี้ (dbt-profiler compatible):
+For each column, the system collects the following statistics (dbt-profiler compatible):
 
-| Metric                | คำอธิบาย                                | Condition             |
-| --------------------- | --------------------------------------- | --------------------- |
-| `column_name`         | ชื่อ column                             | ทุก column            |
-| `data_type`           | ประเภทข้อมูล                            | ทุก column            |
-| `not_null_proportion` | สัดส่วนค่าที่ไม่เป็น NULL (0.00 - 1.00) | ทุก column            |
-| `distinct_proportion` | สัดส่วนค่าที่ไม่ซ้ำกัน (0.00 - 1.00)    | ทุก column            |
-| `distinct_count`      | จำนวนค่าที่ไม่ซ้ำกัน                    | ทุก column            |
-| `is_unique`           | เป็น unique หรือไม่ (true/false)        | ทุก column            |
-| `min` / `max`         | ค่าต่ำสุด / สูงสุด                      | numeric, date, time\* |
-| `avg`                 | ค่าเฉลี่ย                               | numeric\*\*           |
-| `median`              | ค่ามัธยฐาน                              | numeric\*\*           |
-| `std_dev_population`  | Standard deviation (population)         | numeric\*\*           |
-| `std_dev_sample`      | Standard deviation (sample)             | numeric\*\*           |
-| `profiled_at`         | เวลาที่ทำ profile                       | ทุก column            |
+| Metric                | Description                                 | Condition             |
+| --------------------- | ------------------------------------------- | --------------------- |
+| `column_name`         | Column name                                 | All columns           |
+| `data_type`           | Data type                                   | All columns           |
+| `not_null_proportion` | Proportion of non-NULL values (0.00 - 1.00) | All columns           |
+| `distinct_proportion` | Proportion of unique values (0.00 - 1.00)   | All columns           |
+| `distinct_count`      | Count of unique values                      | All columns           |
+| `is_unique`           | Whether all values are unique (true/false)  | All columns           |
+| `min` / `max`         | Minimum / Maximum values                    | numeric, date, time\* |
+| `avg`                 | Average value                               | numeric\*\*           |
+| `median`              | Median value                                | numeric\*\*           |
+| `std_dev_population`  | Population standard deviation               | numeric\*\*           |
+| `std_dev_sample`      | Sample standard deviation                   | numeric\*\*           |
+| `profiled_at`         | Profile timestamp                           | All columns           |
 
-> **\*** `min`/`max` รองรับเฉพาะ: integer, numeric, float, date, timestamp, time  
-> **\*\*** `avg`, `median`, `std_dev` รองรับเฉพาะ: integer, numeric, float
+> **\*** `min`/`max` supported for: integer, numeric, float, date, timestamp, time  
+> **\*\*** `avg`, `median`, `std_dev` supported for: integer, numeric, float
 
 ## 🛠️ Requirements
 
@@ -57,10 +59,10 @@ git clone <repository-url>
 cd DataProfiler
 ```
 
-2. สร้าง Virtual Environment และ Activate:
+2. Create and activate Virtual Environment:
 
 ```bash
-# สร้าง venv
+# Create venv
 python -m venv venv
 
 # Activate (macOS/Linux)
@@ -70,25 +72,23 @@ source venv/bin/activate
 venv\Scripts\activate
 ```
 
-3. ติดตั้ง Dependencies จาก requirements.txt:
+3. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-> **หมายเหตุ:** หากต้องการอัปเดต dependencies ให้รัน `pip install -r requirements.txt --upgrade`
-
 ## ⚙️ Configuration
 
-### 1. สร้างไฟล์ Environment Variables
+### 1. Create Environment Variables File
 
-คัดลอก `.env.example` เป็น `.env` และแก้ไขค่าตามจริง:
+Copy `.env.example` to `.env` and edit values:
 
 ```bash
 cp .env.example .env
 ```
 
-แก้ไขไฟล์ `.env`:
+Edit `.env` file:
 
 ```bash
 # PostgreSQL Configuration
@@ -106,11 +106,11 @@ CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=your_actual_password
 ```
 
-> ⚠️ **สำคัญ:** ไฟล์ `.env` ถูก ignore โดย git อยู่แล้ว ไม่ต้องกังวลเรื่อง commit credentials
+> ⚠️ **Important:** The `.env` file is already git-ignored. No need to worry about committing credentials.
 
 ### 2. Soda Core Configuration
 
-แก้ไขไฟล์ `configuration.yml` สำหรับ Soda Core:
+Edit `configuration.yml` for Soda Core:
 
 ```yaml
 data_source my_postgres:
@@ -185,7 +185,8 @@ DataProfiler/
 ├── init-scripts/          # PostgreSQL init scripts
 │   └── 01-sample-data.sql
 ├── pytest.ini             # Pytest configuration
-├── README.md              # Documentation
+├── README.md              # Documentation (English)
+├── README.th.md           # Documentation (Thai)
 ├── requirements.txt       # Python dependencies
 ├── src/                   # Source code modules
 │   ├── __init__.py
@@ -200,7 +201,7 @@ DataProfiler/
 │       ├── __init__.py
 │       ├── clickhouse.py
 │       └── postgres.py
-├── tests/                 # Unit tests (37 tests)
+├── tests/                 # Unit tests
 │   ├── __init__.py
 │   ├── test_config.py
 │   ├── test_connections.py
@@ -210,8 +211,6 @@ DataProfiler/
 ```
 
 ## 🧪 Testing
-
-### Run All Tests
 
 ```bash
 # Activate virtual environment
@@ -227,100 +226,52 @@ pytest -v
 pytest --cov=src --cov-report=term-missing
 ```
 
-### Test Coverage
-
-Current coverage: **37 tests** across 4 test modules
-
-## 🔄 Workflow
-
-```mermaid
-flowchart LR
-    A[PostgreSQL] -->|1. Discover Schema| B[DataProfiler]
-    B -->|2. Generate SodaCL| C[Soda Core]
-    C -->|3. Profile Data| B
-    B -->|4. Store Results| D[ClickHouse]
-```
-
-1. **Schema Discovery** - ดึงข้อมูล Column และ Data Type จาก `information_schema`
-2. **Template Generation** - สร้าง SodaCL YAML แบบ Dynamic ด้วย Jinja2
-3. **Data Profiling** - Soda Core สแกนและเก็บสถิติ
-4. **Result Storage** - บันทึกผลลัพธ์ลง ClickHouse table `data_profiles`
-
 ## 🐳 Docker Development Environment
 
-สำหรับการทดสอบ สามารถใช้ Docker Compose เพื่อสร้าง PostgreSQL และ ClickHouse:
-
-### เริ่มต้น Services
+For testing, use Docker Compose to set up PostgreSQL and ClickHouse:
 
 ```bash
-# Start ทุก services
+# Start all services
 docker-compose up -d
 
-# ดู logs
+# View logs
 docker-compose logs -f
 
-# ตรวจสอบสถานะ
+# Check status
 docker-compose ps
 ```
 
 ### Sample Data
 
-Docker จะสร้างข้อมูลตัวอย่างโดยอัตโนมัติ:
+Docker automatically creates sample data:
 
-| ตาราง      | รายละเอียด                                             |
-| ---------- | ------------------------------------------------------ |
-| `users`    | 10 records - ข้อมูลผู้ใช้ (มี NULL values สำหรับทดสอบ) |
-| `products` | 8 records - ข้อมูลสินค้า                               |
+| Table      | Description                                           |
+| ---------- | ----------------------------------------------------- |
+| `users`    | 10 records - User data (with NULL values for testing) |
+| `products` | 8 records - Product data                              |
 
-### ทดสอบ DataProfiler
-
-```bash
-# Profile ตาราง users
-python main.py users
-
-# Profile ตาราง products
-python main.py products
-```
-
-### หยุด Services
+### Stop Services
 
 ```bash
-# Stop ทุก services
+# Stop all services
 docker-compose down
 
-# Stop และลบข้อมูลทั้งหมด
+# Stop and remove all data
 docker-compose down -v
-```
-
-## 📋 ClickHouse Schema
-
-ตาราง `data_profiles` ที่ระบบสร้างอัตโนมัติ:
-
-```sql
-CREATE TABLE data_profiles (
-    scan_time DateTime DEFAULT now(),
-    table_name String,
-    column_name String,
-    distinct_count Nullable(Int64),
-    missing_count Nullable(Int64),
-    min Nullable(String),
-    max Nullable(String),
-    avg Nullable(Float64)
-) ENGINE = MergeTree() ORDER BY (scan_time, table_name)
 ```
 
 ## 📊 Dashboard
 
-DataProfiler มาพร้อม Web Dashboard สำหรับ visualize ข้อมูล profile
+DataProfiler includes a Web Dashboard for visualizing profile data.
 
 ### Features
 
-- **Sidebar Navigation** - รายการตารางพร้อมจำนวน rows/columns
+- **Sidebar Navigation** - Table list with row/column counts
 - **Bar Charts** - Not Null Proportion, Distinct Proportion
-- **Column Details Table** - แสดงทุก metrics ในรูปแบบตาราง
+- **Column Details Table** - All metrics in table format
 - **Dark Theme** - Modern UI
 
-### การใช้งาน Dashboard
+### Running the Dashboard
 
 ```bash
 # 1. Start Backend API (port 5001)
@@ -330,10 +281,10 @@ python app.py
 
 # 2. Start Frontend (port 5173)
 cd dashboard/frontend
-npm install  # ครั้งแรกเท่านั้น
+npm install  # First time only
 npm run dev
 
-# 3. เปิด Browser
+# 3. Open Browser
 open http://localhost:5173
 ```
 
@@ -346,19 +297,10 @@ open http://localhost:5173
 | Styling   | TailwindCSS        |
 | Charts    | Recharts           |
 
-## ⚠️ Limitations
-
-Data Types ที่ไม่รองรับในปัจจุบัน:
-
-- `timestamp`
-- `timestamp without time zone`
-- `date`
-- `bytea`
-
 ## 📝 License
 
 [MIT License](LICENSE)
 
 ## 🤝 Contributing
 
-Pull requests ยินดีต้อนรับ! สำหรับการเปลี่ยนแปลงใหญ่ กรุณาเปิด Issue ก่อนเพื่อหารือ
+Pull requests are welcome! For major changes, please open an issue first to discuss.
