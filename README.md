@@ -2,6 +2,8 @@
 
 เครื่องมือสำหรับทำ **Data Profiling** อัตโนมัติจาก PostgreSQL แบบ [dbt-profiler](https://github.com/data-mie/dbt-profiler) style และจัดเก็บผลลัพธ์ลง ClickHouse
 
+![Dashboard Screenshot](docs/images/dashboard.png)
+
 ## 🎯 ภาพรวม
 
 DataProfiler ทำหน้าที่:
@@ -10,6 +12,7 @@ DataProfiler ทำหน้าที่:
 2. **คำนวณ Metrics** แบบ dbt-profiler style ด้วย SQL queries
 3. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
 4. **Export ได้หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
+5. **Web Dashboard** สำหรับ visualize ข้อมูล (React + TailwindCSS)
 
 ## 📊 ข้อมูลที่ Profile
 
@@ -300,6 +303,43 @@ CREATE TABLE data_profiles (
     avg Nullable(Float64)
 ) ENGINE = MergeTree() ORDER BY (scan_time, table_name)
 ```
+
+## 📊 Dashboard
+
+DataProfiler มาพร้อม Web Dashboard สำหรับ visualize ข้อมูล profile
+
+### Features
+
+- **Sidebar Navigation** - รายการตารางพร้อมจำนวน rows/columns
+- **Bar Charts** - Not Null Proportion, Distinct Proportion
+- **Column Details Table** - แสดงทุก metrics ในรูปแบบตาราง
+- **Dark Theme** - Modern UI
+
+### การใช้งาน Dashboard
+
+```bash
+# 1. Start Backend API (port 5001)
+cd dashboard/backend
+source ../venv/bin/activate
+python app.py
+
+# 2. Start Frontend (port 5173)
+cd dashboard/frontend
+npm install  # ครั้งแรกเท่านั้น
+npm run dev
+
+# 3. เปิด Browser
+open http://localhost:5173
+```
+
+### Technology Stack
+
+| Component | Technology         |
+| --------- | ------------------ |
+| Backend   | Flask + Flask-CORS |
+| Frontend  | React + Vite       |
+| Styling   | TailwindCSS        |
+| Charts    | Recharts           |
 
 ## ⚠️ Limitations
 
