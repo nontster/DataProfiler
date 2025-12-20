@@ -68,6 +68,24 @@ def is_numeric_type(data_type: str) -> bool:
     return data_type.lower() in numeric_types
 
 
+def is_minmax_supported(data_type: str) -> bool:
+    """
+    Check if MIN/MAX is meaningful for this data type.
+    Per dbt-profiler: min/max only for numeric, date, and time columns.
+    """
+    supported_types = [
+        # Numeric types
+        'integer', 'bigint', 'smallint', 'int', 'int2', 'int4', 'int8',
+        'numeric', 'decimal', 'real', 'double precision', 'float', 'float4', 'float8',
+        'money',
+        # Date/Time types
+        'date', 'timestamp', 'timestamp without time zone', 
+        'timestamp with time zone', 'time', 'time without time zone',
+        'time with time zone', 'interval'
+    ]
+    return data_type.lower() in supported_types
+
+
 def calculate_column_metrics(
     table_name: str,
     column_name: str,
@@ -93,6 +111,7 @@ def calculate_column_metrics(
     
     # Build the metrics query
     is_numeric = is_numeric_type(data_type)
+    supports_minmax = is_minmax_supported(data_type)
     
     # Base metrics (all column types)
     base_query = f'''
@@ -112,21 +131,26 @@ def calculate_column_metrics(
     distinct_proportion = distinct_count / row_count if row_count > 0 else None
     is_unique = distinct_count == not_null_count and not_null_count > 0
     
-    # Get min/max (works for most types)
-    try:
-        minmax_query = f'''
-            SELECT 
-                MIN("{column_name}")::text,
-                MAX("{column_name}")::text
-            FROM "{schema}"."{table_name}"
-        '''
-        cur.execute(minmax_query)
-        minmax_result = cur.fetchone()
-        min_value = minmax_result[0]
-        max_value = minmax_result[1]
-    except Exception:
-        min_value = None
-        max_value = None
+    # Get min/max (only for numeric, date, and time types per dbt-profiler)
+    min_value = None
+    max_value = None
+    
+    if supports_minmax:
+        try:
+            minmax_query = f'''
+                SELECT 
+                    MIN("{column_name}")::text,
+                    MAX("{column_name}")::text
+                FROM "{schema}"."{table_name}"
+            '''
+            cur.execute(minmax_query)
+            minmax_result = cur.fetchone()
+            min_value = minmax_result[0]
+            max_value = minmax_result[1]
+        except Exception:
+            min_value = None
+            max_value = None
+
     
     # Numeric-only metrics
     avg = None
