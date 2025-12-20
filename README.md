@@ -114,7 +114,7 @@ data_source my_postgres:
 ### รันแบบ Default
 
 ```bash
-python generate_and_scan.py
+python main.py
 ```
 
 ระบบจะ Profile ตาราง `users` เป็นค่าเริ่มต้น
@@ -122,14 +122,14 @@ python generate_and_scan.py
 ### ระบุชื่อตาราง
 
 ```bash
-python generate_and_scan.py <table_name>
+python main.py <table_name>
 ```
 
 **ตัวอย่าง:**
 
 ```bash
-python generate_and_scan.py customers
-python generate_and_scan.py orders
+python main.py customers
+python main.py orders
 ```
 
 ## 📁 Project Structure
@@ -234,10 +234,10 @@ Docker จะสร้างข้อมูลตัวอย่างโดย�
 
 ```bash
 # Profile ตาราง users
-python generate_and_scan.py users
+python main.py users
 
 # Profile ตาราง products
-python generate_and_scan.py products
+python main.py products
 ```
 
 ### หยุด Services
