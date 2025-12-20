@@ -2,20 +2,12 @@
 Unit tests for metadata discovery functions.
 """
 
-import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from generate_and_scan import (
-    table_exists,
-    get_table_metadata,
-    is_profile_supported,
-    TableNotFoundError,
-    DatabaseConnectionError
-)
+from src.db.postgres import table_exists, get_table_metadata
+from src.core.profiler import is_profile_supported
+from src.exceptions import TableNotFoundError, DatabaseConnectionError
 
 
 class TestIsProfileSupported(unittest.TestCase):
@@ -61,7 +53,7 @@ class TestIsProfileSupported(unittest.TestCase):
 class TestTableExists(unittest.TestCase):
     """Test cases for table_exists function."""
 
-    @patch('generate_and_scan.get_postgres_connection')
+    @patch('src.db.postgres.get_postgres_connection')
     def test_table_exists_returns_true(self, mock_get_conn):
         """Test that table_exists returns True for existing table."""
         mock_conn = MagicMock()
@@ -75,7 +67,7 @@ class TestTableExists(unittest.TestCase):
         self.assertTrue(result)
         mock_cursor.execute.assert_called_once()
 
-    @patch('generate_and_scan.get_postgres_connection')
+    @patch('src.db.postgres.get_postgres_connection')
     def test_table_not_exists_returns_false(self, mock_get_conn):
         """Test that table_exists returns False for non-existing table."""
         mock_conn = MagicMock()
@@ -88,7 +80,7 @@ class TestTableExists(unittest.TestCase):
         
         self.assertFalse(result)
 
-    @patch('generate_and_scan.get_postgres_connection')
+    @patch('src.db.postgres.get_postgres_connection')
     def test_connection_error_returns_false(self, mock_get_conn):
         """Test that connection error returns False."""
         from psycopg2 import OperationalError
@@ -102,8 +94,8 @@ class TestTableExists(unittest.TestCase):
 class TestGetTableMetadata(unittest.TestCase):
     """Test cases for get_table_metadata function."""
 
-    @patch('generate_and_scan.table_exists')
-    @patch('generate_and_scan.get_postgres_connection')
+    @patch('src.db.postgres.table_exists')
+    @patch('src.db.postgres.get_postgres_connection')
     def test_returns_column_metadata(self, mock_get_conn, mock_table_exists):
         """Test that get_table_metadata returns correct column metadata."""
         mock_table_exists.return_value = True
@@ -125,7 +117,7 @@ class TestGetTableMetadata(unittest.TestCase):
         self.assertEqual(result[1], {'name': 'name', 'type': 'character varying'})
         self.assertEqual(result[2], {'name': 'age', 'type': 'integer'})
 
-    @patch('generate_and_scan.table_exists')
+    @patch('src.db.postgres.table_exists')
     def test_table_not_found_raises_exception(self, mock_table_exists):
         """Test that TableNotFoundError is raised for non-existing table."""
         mock_table_exists.return_value = False
@@ -136,8 +128,8 @@ class TestGetTableMetadata(unittest.TestCase):
         self.assertIn('nonexistent', str(context.exception))
         self.assertIn('not found', str(context.exception))
 
-    @patch('generate_and_scan.table_exists')
-    @patch('generate_and_scan.get_postgres_connection')
+    @patch('src.db.postgres.table_exists')
+    @patch('src.db.postgres.get_postgres_connection')
     def test_empty_table_returns_empty_list(self, mock_get_conn, mock_table_exists):
         """Test that empty table returns empty list."""
         mock_table_exists.return_value = True

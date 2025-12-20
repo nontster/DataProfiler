@@ -2,24 +2,18 @@
 Unit tests for database connection functions.
 """
 
-import os
 import unittest
 from unittest.mock import patch, MagicMock
 
-import sys
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from generate_and_scan import (
-    get_postgres_connection,
-    get_clickhouse_client,
-    DatabaseConnectionError
-)
+from src.db.postgres import get_postgres_connection
+from src.db.clickhouse import get_clickhouse_client
+from src.exceptions import DatabaseConnectionError
 
 
 class TestPostgresConnection(unittest.TestCase):
     """Test cases for PostgreSQL connection."""
 
-    @patch('generate_and_scan.psycopg2.connect')
+    @patch('src.db.postgres.psycopg2.connect')
     def test_successful_connection(self, mock_connect):
         """Test successful PostgreSQL connection."""
         mock_conn = MagicMock()
@@ -30,7 +24,7 @@ class TestPostgresConnection(unittest.TestCase):
         self.assertEqual(conn, mock_conn)
         mock_connect.assert_called_once()
 
-    @patch('generate_and_scan.psycopg2.connect')
+    @patch('src.db.postgres.psycopg2.connect')
     def test_connection_failure_raises_exception(self, mock_connect):
         """Test that connection failure raises DatabaseConnectionError."""
         from psycopg2 import OperationalError
@@ -41,7 +35,7 @@ class TestPostgresConnection(unittest.TestCase):
         
         self.assertIn("PostgreSQL connection failed", str(context.exception))
 
-    @patch('generate_and_scan.psycopg2.connect')
+    @patch('src.db.postgres.psycopg2.connect')
     def test_connection_uses_config_values(self, mock_connect):
         """Test that connection uses Config values."""
         mock_connect.return_value = MagicMock()
@@ -60,7 +54,7 @@ class TestPostgresConnection(unittest.TestCase):
 class TestClickHouseConnection(unittest.TestCase):
     """Test cases for ClickHouse connection."""
 
-    @patch('generate_and_scan.clickhouse_connect.get_client')
+    @patch('src.db.clickhouse.clickhouse_connect.get_client')
     def test_successful_connection(self, mock_get_client):
         """Test successful ClickHouse connection."""
         mock_client = MagicMock()
@@ -71,7 +65,7 @@ class TestClickHouseConnection(unittest.TestCase):
         self.assertEqual(client, mock_client)
         mock_get_client.assert_called_once()
 
-    @patch('generate_and_scan.clickhouse_connect.get_client')
+    @patch('src.db.clickhouse.clickhouse_connect.get_client')
     def test_connection_failure_raises_exception(self, mock_get_client):
         """Test that connection failure raises DatabaseConnectionError."""
         from clickhouse_connect.driver.exceptions import ClickHouseError

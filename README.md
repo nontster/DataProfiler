@@ -141,13 +141,24 @@ DataProfiler/
 ├── .gitignore             # Git ignore rules
 ├── configuration.yml      # Soda Core data source configuration
 ├── docker-compose.yml     # Docker test environment
-├── generate_and_scan.py   # Main script
+├── main.py                # Main entry point
 ├── init-scripts/          # PostgreSQL init scripts
 │   └── 01-sample-data.sql
 ├── pytest.ini             # Pytest configuration
 ├── README.md              # Documentation
 ├── requirements.txt       # Python dependencies
-├── tests/                 # Unit tests
+├── src/                   # Source code modules
+│   ├── __init__.py
+│   ├── config.py          # Configuration management
+│   ├── exceptions.py      # Custom exceptions
+│   ├── core/              # Core profiling logic
+│   │   ├── __init__.py
+│   │   └── profiler.py
+│   └── db/                # Database connections
+│       ├── __init__.py
+│       ├── clickhouse.py
+│       └── postgres.py
+├── tests/                 # Unit tests (37 tests)
 │   ├── __init__.py
 │   ├── test_config.py
 │   ├── test_connections.py
@@ -171,12 +182,12 @@ pytest
 pytest -v
 
 # Run with coverage report
-pytest --cov=generate_and_scan --cov-report=term-missing
+pytest --cov=src --cov-report=term-missing
 ```
 
 ### Test Coverage
 
-Current coverage: **79%** (31 tests)
+Current coverage: **37 tests** across 4 test modules
 
 ## 🔄 Workflow
 
