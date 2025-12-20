@@ -47,7 +47,7 @@ def get_tables():
             max(row_count) as row_count,
             count(DISTINCT column_name) as column_count,
             max(scan_time) as last_profiled
-        FROM data_profiles_v2
+        FROM data_profiles
         GROUP BY table_name
         ORDER BY table_name
     """
@@ -74,7 +74,7 @@ def get_profiles(table_name):
     # Get the latest scan_time for this table
     latest_query = f"""
         SELECT max(scan_time) 
-        FROM data_profiles_v2 
+        FROM data_profiles 
         WHERE table_name = '{table_name}'
     """
     latest_result = client.query(latest_query)
@@ -100,7 +100,7 @@ def get_profiles(table_name):
             std_dev_population,
             std_dev_sample,
             scan_time
-        FROM data_profiles_v2
+        FROM data_profiles
         WHERE table_name = '{table_name}' AND scan_time = '{latest_time}'
         ORDER BY column_name
     """
