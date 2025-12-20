@@ -3,7 +3,6 @@ ClickHouse database connection and operations.
 """
 
 import logging
-from typing import Optional
 
 import clickhouse_connect
 from clickhouse_connect.driver.exceptions import ClickHouseError
@@ -40,8 +39,7 @@ def get_clickhouse_client():
 
 def init_clickhouse() -> bool:
     """
-    Initialize ClickHouse tables for storing profiling results.
-    Creates both legacy and new v2 tables.
+    Initialize ClickHouse table for storing profiling results.
     
     Returns:
         bool: True if initialization successful, False otherwise
@@ -49,23 +47,9 @@ def init_clickhouse() -> bool:
     try:
         client = get_clickhouse_client()
         
-        # Legacy table (for backward compatibility)
+        # data_profiles table with dbt-profiler style metrics
         client.command("""
             CREATE TABLE IF NOT EXISTS data_profiles (
-                scan_time DateTime DEFAULT now(),
-                table_name String,
-                column_name String,
-                distinct_count Nullable(Int64),
-                missing_count Nullable(Int64),
-                min Nullable(String),
-                max Nullable(String),
-                avg Nullable(Float64)
-            ) ENGINE = MergeTree() ORDER BY (scan_time, table_name)
-        """)
-        
-        # New v2 table with dbt-profiler style metrics
-        client.command("""
-            CREATE TABLE IF NOT EXISTS data_profiles_v2 (
                 scan_time DateTime DEFAULT now(),
                 table_name String,
                 column_name String,
@@ -84,53 +68,16 @@ def init_clickhouse() -> bool:
             ) ENGINE = MergeTree() ORDER BY (scan_time, table_name, column_name)
         """)
         
-        logger.info("✅ ClickHouse tables ready (data_profiles, data_profiles_v2)")
+        logger.info("✅ ClickHouse table 'data_profiles' is ready")
         return True
     except (ClickHouseError, DatabaseConnectionError) as e:
         logger.error(f"❌ ClickHouse initialization failed: {e}")
         return False
 
 
-def insert_profiles(records: list[dict]) -> bool:
+def insert_profiles(table_profile) -> bool:
     """
-    Insert profiling records into ClickHouse (legacy table).
-    
-    Args:
-        records: List of profile dictionaries
-        
-    Returns:
-        bool: True if insert successful, False otherwise
-    """
-    if not records:
-        logger.warning("No records to insert")
-        return False
-    
-    try:
-        client = get_clickhouse_client()
-        data = [
-            [r['table_name'], r['column_name'], r['distinct_count'], 
-             r['missing_count'], r['min'], r['max'], r['avg']] 
-            for r in records
-        ]
-        
-        client.insert(
-            'data_profiles', 
-            data, 
-            column_names=['table_name', 'column_name', 'distinct_count', 
-                         'missing_count', 'min', 'max', 'avg']
-        )
-        
-        logger.info(f"✅ Inserted {len(records)} records into ClickHouse")
-        return True
-        
-    except ClickHouseError as e:
-        logger.error(f"❌ Failed to insert data into ClickHouse: {e}")
-        return False
-
-
-def insert_profiles_v2(table_profile) -> bool:
-    """
-    Insert profiling records into ClickHouse v2 table (dbt-profiler style).
+    Insert profiling records into ClickHouse.
     
     Args:
         table_profile: TableProfile object with column profiles
@@ -166,7 +113,7 @@ def insert_profiles_v2(table_profile) -> bool:
             data.append(row)
         
         client.insert(
-            'data_profiles_v2', 
+            'data_profiles', 
             data, 
             column_names=[
                 'table_name', 'column_name', 'data_type', 'row_count',
@@ -176,7 +123,7 @@ def insert_profiles_v2(table_profile) -> bool:
             ]
         )
         
-        logger.info(f"✅ Inserted {len(data)} profiles into data_profiles_v2")
+        logger.info(f"✅ Inserted {len(data)} profiles into data_profiles")
         return True
         
     except ClickHouseError as e:

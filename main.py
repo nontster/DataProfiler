@@ -13,7 +13,7 @@ from typing import Optional
 
 from src.config import Config
 from src.db.postgres import get_table_metadata
-from src.db.clickhouse import init_clickhouse, insert_profiles_v2
+from src.db.clickhouse import init_clickhouse, insert_profiles
 from src.core.metrics import profile_table
 from src.core.formatters import format_profile
 from src.exceptions import TableNotFoundError, DatabaseConnectionError
@@ -145,8 +145,8 @@ def run_profiler(
     
     # Step 5: Store in ClickHouse (if enabled)
     if store_to_clickhouse:
-        if insert_profiles_v2(table_profile):
-            logger.info(f"✅ Results stored in ClickHouse (data_profiles_v2)")
+        if insert_profiles(table_profile):
+            logger.info(f"✅ Results stored in ClickHouse (data_profiles)")
         else:
             logger.warning("Failed to store results in ClickHouse")
     
