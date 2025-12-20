@@ -128,8 +128,12 @@ data_source my_postgres:
 ### Basic Usage
 
 ```bash
-# Profile 'users' table (default)
-python main.py
+# Profile 'users' table (default app/env)
+python main.py users
+
+# Profile with Application & Environment context
+python main.py users --app order-service --env uat
+python main.py users --app order-service --env production
 
 # Profile a specific table
 python main.py products
@@ -296,6 +300,43 @@ open http://localhost:5173
 | Frontend  | React + Vite       |
 | Styling   | TailwindCSS        |
 | Charts    | Recharts           |
+
+## 📈 Grafana Dashboard (Alternative)
+
+This project includes a **Grafana** instance connected to ClickHouse for advanced visualization.
+
+### Features
+
+- **Direct ClickHouse Integration**: No middleware required.
+- **Customizable**: Create complex dashboards with SQL queries.
+- **Alerting**: Native Grafana alerting support.
+- **User Management**: Role-based access control.
+
+### Setup
+
+The Grafana service is included in `docker-compose.yml` and pre-configured with the ClickHouse datasource.
+
+1. Start all services:
+
+   ```bash
+   docker-compose up -d
+   ```
+
+2. Open Grafana:
+
+   - URL: http://localhost:3000
+   - User: `admin`
+   - Password: `admin`
+
+3. Create Dashboard:
+   - DataSource: **ClickHouse** (pre-configured)
+   - Example Query:
+     ```sql
+     SELECT table_name, max(row_count) as rows
+     FROM data_profiles
+     WHERE application = 'order-service'
+     GROUP BY table_name
+     ```
 
 ## 📝 License
 
