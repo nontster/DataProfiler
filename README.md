@@ -297,6 +297,8 @@ npm run dev
 
 This project includes a **Grafana** instance connected to ClickHouse for advanced visualization.
 
+![Grafana Dashboard](docs/images/grafana_dashboard.png)
+
 ### Features
 
 - **Direct ClickHouse Integration**: No middleware required.

@@ -1,9 +1,9 @@
 # configuration.yml
 data_source my_postgres:
   type: postgres
-  host: localhost
-  port: 5432
-  username: postgres
-  password: password123
-  database: postgres
-  schema: public
+  host: ${POSTGRES_HOST}
+  port: ${POSTGRES_PORT}
+  username: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+  database: ${POSTGRES_DATABASE}
+  schema: ${POSTGRES_SCHEMA}

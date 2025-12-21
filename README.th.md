@@ -130,8 +130,12 @@ data_source my_postgres:
 ### Basic Usage
 
 ```bash
-# Profile 'users' table (default)
-python main.py
+# Profile 'users' table (default app/env)
+python main.py users
+
+# Profile with Application & Environment context
+python main.py users --app order-service --env uat
+python main.py users --app order-service --env production
 
 # Profile a specific table
 python main.py products
@@ -331,6 +335,8 @@ npm run dev
 ## 📈 Grafana Dashboard (ทางเลือกเสริม)
 
 โปรเจกต์นี้มาพร้อมกับ **Grafana** ที่เชื่อมต่อกับ ClickHouse ให้โดยอัตโนมัติ
+
+![Grafana Dashboard](docs/images/grafana_dashboard.png)
 
 ### ฟีเจอร์
 
