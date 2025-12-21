@@ -5,13 +5,13 @@ datasources:
     uid: dataprofiler-clickhouse
     type: grafana-clickhouse-datasource
     access: proxy
-    url: http://clickhouse:8123
     jsonData:
-      defaultDatabase: default
+      server: clickhouse
       port: 8123
       protocol: http
-    secureJsonData:
       username: default
+      defaultDatabase: default
+    secureJsonData:
       password: password123
     isDefault: true
     editable: true

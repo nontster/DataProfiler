@@ -74,7 +74,7 @@
             "type": "grafana-clickhouse-datasource",
             "uid": "dataprofiler-clickhouse"
           },
-          "query": "SELECT max(row_count) FROM data_profiles WHERE application = '$application' AND environment = '$environment' AND table_name = '$table_name'",
+          "query": "SELECT max(row_count) FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${environment:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -159,7 +159,7 @@
             "uid": "dataprofiler-clickhouse"
           },
           "format": 1,
-          "query": "SELECT \n    column_name,\n    not_null_proportion,\n    distinct_proportion,\n    distinct_count,\n    min,\n    max,\n    avg\nFROM data_profiles\nWHERE application = '$application' \n  AND environment = '$environment' \n  AND table_name = '$table_name'\n  AND scan_time = (\n    SELECT max(scan_time) \n    FROM data_profiles \n    WHERE application = '$application' \n      AND environment = '$environment' \n      AND table_name = '$table_name'\n  )\nORDER BY column_name",
+          "query": "SELECT \n    column_name,\n    not_null_proportion,\n    distinct_proportion,\n    distinct_count,\n    min,\n    max,\n    avg\nFROM data_profiles\nWHERE application = ${application:singlequote} \n  AND environment = ${environment:singlequote} \n  AND table_name = ${table_name:singlequote}\nORDER BY scan_time DESC\nLIMIT 1 BY column_name",
           "refId": "A"
         }
       ],
@@ -200,14 +200,14 @@
           "type": "grafana-clickhouse-datasource",
           "uid": "dataprofiler-clickhouse"
         },
-        "definition": "SELECT DISTINCT environment FROM data_profiles WHERE application = '$application' ORDER BY environment",
+        "definition": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
         "hide": 0,
         "includeAll": false,
         "label": "Environment",
         "multi": false,
         "name": "environment",
         "options": [],
-        "query": "SELECT DISTINCT environment FROM data_profiles WHERE application = '$application' ORDER BY environment",
+        "query": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
@@ -220,14 +220,14 @@
           "type": "grafana-clickhouse-datasource",
           "uid": "dataprofiler-clickhouse"
         },
-        "definition": "SELECT DISTINCT table_name FROM data_profiles WHERE application = '$application' AND environment = '$environment' ORDER BY table_name",
+        "definition": "SELECT DISTINCT table_name FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${environment:singlequote} ORDER BY table_name",
         "hide": 0,
         "includeAll": false,
         "label": "Table",
         "multi": false,
         "name": "table_name",
         "options": [],
-        "query": "SELECT DISTINCT table_name FROM data_profiles WHERE application = '$application' AND environment = '$environment' ORDER BY table_name",
+        "query": "SELECT DISTINCT table_name FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${environment:singlequote} ORDER BY table_name",
         "refresh": 1,
         "regex": "",
         "skipUrlSync": false,
