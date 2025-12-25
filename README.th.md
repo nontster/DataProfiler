@@ -15,6 +15,7 @@ DataProfiler ทำหน้าที่:
 3. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
 4. **Export ได้หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
 5. **Web Dashboard** สำหรับ visualize ข้อมูล (React + TailwindCSS)
+6. **วิเคราะห์ความเสี่ยง Auto-Increment Overflow** พร้อมทำนายการเติบโตด้วย Linear Regression
 
 ## 📊 ข้อมูลที่ Profile
 
@@ -38,6 +39,59 @@ DataProfiler ทำหน้าที่:
 > **\*** `min`/`max` รองรับเฉพาะ: integer, numeric, float, date, timestamp, time  
 > **\*\*** `avg`, `median`, `std_dev` รองรับเฉพาะ: integer, numeric, float
 
+## 🔮 การวิเคราะห์ความเสี่ยง Auto-Increment Overflow
+
+DataProfiler มีฟีเจอร์ **วิเคราะห์ความเสี่ยง Auto-Increment Column Overflow** เพื่อทำนายว่า Primary Key จะเต็มเมื่อใด
+
+### ฟีเจอร์
+
+- **ติดตามค่าปัจจุบัน**: ตรวจสอบค่าปัจจุบันของ auto-increment columns
+- **คำนวณค่าสูงสุด**: คำนวณค่า max ตาม data type (เช่น INT, BIGINT)
+- **เปอร์เซ็นต์การใช้งาน**: คำนวณ capacity ที่ใช้ไปแล้ว
+- **ทำนายอัตราการเติบโต**: ใช้ Linear Regression กับข้อมูลย้อนหลังจาก ClickHouse
+- **จำนวนวันก่อนเต็ม**: ทำนายว่าอีกกี่วัน column จะถึงค่าสูงสุด
+- **สถานะแจ้งเตือน**: CRITICAL (< 30 วัน / > 90%), WARNING (< 90 วัน / > 75%), NORMAL
+
+### Data Types ที่รองรับ
+
+| Data Type   | ค่าสูงสุด                 | ช่วง                                   |
+| ----------- | ------------------------- | -------------------------------------- |
+| `smallint`  | 32,767                    | -32,768 ถึง 32,767                     |
+| `integer`   | 2,147,483,647             | -2.1 พันล้าน ถึง 2.1 พันล้าน           |
+| `bigint`    | 9,223,372,036,854,775,807 | -9.2 ควินทิลเลียน ถึง 9.2 ควินทิลเลียน |
+| `serial`    | 2,147,483,647             | 1 ถึง 2.1 พันล้าน                      |
+| `bigserial` | 9,223,372,036,854,775,807 | 1 ถึง 9.2 ควินทิลเลียน                 |
+
+> **หมายเหตุ**: รองรับ PostgreSQL ทุกเวอร์ชัน (10+) โดย query ค่า sequence โดยตรงจาก sequence object เพื่อความน่าเชื่อถือสูงสุด
+
+### การใช้งาน
+
+```bash
+# รวมการวิเคราะห์ auto-increment
+python main.py users --auto-increment
+
+# กำหนดระยะเวลาย้อนหลัง (ค่าเริ่มต้น: 7 วัน)
+python main.py users --auto-increment --lookback-days 14
+
+# พร้อมระบุ application และ environment
+python main.py users --app order-service --env production --auto-increment
+```
+
+### ตัวอย่าง Output
+
+```
+============================================================
+AUTO-INCREMENT OVERFLOW RISK ANALYSIS
+============================================================
+
+🟢 users.id (integer)
+   Current: 1,234,567 / 2,147,483,647
+   Usage: 0.057479%
+   Days until full: 4,521 days
+   Growth rate: ~500 IDs/day
+============================================================
+```
+
 ## 🛠️ Requirements
 
 - Python 3.10+
@@ -49,6 +103,8 @@ DataProfiler ทำหน้าที่:
   - `soda-core-postgres` - Soda Core for PostgreSQL
   - `jinja2` - Template engine
   - `python-dotenv` - Environment variable management
+  - `numpy` - Numerical computing
+  - `scipy` - Scientific computing (Linear Regression)
 
 ## 📦 Installation
 
@@ -174,6 +230,12 @@ python main.py users --no-store
 # Verbose logging
 python main.py users -v
 
+# รวมการวิเคราะห์ auto-increment overflow
+python main.py users --auto-increment
+
+# กำหนดระยะเวลาย้อนหลังสำหรับการคำนวณ growth rate
+python main.py users --auto-increment --lookback-days 14
+
 # Show help
 python main.py --help
 ```
@@ -191,7 +253,8 @@ DataProfiler/
 ├── init-scripts/          # PostgreSQL init scripts
 │   └── 01-sample-data.sql
 ├── pytest.ini             # Pytest configuration
-├── README.md              # Documentation
+├── README.md              # Documentation (English)
+├── README.th.md           # Documentation (Thai)
 ├── requirements.txt       # Python dependencies
 ├── src/                   # Source code modules
 │   ├── __init__.py
@@ -199,15 +262,18 @@ DataProfiler/
 │   ├── exceptions.py      # Custom exceptions
 │   ├── core/              # Core profiling logic
 │   │   ├── __init__.py
+│   │   ├── autoincrement_metrics.py  # Auto-increment analysis
 │   │   ├── formatters.py  # Output formatters (MD, JSON, CSV)
 │   │   ├── metrics.py     # dbt-profiler style metrics
 │   │   └── profiler.py    # Legacy Soda Core profiler
 │   └── db/                # Database connections
 │       ├── __init__.py
+│       ├── autoincrement.py  # Auto-increment detector
 │       ├── clickhouse.py
 │       └── postgres.py
-├── tests/                 # Unit tests (37 tests)
+├── tests/                 # Unit tests
 │   ├── __init__.py
+│   ├── test_autoincrement.py
 │   ├── test_config.py
 │   ├── test_connections.py
 │   ├── test_metadata.py
@@ -233,10 +299,6 @@ pytest -v
 pytest --cov=src --cov-report=term-missing
 ```
 
-### Test Coverage
-
-Current coverage: **37 tests** across 4 test modules
-
 ## 🔄 Workflow
 
 ```mermaid
@@ -245,12 +307,16 @@ flowchart LR
     B -->|2. Generate SodaCL| C[Soda Core]
     C -->|3. Profile Data| B
     B -->|4. Store Results| D[ClickHouse]
+    B -->|5. Auto-Increment Analysis| E[Linear Regression]
+    E -->|6. Predict Overflow| D
 ```
 
 1. **Schema Discovery** - ดึงข้อมูล Column และ Data Type จาก `information_schema`
 2. **Template Generation** - สร้าง SodaCL YAML แบบ Dynamic ด้วย Jinja2
 3. **Data Profiling** - Soda Core สแกนและเก็บสถิติ
 4. **Result Storage** - บันทึกผลลัพธ์ลง ClickHouse table `data_profiles`
+5. **Auto-Increment Analysis** - วิเคราะห์ auto-increment columns ด้วย Linear Regression
+6. **Overflow Prediction** - ทำนายและบันทึกความเสี่ยงลง `autoincrement_profiles`
 
 ## 🐳 Docker Full Stack Environment
 
@@ -278,11 +344,14 @@ docker-compose up -d --build
 
 ### ข้อมูลตัวอย่าง & การทดสอบ
 
-Docker จะสร้างข้อมูลตัวอย่างใน PostgreSQL ให้อัตโนมัติ สามารถสั่งรัน Profiler ผ่าน Docker ได้เลย:
+Docker จะสร้างข้อมูลตัวอย่าง **100+ records** ใน PostgreSQL ให้อัตโนมัติ (ตาราง `users` และ `products`) สามารถสั่งรัน Profiler ผ่าน Docker ได้เลย:
 
 ```bash
 # รัน profiler ภายใน backend container
 docker-compose exec backend python ../main.py users --app order-service --env production
+
+# รันพร้อม auto-increment analysis
+docker-compose exec backend python ../main.py users --auto-increment
 ```
 
 ### การหยุดการทำงาน
@@ -293,7 +362,9 @@ docker-compose down -v  # หยุดและลบ volumes
 
 ## 📋 ClickHouse Schema
 
-ตาราง `data_profiles` ที่ระบบสร้างอัตโนมัติ:
+### ตาราง `data_profiles`
+
+ตารางหลักสำหรับเก็บผลลัพธ์การ profiling:
 
 ```sql
 CREATE TABLE data_profiles (
@@ -306,6 +377,27 @@ CREATE TABLE data_profiles (
     max Nullable(String),
     avg Nullable(Float64)
 ) ENGINE = MergeTree() ORDER BY (scan_time, table_name)
+```
+
+### ตาราง `autoincrement_profiles`
+
+ตารางสำหรับเก็บผลการวิเคราะห์ auto-increment overflow:
+
+```sql
+CREATE TABLE autoincrement_profiles (
+    profiled_at DateTime DEFAULT now(),
+    application String,
+    environment String,
+    table_name String,
+    column_name String,
+    data_type String,
+    current_value Int64,
+    max_type_value Int64,
+    usage_percentage Float64,
+    daily_growth_rate Nullable(Float64),
+    days_until_full Nullable(Float64),
+    alert_status String
+) ENGINE = MergeTree() ORDER BY (profiled_at, table_name, column_name)
 ```
 
 ## 📊 การพัฒนา Dashboard
@@ -363,16 +455,28 @@ Grafana ถูกรวมอยู่ใน `docker-compose.yml` แล้ว:
 
 3. สร้าง Dashboard:
    - DataSource: **ClickHouse** (ถูกตั้งค่าไว้แล้ว)
-   - Example Query:
+   - Example Query (Data Profiles):
      ```sql
      SELECT table_name, max(row_count) as rows
      FROM data_profiles
      GROUP BY table_name
      ```
+   - Example Query (Auto-Increment Monitoring):
+     ```sql
+     SELECT
+       table_name,
+       column_name,
+       usage_percentage,
+       days_until_full,
+       alert_status
+     FROM autoincrement_profiles
+     ORDER BY profiled_at DESC
+     LIMIT 100
+     ```
 
 ## ⚠️ Limitations
 
-Data Types ที่ไม่รองรับในปัจจุบัน:
+Data Types ที่ไม่รองรับในปัจจุบัน (สำหรับ min/max/avg):
 
 - `timestamp`
 - `timestamp without time zone`

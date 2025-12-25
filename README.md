@@ -15,6 +15,7 @@ DataProfiler provides:
 3. **Result Storage** in ClickHouse for analysis and tracking
 4. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
 5. **Web Dashboard** for data visualization (React + TailwindCSS)
+6. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
 
 ## 📊 Profiled Metrics
 
@@ -38,6 +39,59 @@ For each column, the system collects the following statistics (dbt-profiler comp
 > **\*** `min`/`max` supported for: integer, numeric, float, date, timestamp, time  
 > **\*\*** `avg`, `median`, `std_dev` supported for: integer, numeric, float
 
+## 🔮 Auto-Increment Overflow Risk Analysis
+
+DataProfiler includes **Auto-Increment Column Overflow Risk Analysis** to predict when primary key columns will reach their maximum capacity.
+
+### Features
+
+- **Current Value Tracking**: Monitors the current value of auto-increment columns
+- **Maximum Value Calculation**: Computes the max value based on data type (e.g., INT, BIGINT)
+- **Usage Percentage**: Calculates current capacity usage
+- **Growth Rate Prediction**: Uses Linear Regression on historical data from ClickHouse
+- **Days Until Full**: Predicts when the column will reach maximum capacity
+- **Alert Status**: CRITICAL (< 30 days / > 90%), WARNING (< 90 days / > 75%), NORMAL
+
+### Supported Data Types
+
+| Data Type   | Max Value                 | Range                               |
+| ----------- | ------------------------- | ----------------------------------- |
+| `smallint`  | 32,767                    | -32,768 to 32,767                   |
+| `integer`   | 2,147,483,647             | -2.1B to 2.1B                       |
+| `bigint`    | 9,223,372,036,854,775,807 | -9.2 quintillion to 9.2 quintillion |
+| `serial`    | 2,147,483,647             | 1 to 2.1B                           |
+| `bigserial` | 9,223,372,036,854,775,807 | 1 to 9.2 quintillion                |
+
+> **Note**: Compatible with all PostgreSQL versions (10+). Sequence values are queried directly from the sequence object for maximum reliability.
+
+### Usage
+
+```bash
+# Include auto-increment analysis
+python main.py users --auto-increment
+
+# With custom lookback period (default: 7 days)
+python main.py users --auto-increment --lookback-days 14
+
+# With application and environment context
+python main.py users --app order-service --env production --auto-increment
+```
+
+### Output Example
+
+```
+============================================================
+AUTO-INCREMENT OVERFLOW RISK ANALYSIS
+============================================================
+
+🟢 users.id (integer)
+   Current: 1,234,567 / 2,147,483,647
+   Usage: 0.057479%
+   Days until full: 4,521 days
+   Growth rate: ~500 IDs/day
+============================================================
+```
+
 ## 🛠️ Requirements
 
 - Python 3.10+
@@ -49,6 +103,8 @@ For each column, the system collects the following statistics (dbt-profiler comp
   - `soda-core-postgres` - Soda Core for PostgreSQL
   - `jinja2` - Template engine
   - `python-dotenv` - Environment variable management
+  - `numpy` - Numerical computing
+  - `scipy` - Scientific computing (Linear Regression)
 
 ## 📦 Installation
 
@@ -172,6 +228,12 @@ python main.py users --no-store
 # Verbose logging
 python main.py users -v
 
+# Include auto-increment overflow analysis
+python main.py users --auto-increment
+
+# Custom lookback period for growth calculation
+python main.py users --auto-increment --lookback-days 14
+
 # Show help
 python main.py --help
 ```
@@ -198,15 +260,18 @@ DataProfiler/
 │   ├── exceptions.py      # Custom exceptions
 │   ├── core/              # Core profiling logic
 │   │   ├── __init__.py
+│   │   ├── autoincrement_metrics.py  # Auto-increment analysis
 │   │   ├── formatters.py  # Output formatters (MD, JSON, CSV)
 │   │   ├── metrics.py     # dbt-profiler style metrics
 │   │   └── profiler.py    # Legacy Soda Core profiler
 │   └── db/                # Database connections
 │       ├── __init__.py
+│       ├── autoincrement.py  # Auto-increment detector
 │       ├── clickhouse.py
 │       └── postgres.py
 ├── tests/                 # Unit tests
 │   ├── __init__.py
+│   ├── test_autoincrement.py
 │   ├── test_config.py
 │   ├── test_connections.py
 │   ├── test_metadata.py
@@ -256,11 +321,14 @@ docker-compose up -d --build
 
 ### Sample Data & Testing
 
-Docker automatically creates sample data in PostgreSQL. You can run the profiler from your host machine (if Python is installed) or use `docker exec`:
+Docker automatically creates sample data in PostgreSQL with **100+ records** for both `users` and `products` tables. You can run the profiler from your host machine (if Python is installed) or use `docker exec`:
 
 ```bash
 # Run profiler inside backend container
 docker-compose exec backend python ../main.py users --app order-service --env production
+
+# Run with auto-increment analysis
+docker-compose exec backend python ../main.py users --auto-increment
 ```
 
 ### Stop Services
@@ -324,12 +392,24 @@ The Grafana service is included in `docker-compose.yml` and pre-configured with 
 
 3. Create Dashboard:
    - DataSource: **ClickHouse** (pre-configured)
-   - Example Query:
+   - Example Query (Data Profiles):
      ```sql
      SELECT table_name, max(row_count) as rows
      FROM data_profiles
      WHERE application = 'order-service'
      GROUP BY table_name
+     ```
+   - Example Query (Auto-Increment Monitoring):
+     ```sql
+     SELECT
+       table_name,
+       column_name,
+       usage_percentage,
+       days_until_full,
+       alert_status
+     FROM autoincrement_profiles
+     ORDER BY profiled_at DESC
+     LIMIT 100
      ```
 
 ## 📝 License

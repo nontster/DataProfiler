@@ -20,6 +20,7 @@ function App() {
   const [tables, setTables] = useState([])
   const [selectedTable, setSelectedTable] = useState(null)
   const [profile, setProfile] = useState(null)
+  const [autoIncrement, setAutoIncrement] = useState(null)
   const [loading, setLoading] = useState(true)
 
   // Fetch metadata on mount
@@ -90,6 +91,19 @@ function App() {
         .then(res => res.json())
         .then(data => setProfile(data))
         .catch(err => console.error('Failed to load profile:', err))
+    }
+  }, [selectedTable, selectedApp, selectedEnv])
+
+  // Fetch auto-increment data when table is selected
+  useEffect(() => {
+    if (selectedTable && selectedApp && selectedEnv) {
+      fetch(`/api/autoincrement/${selectedTable}?app=${selectedApp}&env=${selectedEnv}`)
+        .then(res => res.json())
+        .then(data => setAutoIncrement(data))
+        .catch(err => {
+          console.error('Failed to load auto-increment data:', err)
+          setAutoIncrement(null)
+        })
     }
   }, [selectedTable, selectedApp, selectedEnv])
 
@@ -323,6 +337,81 @@ function App() {
                   </table>
                 </div>
               </div>
+
+              {/* Auto-Increment Overflow Risk Section */}
+              {autoIncrement && autoIncrement.columns && autoIncrement.columns.length > 0 && (
+                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm mt-6">
+                  <h3 className="text-lg font-semibold p-4 border-b border-gray-700 text-gray-200 bg-gray-800/50 flex items-center gap-2">
+                    <span className="w-1 h-5 bg-orange-500 rounded-full"></span>
+                    🔥 Auto-Increment Overflow Risk
+                  </h3>
+                  <div className="p-4 space-y-4">
+                    {autoIncrement.columns.map(col => (
+                      <div key={col.column_name} className="bg-gray-750 rounded-lg p-4 border border-gray-700">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono text-blue-400 font-medium">{col.column_name}</span>
+                            <span className="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">{col.data_type}</span>
+                          </div>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            col.alert_status === 'CRITICAL' ? 'bg-red-900/50 text-red-400 border border-red-700' :
+                            col.alert_status === 'WARNING' ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700' :
+                            'bg-green-900/50 text-green-400 border border-green-700'
+                          }`}>
+                            {col.alert_status === 'CRITICAL' ? '🔴' : col.alert_status === 'WARNING' ? '🟡' : '🟢'} {col.alert_status}
+                          </span>
+                        </div>
+                        
+                        {/* Progress Bar */}
+                        <div className="mb-3">
+                          <div className="flex justify-between text-xs text-gray-400 mb-1">
+                            <span>Usage</span>
+                            <span>{col.usage_percentage?.toFixed(6)}%</span>
+                          </div>
+                          <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full transition-all ${
+                                col.usage_percentage >= 90 ? 'bg-gradient-to-r from-red-600 to-red-400' :
+                                col.usage_percentage >= 75 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
+                                'bg-gradient-to-r from-green-600 to-green-400'
+                              }`}
+                              style={{ width: `${Math.max(col.usage_percentage, 0.1)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                        
+                        {/* Stats Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                          <div className="bg-gray-800 rounded p-2">
+                            <div className="text-xs text-gray-500 mb-1">Current</div>
+                            <div className="font-mono text-white">{col.current_value?.toLocaleString()}</div>
+                          </div>
+                          <div className="bg-gray-800 rounded p-2">
+                            <div className="text-xs text-gray-500 mb-1">Max</div>
+                            <div className="font-mono text-white">{col.max_type_value?.toLocaleString()}</div>
+                          </div>
+                          <div className="bg-gray-800 rounded p-2">
+                            <div className="text-xs text-gray-500 mb-1">Days Until Full</div>
+                            <div className="font-mono text-white">
+                              {col.days_until_full !== null ? (
+                                col.days_until_full > 365000 ? '∞' : col.days_until_full.toLocaleString(undefined, { maximumFractionDigits: 0 })
+                              ) : 'N/A'}
+                            </div>
+                          </div>
+                          <div className="bg-gray-800 rounded p-2">
+                            <div className="text-xs text-gray-500 mb-1">Daily Growth</div>
+                            <div className="font-mono text-white">
+                              {col.daily_growth_rate !== null ? 
+                                `~${col.daily_growth_rate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/day` : 
+                                'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">

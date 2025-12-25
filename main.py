@@ -13,9 +13,15 @@ from typing import Optional
 
 from src.config import Config
 from src.db.postgres import get_table_metadata
-from src.db.clickhouse import init_clickhouse, insert_profiles
+from src.db.clickhouse import (
+    init_clickhouse, insert_profiles,
+    init_autoincrement_table, insert_autoincrement_profiles,
+    get_clickhouse_client
+)
+from src.db.autoincrement import get_autoincrement_detector
 from src.core.metrics import profile_table
 from src.core.formatters import format_profile
+from src.core.autoincrement_metrics import profile_table_autoincrement
 from src.exceptions import TableNotFoundError, DatabaseConnectionError
 
 # --- Logging Configuration ---
@@ -40,6 +46,7 @@ Examples:
   python main.py users --format csv         # Output as CSV
   python main.py users -o users.md          # Save to file
   python main.py users --no-store           # Don't save to ClickHouse
+  python main.py users --auto-increment     # Include auto-increment overflow analysis
         """
     )
     
@@ -87,6 +94,19 @@ Examples:
         help='Environment name (e.g., uat, production)'
     )
 
+    parser.add_argument(
+        '--auto-increment',
+        action='store_true',
+        help='Include auto-increment column overflow analysis'
+    )
+
+    parser.add_argument(
+        '--lookback-days',
+        type=int,
+        default=7,
+        help='Days of historical data for growth rate calculation (default: 7)'
+    )
+
     return parser.parse_args()
 
 
@@ -96,7 +116,9 @@ def run_profiler(
     output_file: Optional[str] = None,
     store_to_clickhouse: bool = True,
     application: str = 'default',
-    environment: str = 'development'
+    environment: str = 'development',
+    include_auto_increment: bool = False,
+    lookback_days: int = 7
 ) -> Optional[int]:
     """
     Run the data profiler for a specific table.
@@ -108,6 +130,8 @@ def run_profiler(
         store_to_clickhouse: Whether to store results in ClickHouse
         application: Application name
         environment: Environment name
+        include_auto_increment: Whether to profile auto-increment columns
+        lookback_days: Days of historical data for growth rate calculation
         
     Returns:
         Number of column profiles generated, or None if failed
@@ -119,6 +143,10 @@ def run_profiler(
         if not init_clickhouse():
             logger.error("Aborting: ClickHouse initialization failed")
             return None
+        if include_auto_increment:
+            if not init_autoincrement_table():
+                logger.error("Aborting: Auto-increment table initialization failed")
+                return None
     
     # Step 2: Get table metadata
     try:
@@ -169,6 +197,83 @@ def run_profiler(
     return len(table_profile.column_profiles)
 
 
+def run_autoincrement_profiler(
+    table_name: str,
+    store_to_clickhouse: bool = True,
+    application: str = 'default',
+    environment: str = 'development',
+    lookback_days: int = 7
+) -> Optional[int]:
+    """
+    Run auto-increment overflow analysis for a table.
+    
+    Args:
+        table_name: Name of the table to analyze
+        store_to_clickhouse: Whether to store results in ClickHouse
+        application: Application name
+        environment: Environment name
+        lookback_days: Days of historical data for growth rate
+        
+    Returns:
+        Number of auto-increment columns profiled, or None if failed
+    """
+    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}'...")
+    
+    try:
+        # Get detector for PostgreSQL
+        detector = get_autoincrement_detector('postgresql')
+        
+        # Get ClickHouse client for historical data (if storing)
+        clickhouse_client = None
+        if store_to_clickhouse:
+            try:
+                clickhouse_client = get_clickhouse_client()
+            except Exception as e:
+                logger.warning(f"Could not connect to ClickHouse for historical data: {e}")
+        
+        # Profile auto-increment columns
+        profiles = profile_table_autoincrement(
+            table_name=table_name,
+            detector=detector,
+            clickhouse_client=clickhouse_client,
+            application=application,
+            environment=environment,
+            lookback_days=lookback_days,
+        )
+        
+        if not profiles:
+            logger.info("No auto-increment columns found in this table")
+            return 0
+        
+        # Print summary
+        print("\n" + "=" * 60)
+        print("AUTO-INCREMENT OVERFLOW RISK ANALYSIS")
+        print("=" * 60)
+        for p in profiles:
+            status_icon = "🔴" if p.alert_status == 'CRITICAL' else "🟡" if p.alert_status == 'WARNING' else "🟢"
+            days_str = f"{p.days_until_full:.0f} days" if p.days_until_full else "N/A (need more data)"
+            print(f"\n{status_icon} {p.table_name}.{p.column_name} ({p.data_type})")
+            print(f"   Current: {p.current_value:,} / {p.max_type_value:,}")
+            print(f"   Usage: {p.usage_percentage:.6f}%")
+            print(f"   Days until full: {days_str}")
+            if p.daily_growth_rate:
+                print(f"   Growth rate: ~{p.daily_growth_rate:,.0f} IDs/day")
+        print("=" * 60 + "\n")
+        
+        # Store in ClickHouse
+        if store_to_clickhouse and profiles:
+            if insert_autoincrement_profiles(profiles, application, environment):
+                logger.info("✅ Auto-increment results stored in ClickHouse")
+            else:
+                logger.warning("Failed to store auto-increment results")
+        
+        return len(profiles)
+        
+    except Exception as e:
+        logger.error(f"❌ Auto-increment analysis failed: {e}")
+        return None
+
+
 def main():
     """Main entry point for the DataProfiler."""
     args = parse_args()
@@ -187,8 +292,22 @@ def main():
         output_file=args.output,
         store_to_clickhouse=not args.no_store,
         application=args.app,
-        environment=args.env
+        environment=args.env,
+        include_auto_increment=args.auto_increment,
+        lookback_days=args.lookback_days
     )
+    
+    # Run auto-increment analysis if requested
+    if args.auto_increment:
+        ai_result = run_autoincrement_profiler(
+            table_name=args.table,
+            store_to_clickhouse=not args.no_store,
+            application=args.app,
+            environment=args.env,
+            lookback_days=args.lookback_days
+        )
+        if ai_result is None:
+            logger.warning("Auto-increment analysis had issues")
     
     if result is None:
         logger.error("Profiling failed")

@@ -188,6 +188,69 @@ def get_profiles(table_name):
     })
 
 
+@app.route('/api/autoincrement/<table_name>', methods=['GET'])
+def get_autoincrement(table_name):
+    """Get auto-increment overflow risk data for a specific table."""
+    application = request.args.get('app', 'default')
+    environment = request.args.get('env', 'development')
+    
+    client = get_client()
+    
+    # Get the latest auto-increment metrics for this table
+    query = f"""
+        SELECT 
+            column_name,
+            data_type,
+            current_value,
+            max_type_value,
+            usage_percentage,
+            remaining_values,
+            days_until_full,
+            daily_growth_rate,
+            alert_status,
+            scan_time
+        FROM auto_increment_metrics
+        WHERE table_name = '{table_name}'
+          AND application = '{application}'
+          AND environment = '{environment}'
+        ORDER BY scan_time DESC
+        LIMIT 1 BY column_name
+    """
+    
+    try:
+        result = client.query(query)
+        
+        columns = []
+        for row in result.result_rows:
+            columns.append({
+                'column_name': row[0],
+                'data_type': row[1],
+                'current_value': row[2],
+                'max_type_value': row[3],
+                'usage_percentage': row[4],
+                'remaining_values': row[5],
+                'days_until_full': row[6],
+                'daily_growth_rate': row[7],
+                'alert_status': row[8],
+                'scan_time': row[9].isoformat() if row[9] else None
+            })
+        
+        return jsonify({
+            'table_name': table_name,
+            'application': application,
+            'environment': environment,
+            'columns': columns
+        })
+    except Exception as e:
+        # Table might not have auto-increment columns or no data yet
+        return jsonify({
+            'table_name': table_name,
+            'application': application,
+            'environment': environment,
+            'columns': []
+        })
+
+
 @app.route('/api/health', methods=['GET'])
 def health():
     """Health check endpoint."""

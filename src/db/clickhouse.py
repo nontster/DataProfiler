@@ -157,3 +157,120 @@ def insert_profiles(
     except ClickHouseError as e:
         logger.error(f"❌ Failed to insert data into ClickHouse: {e}")
         return False
+
+
+def init_autoincrement_table() -> bool:
+    """
+    Initialize ClickHouse table for auto-increment overflow monitoring.
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        client = get_clickhouse_client()
+        
+        client.command("""
+            CREATE TABLE IF NOT EXISTS auto_increment_metrics (
+                -- Metadata
+                scan_time DateTime DEFAULT now(),
+                
+                -- Multi-tenancy columns
+                application String DEFAULT 'default',
+                environment LowCardinality(String) DEFAULT 'development',
+                database_host String DEFAULT '',
+                database_name String DEFAULT '',
+                schema_name String DEFAULT 'public',
+                
+                -- Column info
+                table_name String,
+                column_name String,
+                data_type String,
+                sequence_name String,
+                
+                -- Current metrics
+                current_value Int64,
+                max_type_value Int64,
+                usage_percentage Float64,
+                remaining_values Int64,
+                
+                -- Growth metrics (calculated from time series)
+                daily_growth_rate Nullable(Float64),
+                days_until_full Nullable(Float64),
+                
+                -- Alert status
+                alert_status LowCardinality(String) DEFAULT 'OK'
+                
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(scan_time)
+            ORDER BY (application, environment, table_name, column_name, scan_time)
+        """)
+        
+        logger.info("✅ ClickHouse table 'auto_increment_metrics' is ready")
+        return True
+    except (ClickHouseError, DatabaseConnectionError) as e:
+        logger.error(f"❌ Auto-increment table initialization failed: {e}")
+        return False
+
+
+def insert_autoincrement_profiles(
+    profiles: list,
+    application: str = "default",
+    environment: str = "development"
+) -> bool:
+    """
+    Insert auto-increment profiling records into ClickHouse.
+    
+    Args:
+        profiles: List of AutoIncrementProfile objects
+        application: Application/service name
+        environment: Environment name
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    if not profiles:
+        logger.warning("No auto-increment profiles to insert")
+        return False
+    
+    try:
+        client = get_clickhouse_client()
+        
+        data = []
+        for profile in profiles:
+            row = [
+                application,
+                environment,
+                Config.POSTGRES_HOST,
+                Config.POSTGRES_DATABASE,
+                Config.POSTGRES_SCHEMA,
+                profile.table_name,
+                profile.column_name,
+                profile.data_type,
+                profile.sequence_name,
+                profile.current_value,
+                profile.max_type_value,
+                profile.usage_percentage,
+                profile.remaining_values,
+                profile.daily_growth_rate,
+                profile.days_until_full,
+                profile.alert_status,
+            ]
+            data.append(row)
+        
+        client.insert(
+            'auto_increment_metrics',
+            data,
+            column_names=[
+                'application', 'environment', 'database_host', 'database_name', 'schema_name',
+                'table_name', 'column_name', 'data_type', 'sequence_name',
+                'current_value', 'max_type_value', 'usage_percentage', 'remaining_values',
+                'daily_growth_rate', 'days_until_full', 'alert_status'
+            ]
+        )
+        
+        logger.info(f"✅ Inserted {len(data)} auto-increment profiles [{application}/{environment}]")
+        return True
+        
+    except ClickHouseError as e:
+        logger.error(f"❌ Failed to insert auto-increment data into ClickHouse: {e}")
+        return False
