@@ -7,21 +7,27 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell
+  Cell,
+  Legend
 } from 'recharts'
 import './App.css'
 
 function App() {
   const [metadata, setMetadata] = useState([])
   const [selectedApp, setSelectedApp] = useState('')
-  const [selectedEnv, setSelectedEnv] = useState('')
+  const [selectedEnv1, setSelectedEnv1] = useState('')
+  const [selectedEnv2, setSelectedEnv2] = useState('')
   const [availableEnvs, setAvailableEnvs] = useState([])
   
   const [tables, setTables] = useState([])
   const [selectedTable, setSelectedTable] = useState(null)
-  const [profile, setProfile] = useState(null)
+  const [comparison, setComparison] = useState(null)
   const [autoIncrement, setAutoIncrement] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  // Colors for environments
+  const ENV1_COLOR = '#3b82f6' // blue
+  const ENV2_COLOR = '#22c55e' // green
 
   // Fetch metadata on mount
   useEffect(() => {
@@ -30,12 +36,16 @@ function App() {
       .then(data => {
         setMetadata(data)
         if (data.length > 0) {
-          // Default to first app/env
+          // Default to first app
           const firstApp = data[0]
           setSelectedApp(firstApp.application)
           setAvailableEnvs(firstApp.environments)
-          if (firstApp.environments.length > 0) {
-            setSelectedEnv(firstApp.environments[0])
+          if (firstApp.environments.length >= 2) {
+            setSelectedEnv1(firstApp.environments[0])
+            setSelectedEnv2(firstApp.environments[1])
+          } else if (firstApp.environments.length === 1) {
+            setSelectedEnv1(firstApp.environments[0])
+            setSelectedEnv2(firstApp.environments[0])
           }
         } else {
           setLoading(false)
@@ -53,59 +63,88 @@ function App() {
       const appData = metadata.find(m => m.application === selectedApp)
       if (appData) {
         setAvailableEnvs(appData.environments)
-        // Reset selected env to first one if current not available
-        if (!appData.environments.includes(selectedEnv)) {
-          setSelectedEnv(appData.environments[0] || '')
+        // Reset selected envs if current not available
+        if (!appData.environments.includes(selectedEnv1)) {
+          setSelectedEnv1(appData.environments[0] || '')
+        }
+        if (!appData.environments.includes(selectedEnv2)) {
+          setSelectedEnv2(appData.environments[1] || appData.environments[0] || '')
         }
       }
     }
   }, [selectedApp, metadata])
 
-  // Fetch list of tables when app/env changes
+  // Fetch list of tables (union from both environments)
   useEffect(() => {
-    if (selectedApp && selectedEnv) {
+    if (selectedApp && selectedEnv1) {
       setLoading(true)
-      fetch(`/api/tables?app=${selectedApp}&env=${selectedEnv}`)
-        .then(res => res.json())
-        .then(data => {
-          setTables(data)
+      // Fetch tables for both environments and merge
+      const fetchTables = async () => {
+        try {
+          const [res1, res2] = await Promise.all([
+            fetch(`/api/tables?app=${selectedApp}&env=${selectedEnv1}`),
+            selectedEnv2 && selectedEnv2 !== selectedEnv1 
+              ? fetch(`/api/tables?app=${selectedApp}&env=${selectedEnv2}`)
+              : Promise.resolve({ json: () => [] })
+          ])
+          
+          const tables1 = await res1.json()
+          const tables2 = selectedEnv2 ? await res2.json() : []
+          
+          // Merge tables (unique by table_name)
+          const tableMap = new Map()
+          tables1.forEach(t => tableMap.set(t.table_name, { ...t, inEnv1: true, inEnv2: false }))
+          tables2.forEach(t => {
+            if (tableMap.has(t.table_name)) {
+              tableMap.get(t.table_name).inEnv2 = true
+            } else {
+              tableMap.set(t.table_name, { ...t, inEnv1: false, inEnv2: true })
+            }
+          })
+          
+          const mergedTables = Array.from(tableMap.values()).sort((a, b) => 
+            a.table_name.localeCompare(b.table_name)
+          )
+          
+          setTables(mergedTables)
           setLoading(false)
-          if (data.length > 0) {
-            setSelectedTable(data[0].table_name)
+          if (mergedTables.length > 0) {
+            setSelectedTable(mergedTables[0].table_name)
           } else {
             setSelectedTable(null)
-            setProfile(null)
+            setComparison(null)
           }
-        })
-        .catch(err => {
+        } catch (err) {
           console.error('Failed to load tables:', err)
           setLoading(false)
-        })
+        }
+      }
+      fetchTables()
     }
-  }, [selectedApp, selectedEnv])
+  }, [selectedApp, selectedEnv1, selectedEnv2])
 
-  // Fetch profile when table is selected
+  // Fetch comparison when table is selected
   useEffect(() => {
-    if (selectedTable && selectedApp && selectedEnv) {
-      fetch(`/api/profiles/${selectedTable}?app=${selectedApp}&env=${selectedEnv}`)
+    if (selectedTable && selectedApp && selectedEnv1 && selectedEnv2) {
+      // Fetch profile comparison
+      fetch(`/api/profiles/compare/${selectedTable}?app=${selectedApp}&env1=${selectedEnv1}&env2=${selectedEnv2}`)
         .then(res => res.json())
-        .then(data => setProfile(data))
-        .catch(err => console.error('Failed to load profile:', err))
-    }
-  }, [selectedTable, selectedApp, selectedEnv])
-
-  // Fetch auto-increment data when table is selected
-  useEffect(() => {
-    if (selectedTable && selectedApp && selectedEnv) {
-      fetch(`/api/autoincrement/${selectedTable}?app=${selectedApp}&env=${selectedEnv}`)
+        .then(data => setComparison(data))
+        .catch(err => {
+          console.error('Failed to load comparison:', err)
+          setComparison(null)
+        })
+      
+      // Fetch auto-increment comparison
+      fetch(`/api/autoincrement/compare/${selectedTable}?app=${selectedApp}&env1=${selectedEnv1}&env2=${selectedEnv2}`)
         .then(res => res.json())
         .then(data => setAutoIncrement(data))
         .catch(err => {
-          console.error('Failed to load auto-increment data:', err)
+          console.error('Failed to load auto-increment:', err)
           setAutoIncrement(null)
         })
     }
-  }, [selectedTable, selectedApp, selectedEnv])
+  }, [selectedTable, selectedApp, selectedEnv1, selectedEnv2])
 
   const formatNumber = (num) => {
     if (num === null || num === undefined) return '-'
@@ -115,10 +154,58 @@ function App() {
     return num
   }
 
-  const getBarColor = (value) => {
-    if (value >= 0.9) return '#22c55e' // green
-    if (value >= 0.7) return '#eab308' // yellow
-    return '#ef4444' // red
+  const formatPercent = (num) => {
+    if (num === null || num === undefined) return '-'
+    return `${(num * 100).toFixed(1)}%`
+  }
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-'
+    try {
+      return new Date(dateStr).toLocaleString()
+    } catch {
+      return dateStr
+    }
+  }
+
+  const formatDiff = (num) => {
+    if (num === null || num === undefined) return '-'
+    const percent = (num * 100).toFixed(1)
+    if (num > 0) return `+${percent}%`
+    if (num < 0) return `${percent}%`
+    return '0%'
+  }
+
+  const getDiffColor = (diff) => {
+    if (diff === null || diff === undefined) return 'text-gray-500'
+    if (Math.abs(diff) < 0.01) return 'text-gray-400'
+    if (diff > 0) return 'text-green-400'
+    return 'text-red-400'
+  }
+
+  // Check if data type supports min/max display (numeric and date/time types)
+  const isMinMaxSupported = (dataType) => {
+    if (!dataType) return false
+    const supportedTypes = [
+      // Numeric types
+      'integer', 'int', 'bigint', 'smallint', 'tinyint', 'decimal', 'numeric', 
+      'float', 'real', 'double', 'money', 'serial', 'bigserial',
+      'int2', 'int4', 'int8', 'float4', 'float8',
+      // Date/Time types
+      'date', 'timestamp', 'time', 'interval', 'datetime'
+    ]
+    const lowerType = dataType.toLowerCase()
+    return supportedTypes.some(t => lowerType.includes(t))
+  }
+
+  // Prepare chart data for comparison
+  const getComparisonChartData = (metric) => {
+    if (!comparison || !comparison.columns) return []
+    return comparison.columns.map(col => ({
+      column_name: col.column_name,
+      env1: col.env1?.[metric] || 0,
+      env2: col.env2?.[metric] || 0
+    }))
   }
 
   if (loading && tables.length === 0 && !selectedApp) {
@@ -135,6 +222,7 @@ function App() {
       <header className="bg-gray-800 border-b border-gray-700 px-6 py-4 flex justify-between items-center shadow-md z-10">
         <h1 className="text-2xl font-bold text-blue-400 flex items-center gap-2">
           <span>📊</span> Data Profile Dashboard
+          <span className="text-sm font-normal text-gray-400 ml-2">Environment Comparison</span>
         </h1>
 
         {/* Global Filters */}
@@ -154,11 +242,31 @@ function App() {
           </div>
 
           <div className="flex flex-col">
-            <label className="text-xs text-gray-400 mb-1 uppercase font-bold tracking-wider">Environment</label>
+            <label className="text-xs text-blue-400 mb-1 uppercase font-bold tracking-wider flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              Environment 1
+            </label>
             <select 
-              value={selectedEnv}
-              onChange={(e) => setSelectedEnv(e.target.value)}
-              className="bg-gray-700 text-white border border-gray-600 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-500 w-48 text-sm"
+              value={selectedEnv1}
+              onChange={(e) => setSelectedEnv1(e.target.value)}
+              className="bg-gray-700 text-white border border-blue-600 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 w-40 text-sm"
+            >
+              <option value="" disabled>Select Env</option>
+              {availableEnvs.map(env => (
+                <option key={env} value={env}>{env.toUpperCase()}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col">
+            <label className="text-xs text-green-400 mb-1 uppercase font-bold tracking-wider flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-green-500"></span>
+              Environment 2
+            </label>
+            <select 
+              value={selectedEnv2}
+              onChange={(e) => setSelectedEnv2(e.target.value)}
+              className="bg-gray-700 text-white border border-green-600 rounded px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-500 w-40 text-sm"
             >
               <option value="" disabled>Select Env</option>
               {availableEnvs.map(env => (
@@ -192,10 +300,15 @@ function App() {
                       : 'bg-gray-700 hover:bg-gray-650 text-gray-200 hover:border-gray-600'
                   }`}
                 >
-                  <div className="font-medium truncate">{table.table_name}</div>
-                  <div className="text-xs opacity-75 mt-1 flex justify-between">
-                    <span>{table.row_count?.toLocaleString()} rows</span>
-                    <span>{table.column_count} cols</span>
+                  <div className="font-medium truncate flex items-center justify-between">
+                    <span>{table.table_name}</span>
+                    <div className="flex gap-1">
+                      {table.inEnv1 && <span className="w-2 h-2 rounded-full bg-blue-500" title={selectedEnv1}></span>}
+                      {table.inEnv2 && <span className="w-2 h-2 rounded-full bg-green-500" title={selectedEnv2}></span>}
+                    </div>
+                  </div>
+                  <div className="text-xs opacity-75 mt-1">
+                    {table.row_count?.toLocaleString()} rows
                   </div>
                 </button>
               </li>
@@ -205,132 +318,217 @@ function App() {
 
         {/* Main Content */}
         <main className="flex-1 p-6 overflow-y-auto bg-gray-900">
-          {profile ? (
+          {comparison ? (
             <>
               {/* Table Header */}
               <div className="mb-6 bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-sm">
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-3">
-                      <h2 className="text-3xl font-bold text-white tracking-tight">{profile.table_name}</h2>
+                      <h2 className="text-3xl font-bold text-white tracking-tight">{comparison.table_name}</h2>
                       <span className="px-2 py-0.5 rounded text-xs font-mono bg-gray-700 text-gray-300 border border-gray-600">
-                        {selectedApp} / {selectedEnv}
+                        {selectedApp}
                       </span>
                     </div>
-                    <p className="text-gray-400 mt-2 flex items-center gap-4 text-sm">
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                        {profile.row_count?.toLocaleString()} rows
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                        {profile.columns?.length} columns
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        Profiled: {new Date(profile.columns[0]?.scan_time).toLocaleString()}
-                      </span>
-                    </p>
+                    <div className="mt-3 flex gap-6">
+                      {/* Env 1 Info */}
+                      <div className="flex items-center gap-3 text-sm bg-blue-900/20 px-3 py-2 rounded-lg border border-blue-800">
+                        <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+                        <span className="text-blue-400 font-semibold">{selectedEnv1.toUpperCase()}</span>
+                        {comparison.env1.exists ? (
+                          <>
+                            <span className="text-gray-400">
+                              {comparison.env1.row_count?.toLocaleString()} rows
+                            </span>
+                            <span className="text-gray-500">|</span>
+                            <span className="text-gray-400 text-xs">
+                              Profiled: {formatDateTime(comparison.env1.scan_time)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-red-400">(No data)</span>
+                        )}
+                      </div>
+                      {/* Env 2 Info */}
+                      <div className="flex items-center gap-3 text-sm bg-green-900/20 px-3 py-2 rounded-lg border border-green-800">
+                        <span className="w-3 h-3 rounded-full bg-green-500"></span>
+                        <span className="text-green-400 font-semibold">{selectedEnv2.toUpperCase()}</span>
+                        {comparison.env2.exists ? (
+                          <>
+                            <span className="text-gray-400">
+                              {comparison.env2.row_count?.toLocaleString()} rows
+                            </span>
+                            <span className="text-gray-500">|</span>
+                            <span className="text-gray-400 text-xs">
+                              Profiled: {formatDateTime(comparison.env2.scan_time)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-red-400">(No data)</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Charts Section */}
+              {/* Charts Section - Side by Side Comparison */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-                {/* Not Null Proportion Chart */}
+                {/* Not Null Proportion Comparison Chart */}
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-sm">
                   <h3 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
-                    <span className="w-1 h-5 bg-green-500 rounded-full"></span>
-                    Not Null Proportion
+                    <span className="w-1 h-5 bg-gradient-to-b from-blue-500 to-green-500 rounded-full"></span>
+                    Not Null Proportion Comparison
                   </h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={profile.columns} layout="vertical">
+                  <ResponsiveContainer width="100%" height={Math.max(250, comparison.columns.length * 30)}>
+                    <BarChart data={getComparisonChartData('not_null_proportion')} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
                       <XAxis type="number" domain={[0, 1]} stroke="#9ca3af" fontSize={12} tickFormatter={(val) => `${val * 100}%`} />
-                      <YAxis dataKey="column_name" type="category" width={130} stroke="#9ca3af" tick={{ fontSize: 12, fill: '#D1D5DB' }} />
+                      <YAxis dataKey="column_name" type="category" width={130} stroke="#9ca3af" tick={{ fontSize: 11, fill: '#D1D5DB' }} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                        formatter={(value) => [`${(value * 100).toFixed(1)}%`, 'Present']}
-                        labelStyle={{ color: '#E5E7EB', marginBottom: '0.25rem' }}
-                        cursor={{ fill: 'rgba(55, 65, 81, 0.5)' }}
+                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '0.5rem' }}
+                        formatter={(value, name) => [`${(value * 100).toFixed(1)}%`, name === 'env1' ? selectedEnv1.toUpperCase() : selectedEnv2.toUpperCase()]}
+                        labelStyle={{ color: '#E5E7EB' }}
                       />
-                      <Bar dataKey="not_null_proportion" radius={[0, 4, 4, 0]} barSize={20}>
-                        {profile.columns?.map((entry, index) => (
-                          <Cell key={index} fill={getBarColor(entry.not_null_proportion)} />
-                        ))}
-                      </Bar>
+                      <Legend 
+                        formatter={(value) => value === 'env1' ? selectedEnv1.toUpperCase() : selectedEnv2.toUpperCase()}
+                      />
+                      <Bar dataKey="env1" fill={ENV1_COLOR} radius={[0, 4, 4, 0]} barSize={12} />
+                      <Bar dataKey="env2" fill={ENV2_COLOR} radius={[0, 4, 4, 0]} barSize={12} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Distinct Proportion Chart */}
+                {/* Distinct Proportion Comparison Chart */}
                 <div className="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-sm">
                   <h3 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
-                    <span className="w-1 h-5 bg-purple-500 rounded-full"></span>
-                    Distinct Proportion
+                    <span className="w-1 h-5 bg-gradient-to-b from-blue-500 to-green-500 rounded-full"></span>
+                    Distinct Proportion Comparison
                   </h3>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart data={profile.columns} layout="vertical">
+                  <ResponsiveContainer width="100%" height={Math.max(250, comparison.columns.length * 30)}>
+                    <BarChart data={getComparisonChartData('distinct_proportion')} layout="vertical">
                       <CartesianGrid strokeDasharray="3 3" stroke="#374151" horizontal={false} />
                       <XAxis type="number" domain={[0, 1]} stroke="#9ca3af" fontSize={12} tickFormatter={(val) => `${val * 100}%`} />
-                      <YAxis dataKey="column_name" type="category" width={130} stroke="#9ca3af" tick={{ fontSize: 12, fill: '#D1D5DB' }} />
+                      <YAxis dataKey="column_name" type="category" width={130} stroke="#9ca3af" tick={{ fontSize: 11, fill: '#D1D5DB' }} />
                       <Tooltip 
-                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
-                        formatter={(value) => [`${(value * 100).toFixed(1)}%`, 'Unique']}
-                        labelStyle={{ color: '#E5E7EB', marginBottom: '0.25rem' }}
-                        cursor={{ fill: 'rgba(55, 65, 81, 0.5)' }}
+                        contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '0.5rem' }}
+                        formatter={(value, name) => [`${(value * 100).toFixed(1)}%`, name === 'env1' ? selectedEnv1.toUpperCase() : selectedEnv2.toUpperCase()]}
+                        labelStyle={{ color: '#E5E7EB' }}
                       />
-                      <Bar dataKey="distinct_proportion" fill="#8b5cf6" radius={[0, 4, 4, 0]} barSize={20} />
+                      <Legend 
+                        formatter={(value) => value === 'env1' ? selectedEnv1.toUpperCase() : selectedEnv2.toUpperCase()}
+                      />
+                      <Bar dataKey="env1" fill={ENV1_COLOR} radius={[0, 4, 4, 0]} barSize={12} />
+                      <Bar dataKey="env2" fill={ENV2_COLOR} radius={[0, 4, 4, 0]} barSize={12} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
               </div>
 
-              {/* Column Details Table */}
+              {/* Column Details Comparison Table */}
               <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm">
                 <h3 className="text-lg font-semibold p-4 border-b border-gray-700 text-gray-200 bg-gray-800/50">
-                  Column Details
+                  Column Details Comparison
                 </h3>
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-gray-750 text-gray-400 uppercase text-xs font-semibold tracking-wider">
                       <tr>
-                        <th className="px-6 py-3 text-left">Column</th>
-                        <th className="px-4 py-3 text-left">Type</th>
-                        <th className="px-4 py-3 text-right">Not Null</th>
-                        <th className="px-4 py-3 text-right">Distinct</th>
-                        <th className="px-4 py-3 text-center">Unique</th>
-                        <th className="px-4 py-3 text-left">Min</th>
-                        <th className="px-4 py-3 text-left">Max</th>
-                        <th className="px-4 py-3 text-right">Avg</th>
-                        <th className="px-4 py-3 text-right">Median</th>
+                        <th className="px-4 py-3 text-left" rowSpan={2}>Column</th>
+                        <th className="px-4 py-3 text-left" rowSpan={2}>Type</th>
+                        <th className="px-4 py-3 text-center border-l border-gray-600 bg-blue-900/20" colSpan={5}>
+                          <span className="flex items-center justify-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                            {selectedEnv1.toUpperCase()}
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 text-center border-l border-gray-600 bg-green-900/20" colSpan={5}>
+                          <span className="flex items-center justify-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                            {selectedEnv2.toUpperCase()}
+                          </span>
+                        </th>
+                        <th className="px-4 py-3 text-center border-l border-gray-600" colSpan={2}>Diff (Δ)</th>
+                      </tr>
+                      <tr>
+                        <th className="px-3 py-2 text-right border-l border-gray-600 bg-blue-900/10">Not Null</th>
+                        <th className="px-3 py-2 text-right bg-blue-900/10">Distinct</th>
+                        <th className="px-3 py-2 text-center bg-blue-900/10">Unique</th>
+                        <th className="px-3 py-2 text-left bg-blue-900/10">Min</th>
+                        <th className="px-3 py-2 text-left bg-blue-900/10">Max</th>
+                        <th className="px-3 py-2 text-right border-l border-gray-600 bg-green-900/10">Not Null</th>
+                        <th className="px-3 py-2 text-right bg-green-900/10">Distinct</th>
+                        <th className="px-3 py-2 text-center bg-green-900/10">Unique</th>
+                        <th className="px-3 py-2 text-left bg-green-900/10">Min</th>
+                        <th className="px-3 py-2 text-left bg-green-900/10">Max</th>
+                        <th className="px-3 py-2 text-right border-l border-gray-600">Not Null</th>
+                        <th className="px-3 py-2 text-right">Distinct</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700">
-                      {profile.columns?.map((col, idx) => (
-                        <tr key={col.column_name} className={`hover:bg-gray-750 transition-colors ${idx % 2 === 0 ? 'bg-gray-800' : 'bg-gray-800/50'}`}>
-                          <td className="px-6 py-3 font-medium text-blue-400">{col.column_name}</td>
+                      {comparison.columns?.map((col, idx) => (
+                        <tr key={col.column_name} className={`hover:bg-gray-750 transition-colors ${
+                          !col.in_env1 || !col.in_env2 ? 'bg-yellow-900/10' : idx % 2 === 0 ? 'bg-gray-800' : 'bg-gray-800/50'
+                        }`}>
+                          <td className="px-4 py-3 font-medium text-blue-400">
+                            <div className="flex items-center gap-2">
+                              {col.column_name}
+                              {(!col.in_env1 || !col.in_env2) && (
+                                <span className="text-xs bg-yellow-900/50 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-700">
+                                  {!col.in_env1 ? `Only in ${selectedEnv2}` : `Only in ${selectedEnv1}`}
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3 text-gray-400 font-mono text-xs">{col.data_type}</td>
-                          <td className="px-4 py-3 text-right">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              col.not_null_proportion >= 0.9 ? 'bg-green-900/30 text-green-400 border border-green-900' :
-                              col.not_null_proportion >= 0.7 ? 'bg-yellow-900/30 text-yellow-400 border border-yellow-900' :
-                              'bg-red-900/30 text-red-400 border border-red-900'
-                            }`}>
-                              {formatNumber(col.not_null_proportion)}
-                            </span>
+                          
+                          {/* Env1 values */}
+                          <td className="px-3 py-3 text-right border-l border-gray-700">
+                            {col.env1 ? formatPercent(col.env1.not_null_proportion) : '-'}
                           </td>
-                          <td className="px-4 py-3 text-right text-gray-300">{formatNumber(col.distinct_proportion)}</td>
-                          <td className="px-4 py-3 text-center">
-                            {col.is_unique ? 
-                              <span className="text-green-400 bg-green-900/30 p-1 rounded-full">✓</span> : 
+                          <td className="px-3 py-3 text-right">
+                            {col.env1 ? formatPercent(col.env1.distinct_proportion) : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {col.env1 ? (col.env1.is_unique ? 
+                              <span className="text-green-400">✓</span> : 
                               <span className="text-gray-600">-</span>
-                            }
+                            ) : '-'}
                           </td>
-                          <td className="px-4 py-3 text-gray-300 max-w-[120px] truncate font-mono text-xs" title={col.min}>{col.min || '-'}</td>
-                          <td className="px-4 py-3 text-gray-300 max-w-[120px] truncate font-mono text-xs" title={col.max}>{col.max || '-'}</td>
-                          <td className="px-4 py-3 text-right text-gray-300 font-mono">{formatNumber(col.avg)}</td>
-                          <td className="px-4 py-3 text-right text-gray-300 font-mono">{formatNumber(col.median)}</td>
+                          <td className="px-3 py-3 text-left text-gray-300 font-mono text-xs max-w-[100px] truncate" title={col.env1?.min}>
+                            {isMinMaxSupported(col.data_type) ? (col.env1?.min || '-') : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-left text-gray-300 font-mono text-xs max-w-[100px] truncate" title={col.env1?.max}>
+                            {isMinMaxSupported(col.data_type) ? (col.env1?.max || '-') : '-'}
+                          </td>
+                          
+                          {/* Env2 values */}
+                          <td className="px-3 py-3 text-right border-l border-gray-700">
+                            {col.env2 ? formatPercent(col.env2.not_null_proportion) : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-right">
+                            {col.env2 ? formatPercent(col.env2.distinct_proportion) : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-center">
+                            {col.env2 ? (col.env2.is_unique ? 
+                              <span className="text-green-400">✓</span> : 
+                              <span className="text-gray-600">-</span>
+                            ) : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-left text-gray-300 font-mono text-xs max-w-[100px] truncate" title={col.env2?.min}>
+                            {isMinMaxSupported(col.data_type) ? (col.env2?.min || '-') : '-'}
+                          </td>
+                          <td className="px-3 py-3 text-left text-gray-300 font-mono text-xs max-w-[100px] truncate" title={col.env2?.max}>
+                            {isMinMaxSupported(col.data_type) ? (col.env2?.max || '-') : '-'}
+                          </td>
+                          
+                          {/* Diff values */}
+                          <td className={`px-3 py-3 text-right font-mono text-xs border-l border-gray-700 ${getDiffColor(col.not_null_diff)}`}>
+                            {formatDiff(col.not_null_diff)}
+                          </td>
+                          <td className={`px-3 py-3 text-right font-mono text-xs ${getDiffColor(col.distinct_diff)}`}>
+                            {formatDiff(col.distinct_diff)}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -338,77 +536,96 @@ function App() {
                 </div>
               </div>
 
-              {/* Auto-Increment Overflow Risk Section */}
+              {/* Auto-Increment Overflow Monitoring */}
               {autoIncrement && autoIncrement.columns && autoIncrement.columns.length > 0 && (
-                <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm mt-6">
-                  <h3 className="text-lg font-semibold p-4 border-b border-gray-700 text-gray-200 bg-gray-800/50 flex items-center gap-2">
-                    <span className="w-1 h-5 bg-orange-500 rounded-full"></span>
-                    🔥 Auto-Increment Overflow Risk
+                <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <span className="text-2xl">⚠️</span>
+                    Auto-Increment Overflow Monitoring
                   </h3>
-                  <div className="p-4 space-y-4">
-                    {autoIncrement.columns.map(col => (
-                      <div key={col.column_name} className="bg-gray-750 rounded-lg p-4 border border-gray-700">
-                        <div className="flex justify-between items-center mb-3">
-                          <div className="flex items-center gap-3">
-                            <span className="font-mono text-blue-400 font-medium">{col.column_name}</span>
-                            <span className="text-xs bg-gray-700 text-gray-400 px-2 py-0.5 rounded">{col.data_type}</span>
-                          </div>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            col.alert_status === 'CRITICAL' ? 'bg-red-900/50 text-red-400 border border-red-700' :
-                            col.alert_status === 'WARNING' ? 'bg-yellow-900/50 text-yellow-400 border border-yellow-700' :
-                            'bg-green-900/50 text-green-400 border border-green-700'
-                          }`}>
-                            {col.alert_status === 'CRITICAL' ? '🔴' : col.alert_status === 'WARNING' ? '🟡' : '🟢'} {col.alert_status}
-                          </span>
-                        </div>
-                        
-                        {/* Progress Bar */}
-                        <div className="mb-3">
-                          <div className="flex justify-between text-xs text-gray-400 mb-1">
-                            <span>Usage</span>
-                            <span>{col.usage_percentage?.toFixed(6)}%</span>
-                          </div>
-                          <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
-                            <div 
-                              className={`h-full rounded-full transition-all ${
-                                col.usage_percentage >= 90 ? 'bg-gradient-to-r from-red-600 to-red-400' :
-                                col.usage_percentage >= 75 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' :
-                                'bg-gradient-to-r from-green-600 to-green-400'
-                              }`}
-                              style={{ width: `${Math.max(col.usage_percentage, 0.1)}%` }}
-                            ></div>
-                          </div>
-                        </div>
-                        
-                        {/* Stats Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                          <div className="bg-gray-800 rounded p-2">
-                            <div className="text-xs text-gray-500 mb-1">Current</div>
-                            <div className="font-mono text-white">{col.current_value?.toLocaleString()}</div>
-                          </div>
-                          <div className="bg-gray-800 rounded p-2">
-                            <div className="text-xs text-gray-500 mb-1">Max</div>
-                            <div className="font-mono text-white">{col.max_type_value?.toLocaleString()}</div>
-                          </div>
-                          <div className="bg-gray-800 rounded p-2">
-                            <div className="text-xs text-gray-500 mb-1">Days Until Full</div>
-                            <div className="font-mono text-white">
-                              {col.days_until_full !== null ? (
-                                col.days_until_full > 365000 ? '∞' : col.days_until_full.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                              ) : 'N/A'}
-                            </div>
-                          </div>
-                          <div className="bg-gray-800 rounded p-2">
-                            <div className="text-xs text-gray-500 mb-1">Daily Growth</div>
-                            <div className="font-mono text-white">
-                              {col.daily_growth_rate !== null ? 
-                                `~${col.daily_growth_rate.toLocaleString(undefined, { maximumFractionDigits: 0 })}/day` : 
-                                'N/A'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-700 text-left text-gray-400 text-sm">
+                          <th className="px-4 py-3 font-medium">Column</th>
+                          <th className="px-4 py-3 font-medium">Type</th>
+                          <th className="px-3 py-3 text-center border-l border-gray-700 font-medium" style={{color: ENV1_COLOR}}>{selectedEnv1?.toUpperCase()} Usage</th>
+                          <th className="px-3 py-3 text-center font-medium" style={{color: ENV1_COLOR}}>Days Until Full</th>
+                          <th className="px-3 py-3 text-center font-medium" style={{color: ENV1_COLOR}}>Status</th>
+                          <th className="px-3 py-3 text-center border-l border-gray-700 font-medium" style={{color: ENV2_COLOR}}>{selectedEnv2?.toUpperCase()} Usage</th>
+                          <th className="px-3 py-3 text-center font-medium" style={{color: ENV2_COLOR}}>Days Until Full</th>
+                          <th className="px-3 py-3 text-center font-medium" style={{color: ENV2_COLOR}}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {autoIncrement.columns.map((col, idx) => (
+                          <tr key={idx} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                            <td className="px-4 py-3 font-medium text-white">{col.column_name}</td>
+                            <td className="px-4 py-3 text-gray-400 font-mono text-xs">{col.data_type}</td>
+                            
+                            {/* Env1 values */}
+                            <td className="px-3 py-3 text-center border-l border-gray-700">
+                              {col.env1 ? (
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  col.env1.usage_percentage >= 90 ? 'bg-red-900/50 text-red-400' :
+                                  col.env1.usage_percentage >= 75 ? 'bg-yellow-900/50 text-yellow-400' :
+                                  'bg-green-900/50 text-green-400'
+                                }`}>
+                                  {col.env1.usage_percentage?.toFixed(6)}%
+                                </span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {col.env1?.days_until_full ? (
+                                <span className={`${
+                                  col.env1.days_until_full < 30 ? 'text-red-400' :
+                                  col.env1.days_until_full < 90 ? 'text-yellow-400' :
+                                  'text-green-400'
+                                }`}>
+                                  {Math.round(col.env1.days_until_full)} days
+                                </span>
+                              ) : <span className="text-gray-500">N/A</span>}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {col.env1?.alert_status === 'CRITICAL' && <span className="text-red-400">🔴 CRITICAL</span>}
+                              {col.env1?.alert_status === 'WARNING' && <span className="text-yellow-400">🟡 WARNING</span>}
+                              {col.env1?.alert_status === 'OK' && <span className="text-green-400">🟢 OK</span>}
+                              {!col.env1 && '-'}
+                            </td>
+                            
+                            {/* Env2 values */}
+                            <td className="px-3 py-3 text-center border-l border-gray-700">
+                              {col.env2 ? (
+                                <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                  col.env2.usage_percentage >= 90 ? 'bg-red-900/50 text-red-400' :
+                                  col.env2.usage_percentage >= 75 ? 'bg-yellow-900/50 text-yellow-400' :
+                                  'bg-green-900/50 text-green-400'
+                                }`}>
+                                  {col.env2.usage_percentage?.toFixed(6)}%
+                                </span>
+                              ) : '-'}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {col.env2?.days_until_full ? (
+                                <span className={`${
+                                  col.env2.days_until_full < 30 ? 'text-red-400' :
+                                  col.env2.days_until_full < 90 ? 'text-yellow-400' :
+                                  'text-green-400'
+                                }`}>
+                                  {Math.round(col.env2.days_until_full)} days
+                                </span>
+                              ) : <span className="text-gray-500">N/A</span>}
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              {col.env2?.alert_status === 'CRITICAL' && <span className="text-red-400">🔴 CRITICAL</span>}
+                              {col.env2?.alert_status === 'WARNING' && <span className="text-yellow-400">🟡 WARNING</span>}
+                              {col.env2?.alert_status === 'OK' && <span className="text-green-400">🟢 OK</span>}
+                              {!col.env2 && '-'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -416,7 +633,7 @@ function App() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <div className="text-6xl mb-4">📊</div>
-              <p className="text-xl font-medium">Select a table to view profile</p>
+              <p className="text-xl font-medium">Select a table to compare profiles</p>
               <p className="text-sm mt-2 opacity-75">Choose from the sidebar</p>
             </div>
           )}

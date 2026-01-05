@@ -1,0 +1,17 @@
+INSERT INTO data_profiles (application, environment, database_host, database_name, schema_name, table_name, column_name, data_type, row_count, not_null_proportion, distinct_proportion, distinct_count, is_unique, min, max, avg, median, std_dev_population, std_dev_sample) VALUES
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'users', 'id', 'integer', 10000, 1.0, 1.0, 10000, 1, '1', '10000', 5000.5, 5000.0, 2886.75, 2886.9),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'users', 'username', 'varchar', 10000, 0.98, 0.95, 9500, 0, NULL, NULL, NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'users', 'email', 'varchar', 10000, 0.95, 0.92, 9200, 0, NULL, NULL, NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'users', 'age', 'integer', 10000, 0.88, 0.07, 70, 0, '18', '85', 35.5, 34.0, 12.5, 12.6),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'users', 'created_at', 'timestamp', 10000, 1.0, 0.85, 8500, 0, '2024-01-01 00:00:00', '2024-12-31 23:59:59', NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'users', 'status', 'varchar', 10000, 0.92, 0.0003, 3, 0, NULL, NULL, NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'orders', 'order_id', 'integer', 50000, 1.0, 1.0, 50000, 1, '1', '50000', 25000.5, 25000.0, 14433.76, 14433.9),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'orders', 'user_id', 'integer', 50000, 1.0, 0.18, 9000, 0, '1', '10000', 5000.0, 5000.0, 2886.75, 2886.9),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'orders', 'amount', 'decimal', 50000, 0.99, 0.45, 22500, 0, '9.99', '9999.99', 250.75, 150.0, 350.5, 350.6),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'orders', 'status', 'varchar', 50000, 1.0, 0.0001, 5, 0, NULL, NULL, NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'orders', 'created_at', 'timestamp', 50000, 1.0, 0.92, 46000, 0, '2024-01-01 00:00:00', '2024-12-31 23:59:59', NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'products', 'product_id', 'integer', 5000, 1.0, 1.0, 5000, 1, '1', '5000', 2500.5, 2500.0, 1443.38, 1443.5),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'products', 'name', 'varchar', 5000, 1.0, 0.98, 4900, 0, NULL, NULL, NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'products', 'price', 'decimal', 5000, 0.95, 0.35, 1750, 0, '0.99', '9999.99', 299.99, 149.99, 450.25, 450.3),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'products', 'category', 'varchar', 5000, 0.92, 0.005, 25, 0, NULL, NULL, NULL, NULL, NULL, NULL),
+('dataprofiler', 'uat', 'postgres-uat', 'testdb', 'public', 'products', 'stock', 'integer', 5000, 0.88, 0.08, 400, 0, '0', '9999', 250.0, 100.0, 500.5, 500.6);

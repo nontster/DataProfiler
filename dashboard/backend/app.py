@@ -188,6 +188,145 @@ def get_profiles(table_name):
     })
 
 
+@app.route('/api/profiles/compare/<table_name>', methods=['GET'])
+def compare_profiles(table_name):
+    """Compare profiles between two environments."""
+    application = request.args.get('app', 'default')
+    env1 = request.args.get('env1')
+    env2 = request.args.get('env2')
+    
+    if not env1 or not env2:
+        return jsonify({'error': 'Both env1 and env2 are required'}), 400
+    
+    client = get_client()
+    
+    def get_latest_profile(env):
+        """Get the latest profile for an environment."""
+        # Get the latest scan_time for this table/app/env
+        latest_query = f"""
+            SELECT max(scan_time) 
+            FROM data_profiles 
+            WHERE table_name = '{table_name}' 
+              AND application = '{application}'
+              AND environment = '{env}'
+        """
+        latest_result = client.query(latest_query)
+        latest_time = latest_result.result_rows[0][0] if latest_result.result_rows else None
+        
+        if not latest_time:
+            return None
+        
+        # Get all columns for the latest scan
+        query = f"""
+            SELECT 
+                column_name,
+                data_type,
+                row_count,
+                not_null_proportion,
+                distinct_proportion,
+                distinct_count,
+                is_unique,
+                min,
+                max,
+                avg,
+                median,
+                std_dev_population,
+                std_dev_sample,
+                scan_time
+            FROM data_profiles
+            WHERE table_name = '{table_name}' 
+              AND scan_time = '{latest_time}'
+              AND application = '{application}'
+              AND environment = '{env}'
+            ORDER BY column_name
+        """
+        
+        result = client.query(query)
+        
+        columns = {}
+        row_count = 0
+        scan_time = None
+        for row in result.result_rows:
+            columns[row[0]] = {
+                'column_name': row[0],
+                'data_type': row[1],
+                'row_count': row[2],
+                'not_null_proportion': row[3],
+                'distinct_proportion': row[4],
+                'distinct_count': row[5],
+                'is_unique': bool(row[6]),
+                'min': row[7],
+                'max': row[8],
+                'avg': row[9],
+                'median': row[10],
+                'std_dev_population': row[11],
+                'std_dev_sample': row[12],
+                'scan_time': row[13].isoformat() if row[13] else None
+            }
+            row_count = row[2]
+            scan_time = row[13].isoformat() if row[13] else None
+        
+        return {
+            'columns': columns,
+            'row_count': row_count,
+            'scan_time': scan_time
+        }
+    
+    profile1 = get_latest_profile(env1)
+    profile2 = get_latest_profile(env2)
+    
+    # Get all unique column names from both profiles
+    all_columns = set()
+    if profile1:
+        all_columns.update(profile1['columns'].keys())
+    if profile2:
+        all_columns.update(profile2['columns'].keys())
+    
+    # Build comparison data
+    comparison = []
+    for col_name in sorted(all_columns):
+        col1 = profile1['columns'].get(col_name) if profile1 else None
+        col2 = profile2['columns'].get(col_name) if profile2 else None
+        
+        # Calculate differences
+        not_null_diff = None
+        distinct_diff = None
+        if col1 and col2:
+            if col1['not_null_proportion'] is not None and col2['not_null_proportion'] is not None:
+                not_null_diff = col2['not_null_proportion'] - col1['not_null_proportion']
+            if col1['distinct_proportion'] is not None and col2['distinct_proportion'] is not None:
+                distinct_diff = col2['distinct_proportion'] - col1['distinct_proportion']
+        
+        comparison.append({
+            'column_name': col_name,
+            'data_type': col1['data_type'] if col1 else (col2['data_type'] if col2 else None),
+            'env1': col1,
+            'env2': col2,
+            'not_null_diff': not_null_diff,
+            'distinct_diff': distinct_diff,
+            'in_env1': col1 is not None,
+            'in_env2': col2 is not None
+        })
+    
+    return jsonify({
+        'table_name': table_name,
+        'application': application,
+        'env1': {
+            'name': env1,
+            'row_count': profile1['row_count'] if profile1 else None,
+            'scan_time': profile1['scan_time'] if profile1 else None,
+            'exists': profile1 is not None
+        },
+        'env2': {
+            'name': env2,
+            'row_count': profile2['row_count'] if profile2 else None,
+            'scan_time': profile2['scan_time'] if profile2 else None,
+            'exists': profile2 is not None
+        },
+        'columns': comparison
+    })
+
+
 @app.route('/api/autoincrement/<table_name>', methods=['GET'])
 def get_autoincrement(table_name):
     """Get auto-increment overflow risk data for a specific table."""
@@ -249,6 +388,87 @@ def get_autoincrement(table_name):
             'environment': environment,
             'columns': []
         })
+
+
+@app.route('/api/autoincrement/compare/<table_name>', methods=['GET'])
+def compare_autoincrement(table_name):
+    """Compare auto-increment overflow risk between two environments."""
+    application = request.args.get('app', 'default')
+    env1 = request.args.get('env1')
+    env2 = request.args.get('env2')
+    
+    if not env1 or not env2:
+        return jsonify({'error': 'Both env1 and env2 are required'}), 400
+    
+    client = get_client()
+    
+    def get_autoincrement_data(env):
+        query = f"""
+            SELECT 
+                column_name,
+                data_type,
+                current_value,
+                max_type_value,
+                usage_percentage,
+                remaining_values,
+                days_until_full,
+                daily_growth_rate,
+                alert_status,
+                scan_time
+            FROM auto_increment_metrics
+            WHERE table_name = '{table_name}'
+              AND application = '{application}'
+              AND environment = '{env}'
+            ORDER BY scan_time DESC
+            LIMIT 1 BY column_name
+        """
+        try:
+            result = client.query(query)
+            data = {}
+            for row in result.result_rows:
+                data[row[0]] = {
+                    'column_name': row[0],
+                    'data_type': row[1],
+                    'current_value': row[2],
+                    'max_type_value': row[3],
+                    'usage_percentage': row[4],
+                    'remaining_values': row[5],
+                    'days_until_full': row[6],
+                    'daily_growth_rate': row[7],
+                    'alert_status': row[8],
+                    'scan_time': row[9].isoformat() if row[9] else None
+                }
+            return data
+        except Exception:
+            return {}
+    
+    data1 = get_autoincrement_data(env1)
+    data2 = get_autoincrement_data(env2)
+    
+    # Merge columns from both environments
+    all_columns = set(data1.keys()) | set(data2.keys())
+    
+    comparison = []
+    for col_name in sorted(all_columns):
+        col1 = data1.get(col_name)
+        col2 = data2.get(col_name)
+        
+        comparison.append({
+            'column_name': col_name,
+            'data_type': col1['data_type'] if col1 else (col2['data_type'] if col2 else None),
+            'env1': col1,
+            'env2': col2,
+            'in_env1': col1 is not None,
+            'in_env2': col2 is not None
+        })
+    
+    return jsonify({
+        'table_name': table_name,
+        'application': application,
+        'env1': env1,
+        'env2': env2,
+        'columns': comparison
+    })
 
 
 @app.route('/api/health', methods=['GET'])

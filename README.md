@@ -361,6 +361,29 @@ npm run dev
 | Styling   | TailwindCSS        |
 | Charts    | Recharts           |
 
+### Environment Comparison Dashboard
+
+The dashboard supports **dual-environment comparison** to compare data profiles between environments (e.g., UAT vs Production).
+
+![Environment Comparison](docs/images/env_comparison.png)
+
+#### Features
+
+- **Dual Environment Selectors**: Select two environments to compare side-by-side
+- **Summary Panel**: Shows row counts and profiling timestamps for both environments
+- **Comparison Charts**: Side-by-side bar charts for Not Null Proportion and Distinct Proportion
+- **Difference Highlighting**: Color-coded differences (green = improvement, red = degradation)
+- **Min/Max Filtering**: Shows min/max values only for numeric and date/time columns (matches backend logic)
+- **Auto-Increment Comparison**: Compare overflow risk metrics between environments
+
+#### API Endpoints
+
+| Endpoint                                                                   | Description                                  |
+| -------------------------------------------------------------------------- | -------------------------------------------- |
+| `GET /api/metadata`                                                        | List all applications and their environments |
+| `GET /api/profiles/compare/<table>?app=<app>&env1=<env1>&env2=<env2>`      | Compare profiles between two environments    |
+| `GET /api/autoincrement/compare/<table>?app=<app>&env1=<env1>&env2=<env2>` | Compare auto-increment metrics               |
+
 ## 📈 Grafana Dashboard (Alternative)
 
 This project includes a **Grafana** instance connected to ClickHouse for advanced visualization.
@@ -373,6 +396,15 @@ This project includes a **Grafana** instance connected to ClickHouse for advance
 - **Customizable**: Create complex dashboards with SQL queries.
 - **Alerting**: Native Grafana alerting support.
 - **User Management**: Role-based access control.
+
+### Pre-Provisioned Dashboards
+
+Two dashboards are automatically provisioned:
+
+| Dashboard                            | Description                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| **Main Dashboard**                   | Single environment view with data profiles, column details, and auto-increment monitoring |
+| **Environment Comparison Dashboard** | Compare profiles between two environments side-by-side with difference highlighting       |
 
 ### Setup
 
@@ -390,27 +422,10 @@ The Grafana service is included in `docker-compose.yml` and pre-configured with 
    - User: `admin`
    - Password: `admin`
 
-3. Create Dashboard:
-   - DataSource: **ClickHouse** (pre-configured)
-   - Example Query (Data Profiles):
-     ```sql
-     SELECT table_name, max(row_count) as rows
-     FROM data_profiles
-     WHERE application = 'order-service'
-     GROUP BY table_name
-     ```
-   - Example Query (Auto-Increment Monitoring):
-     ```sql
-     SELECT
-       table_name,
-       column_name,
-       usage_percentage,
-       days_until_full,
-       alert_status
-     FROM autoincrement_profiles
-     ORDER BY profiled_at DESC
-     LIMIT 100
-     ```
+3. Select a Dashboard:
+   - Go to **Dashboards** menu
+   - Choose **Main Dashboard** or **Environment Comparison Dashboard**
+   - Select Application, Environment(s), and Table from dropdowns
 
 ## 📝 License
 
