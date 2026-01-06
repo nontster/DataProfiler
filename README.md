@@ -321,15 +321,72 @@ docker-compose up -d --build
 
 ### Sample Data & Testing
 
-Docker automatically creates sample data in PostgreSQL with **100+ records** for both `users` and `products` tables. You can run the profiler from your host machine (if Python is installed) or use `docker exec`:
+Docker automatically creates sample data in PostgreSQL with **100+ records** for both `users` and `products` tables.
+
+#### 1. Generate Additional Sample Data
+
+To add more test data for auto-increment growth rate calculation:
+
+```bash
+# Add 100 new users to PostgreSQL
+docker exec dataprofiler-postgres psql -U postgres -d postgres -c "
+INSERT INTO users (username, email, age, salary, is_active)
+SELECT
+  'newuser_' || generate_series,
+  'newuser' || generate_series || '@test.com',
+  (random()*60+18)::int,
+  (random()*150000+30000)::numeric(10,2),
+  random() > 0.2
+FROM generate_series(1, 100);
+"
+
+# Add 50 new products
+docker exec dataprofiler-postgres psql -U postgres -d postgres -c "
+INSERT INTO products (name, description, price, stock_quantity, is_available)
+SELECT
+  'Product_' || generate_series,
+  'Description for product ' || generate_series,
+  (random()*1000+10)::numeric(10,2),
+  (random()*500)::int,
+  random() > 0.1
+FROM generate_series(1, 50);
+"
+```
+
+#### 2. Run Data Profiler
+
+Profile tables with application and environment context:
+
+```bash
+# Activate virtual environment
+source venv/bin/activate
+
+# Profile 'users' table for UAT environment
+python main.py users --app order-service --env uat
+
+# Profile 'users' table for Production environment
+python main.py users --app order-service --env production
+
+# Profile with auto-increment overflow analysis
+python main.py users --app order-service --env production --auto-increment
+
+# Profile 'products' table with all options
+python main.py products --app order-service --env production --auto-increment
+```
+
+#### 3. Using Docker (Alternative)
 
 ```bash
 # Run profiler inside backend container
-docker-compose exec backend python ../main.py users --app order-service --env production
-
-# Run with auto-increment analysis
-docker-compose exec backend python ../main.py users --auto-increment
+docker-compose exec backend python ../main.py users --app order-service --env production --auto-increment
 ```
+
+#### 4. View Results
+
+- **React Dashboard**: http://localhost:8080
+- **Grafana Dashboard**: http://localhost:3000
+
+> **Tip**: Run the profiler multiple times after inserting new data to enable `Days Until Full` calculation for auto-increment columns.
 
 ### Stop Services
 
