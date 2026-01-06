@@ -432,7 +432,7 @@ The Grafana service is included in `docker-compose.yml` and pre-configured with 
 This project is licensed under the [Apache License 2.0](LICENSE).
 
 ```
-Copyright 2024-2026 KASIKORN Business-Technology Group (KBTG)
+Copyright 2024-2026 DataProfiler Contributors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
