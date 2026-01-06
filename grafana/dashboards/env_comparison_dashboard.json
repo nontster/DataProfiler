@@ -209,11 +209,11 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
+          "calcs": ["first"],
+          "fields": "/^profiled_at$/",
+          "values": true
         },
-        "textMode": "auto",
+        "textMode": "value",
         "wideLayout": true
       },
       "pluginVersion": "10.0.0",
@@ -224,7 +224,7 @@
             "uid": "dataprofiler-clickhouse"
           },
           "queryType": "sql",
-          "rawSql": "SELECT max(scan_time) FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT formatDateTime(max(scan_time), '%Y-%m-%d %H:%i:%s') as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -267,11 +267,11 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
+          "calcs": ["first"],
+          "fields": "/^profiled_at$/",
+          "values": true
         },
-        "textMode": "auto",
+        "textMode": "value",
         "wideLayout": true
       },
       "pluginVersion": "10.0.0",
@@ -282,7 +282,7 @@
             "uid": "dataprofiler-clickhouse"
           },
           "queryType": "sql",
-          "rawSql": "SELECT max(scan_time) FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT formatDateTime(max(scan_time), '%Y-%m-%d %H:%i:%s') as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],

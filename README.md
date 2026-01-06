@@ -4,7 +4,7 @@
 
 Automated **Data Profiling** tool for PostgreSQL with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics, storing results in ClickHouse.
 
-![Dashboard Screenshot](docs/images/dashboard.png)
+![Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
 
 ## 🎯 Overview
 
@@ -365,7 +365,7 @@ npm run dev
 
 The dashboard supports **dual-environment comparison** to compare data profiles between environments (e.g., UAT vs Production).
 
-![Environment Comparison](docs/images/env_comparison.png)
+![Environment Comparison](docs/images/react_environment_comparison_dashboard.png)
 
 #### Features
 
@@ -388,7 +388,7 @@ The dashboard supports **dual-environment comparison** to compare data profiles 
 
 This project includes a **Grafana** instance connected to ClickHouse for advanced visualization.
 
-![Grafana Dashboard](docs/images/grafana_dashboard.png)
+![Grafana Dashboard](docs/images/grafana_data_profiler_dashboard.png)
 
 ### Features
 
@@ -405,6 +405,8 @@ Two dashboards are automatically provisioned:
 | ------------------------------------ | ----------------------------------------------------------------------------------------- |
 | **Main Dashboard**                   | Single environment view with data profiles, column details, and auto-increment monitoring |
 | **Environment Comparison Dashboard** | Compare profiles between two environments side-by-side with difference highlighting       |
+
+![Grafana Environment Comparison](docs/images/grafana_environment_comparison_dashboard.png)
 
 ### Setup
 

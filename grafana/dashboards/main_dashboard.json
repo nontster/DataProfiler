@@ -47,7 +47,7 @@
       },
       "gridPos": {
         "h": 4,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 0
       },
@@ -80,6 +80,64 @@
         }
       ],
       "title": "Row Count",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "dataprofiler-clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 100,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["first"],
+          "fields": "/^profiled_at$/",
+          "values": true
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "dataprofiler-clickhouse"
+          },
+          "queryType": "sql",
+          "rawSql": "SELECT formatDateTime(max(scan_time), '%Y-%m-%d %H:%i:%s') as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${environment:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "Profiled At",
       "type": "stat"
     },
     {
