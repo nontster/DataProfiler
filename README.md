@@ -242,41 +242,67 @@ python main.py --help
 
 ```
 DataProfiler/
-├── .env.example           # Environment variables template
-├── .env                   # Environment variables (git ignored)
-├── .gitignore             # Git ignore rules
-├── configuration.yml      # Soda Core data source configuration
-├── docker-compose.yml     # Docker test environment
-├── main.py                # Main entry point
-├── init-scripts/          # PostgreSQL init scripts
-│   └── 01-sample-data.sql
-├── pytest.ini             # Pytest configuration
-├── README.md              # Documentation (English)
-├── README.th.md           # Documentation (Thai)
-├── requirements.txt       # Python dependencies
-├── src/                   # Source code modules
+├── .env.example              # Environment variables template
+├── .env                      # Environment variables (git ignored)
+├── .gitignore                # Git ignore rules
+├── LICENSE                   # Apache 2.0 License
+├── configuration.yml         # Soda Core data source configuration
+├── docker-compose.yml        # Docker full stack environment
+├── main.py                   # Main entry point
+├── pytest.ini                # Pytest configuration
+├── README.md                 # Documentation (English)
+├── README.th.md              # Documentation (Thai)
+├── requirements.txt          # Python dependencies
+│
+├── dashboard/                # Web Dashboard
+│   ├── backend/              # Flask API server
+│   │   ├── app.py            # API endpoints
+│   │   └── requirements.txt  # Backend dependencies
+│   └── frontend/             # React + Vite frontend
+│       ├── src/
+│       │   └── App.jsx       # Main React component
+│       ├── package.json
+│       └── nginx.conf        # Production nginx config
+│
+├── docs/                     # Documentation assets
+│   └── images/               # Dashboard screenshots
+│
+├── grafana/                  # Grafana dashboards & config
+│   ├── dashboards/
+│   │   ├── main_dashboard.json               # Single environment view
+│   │   └── env_comparison_dashboard.json     # Environment comparison
+│   └── provisioning/
+│       ├── dashboards/dashboard.yml
+│       └── datasources/datasource.yml
+│
+├── init-scripts/             # PostgreSQL & ClickHouse init scripts
+│   └── 01-sample-data.sql    # Sample data for testing
+│
+├── src/                      # Source code modules
 │   ├── __init__.py
-│   ├── config.py          # Configuration management
-│   ├── exceptions.py      # Custom exceptions
-│   ├── core/              # Core profiling logic
+│   ├── config.py             # Configuration management
+│   ├── exceptions.py         # Custom exceptions
+│   ├── core/                 # Core profiling logic
 │   │   ├── __init__.py
 │   │   ├── autoincrement_metrics.py  # Auto-increment analysis
-│   │   ├── formatters.py  # Output formatters (MD, JSON, CSV)
-│   │   ├── metrics.py     # dbt-profiler style metrics
-│   │   └── profiler.py    # Legacy Soda Core profiler
-│   └── db/                # Database connections
+│   │   ├── formatters.py     # Output formatters (MD, JSON, CSV)
+│   │   ├── metrics.py        # dbt-profiler style metrics
+│   │   └── profiler.py       # Legacy Soda Core profiler
+│   └── db/                   # Database connections
 │       ├── __init__.py
 │       ├── autoincrement.py  # Auto-increment detector
-│       ├── clickhouse.py
-│       └── postgres.py
-├── tests/                 # Unit tests
+│       ├── clickhouse.py     # ClickHouse client
+│       └── postgres.py       # PostgreSQL client
+│
+├── tests/                    # Unit tests
 │   ├── __init__.py
 │   ├── test_autoincrement.py
 │   ├── test_config.py
 │   ├── test_connections.py
 │   ├── test_metadata.py
 │   └── test_profiler.py
-└── venv/                  # Python virtual environment (git ignored)
+│
+└── venv/                     # Python virtual environment (git ignored)
 ```
 
 ## 🧪 Testing
