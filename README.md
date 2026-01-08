@@ -2,7 +2,7 @@
 
 # DataProfiler
 
-Automated **Data Profiling** tool for PostgreSQL with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics, storing results in ClickHouse.
+Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server** with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics, storing results in ClickHouse.
 
 ![Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
 
@@ -10,12 +10,13 @@ Automated **Data Profiling** tool for PostgreSQL with [dbt-profiler](https://git
 
 DataProfiler provides:
 
-1. **Automatic Schema Discovery** from PostgreSQL (information_schema)
-2. **dbt-profiler Style Metrics** calculation via SQL queries
-3. **Result Storage** in ClickHouse for analysis and tracking
-4. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
-5. **Web Dashboard** for data visualization (React + TailwindCSS)
-6. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
+1. **Multi-Database Support**: PostgreSQL and Microsoft SQL Server (Azure SQL Edge)
+2. **Automatic Schema Discovery** from source databases (information_schema)
+3. **dbt-profiler Style Metrics** calculation via SQL queries
+4. **Result Storage** in ClickHouse for analysis and tracking
+5. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
+6. **Web Dashboard** for data visualization (React + TailwindCSS)
+7. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
 
 ## 📊 Profiled Metrics
 
@@ -62,13 +63,25 @@ DataProfiler includes **Auto-Increment Column Overflow Risk Analysis** to predic
 | `serial`    | 2,147,483,647             | 1 to 2.1B                           |
 | `bigserial` | 9,223,372,036,854,775,807 | 1 to 9.2 quintillion                |
 
-> **Note**: Compatible with all PostgreSQL versions (10+). Sequence values are queried directly from the sequence object for maximum reliability.
+#### MSSQL Data Types
+
+| Data Type  | Max Value                 | Range                               |
+| ---------- | ------------------------- | ----------------------------------- |
+| `tinyint`  | 255                       | 0 to 255                            |
+| `smallint` | 32,767                    | -32,768 to 32,767                   |
+| `int`      | 2,147,483,647             | -2.1B to 2.1B                       |
+| `bigint`   | 9,223,372,036,854,775,807 | -9.2 quintillion to 9.2 quintillion |
+
+> **Note**: Supports both PostgreSQL SERIAL/BIGSERIAL/IDENTITY columns and MSSQL IDENTITY columns.
 
 ### Usage
 
 ```bash
-# Include auto-increment analysis
+# PostgreSQL (default)
 python main.py users --auto-increment
+
+# MSSQL
+python main.py test_users -d mssql --auto-increment
 
 # With custom lookback period (default: 7 days)
 python main.py users --auto-increment --lookback-days 14
@@ -95,12 +108,14 @@ AUTO-INCREMENT OVERFLOW RISK ANALYSIS
 ## 🛠️ Requirements
 
 - Python 3.10+
-- PostgreSQL
+- PostgreSQL and/or Microsoft SQL Server (Azure SQL Edge for ARM64/M1)
 - ClickHouse
 - Dependencies:
   - `psycopg2` - PostgreSQL adapter
+  - `pymssql` - MSSQL adapter
   - `clickhouse-connect` - ClickHouse client
   - `soda-core-postgres` - Soda Core for PostgreSQL
+  - `soda-core-sqlserver` - Soda Core for SQL Server
   - `jinja2` - Template engine
   - `python-dotenv` - Environment variable management
   - `numpy` - Numerical computing
@@ -177,6 +192,15 @@ data_source my_postgres:
   password: ${POSTGRES_PASSWORD}
   database: ${POSTGRES_DATABASE}
   schema: ${POSTGRES_SCHEMA}
+
+data_source my_mssql:
+  type: sqlserver
+  host: ${MSSQL_HOST}
+  port: ${MSSQL_PORT}
+  username: ${MSSQL_USER}
+  password: ${MSSQL_PASSWORD}
+  database: ${MSSQL_DATABASE}
+  schema: ${MSSQL_SCHEMA}
 ```
 
 ## 🚀 Usage
@@ -184,8 +208,11 @@ data_source my_postgres:
 ### Basic Usage
 
 ```bash
-# Profile 'users' table (default app/env)
+# Profile 'users' table from PostgreSQL (default)
 python main.py users
+
+# Profile from MSSQL
+python main.py test_users -d mssql
 
 # Profile with Application & Environment context
 python main.py users --app order-service --env uat
@@ -228,8 +255,13 @@ python main.py users --no-store
 # Verbose logging
 python main.py users -v
 
+# Select database type
+python main.py test_users -d mssql           # Use MSSQL
+python main.py users -d postgresql            # Use PostgreSQL (default)
+
 # Include auto-increment overflow analysis
 python main.py users --auto-increment
+python main.py test_users -d mssql --auto-increment
 
 # Custom lookback period for growth calculation
 python main.py users --auto-increment --lookback-days 14
@@ -290,8 +322,10 @@ DataProfiler/
 │   │   └── profiler.py       # Legacy Soda Core profiler
 │   └── db/                   # Database connections
 │       ├── __init__.py
-│       ├── autoincrement.py  # Auto-increment detector
+│       ├── autoincrement.py  # Auto-increment detector (PostgreSQL & MSSQL)
 │       ├── clickhouse.py     # ClickHouse client
+│       ├── connection_factory.py  # Multi-database factory
+│       ├── mssql.py          # MSSQL client
 │       └── postgres.py       # PostgreSQL client
 │
 ├── tests/                    # Unit tests
@@ -339,11 +373,31 @@ docker-compose up -d --build
 | **Backend**    | Internal (5001)       | API Service (Flask)                  |
 | **ClickHouse** | localhost:8123        | HTTP Interface                       |
 | **PostgreSQL** | localhost:5432        | Source Database                      |
+| **MSSQL**      | localhost:1433        | Source Database (Azure SQL Edge)     |
 
 ### Credentials
 
 - **Grafana**: User: `admin`, Pass: `admin` (or set via `GRAFANA_ADMIN_PASSWORD` in .env)
-- **Databases**: User: `default`/`postgres`, Pass: `password123`
+- **PostgreSQL**: User: `postgres`, Pass: `password123`
+- **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
+- **ClickHouse**: User: `default`, Pass: `password123`
+
+### Starting MSSQL (Azure SQL Edge)
+
+MSSQL uses Azure SQL Edge for ARM64/M1 compatibility:
+
+```bash
+# Start MSSQL container
+docker compose up -d mssql
+
+# Wait ~30 seconds for startup, then initialize database
+python init-scripts/init-mssql.py
+
+# Test profiler
+python main.py test_users -d mssql --no-store
+```
+
+> **Note**: Azure SQL Edge doesn't run init scripts automatically like PostgreSQL. Use the Python script to create test databases.
 
 ### Sample Data & Testing
 

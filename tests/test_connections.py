@@ -77,5 +77,51 @@ class TestClickHouseConnection(unittest.TestCase):
         self.assertIn("ClickHouse connection failed", str(context.exception))
 
 
+class TestMSSQLConnection(unittest.TestCase):
+    """Test cases for MSSQL connection."""
+
+    @patch('src.db.mssql.pymssql.connect')
+    def test_successful_connection(self, mock_connect):
+        """Test successful MSSQL connection."""
+        from src.db.mssql import get_mssql_connection
+        
+        mock_conn = MagicMock()
+        mock_connect.return_value = mock_conn
+        
+        conn = get_mssql_connection()
+        
+        self.assertEqual(conn, mock_conn)
+        mock_connect.assert_called_once()
+
+    @patch('src.db.mssql.pymssql.connect')
+    def test_connection_failure_raises_exception(self, mock_connect):
+        """Test that connection failure raises DatabaseConnectionError."""
+        from src.db.mssql import get_mssql_connection
+        import pymssql
+        
+        mock_connect.side_effect = pymssql.Error("Connection refused")
+        
+        with self.assertRaises(DatabaseConnectionError) as context:
+            get_mssql_connection()
+        
+        self.assertIn("MSSQL connection failed", str(context.exception))
+
+    @patch('src.db.mssql.pymssql.connect')
+    def test_connection_uses_config_values(self, mock_connect):
+        """Test that connection uses Config values."""
+        from src.db.mssql import get_mssql_connection
+        
+        mock_connect.return_value = MagicMock()
+        
+        get_mssql_connection()
+        
+        call_kwargs = mock_connect.call_args[1]
+        self.assertIn('server', call_kwargs)
+        self.assertIn('port', call_kwargs)
+        self.assertIn('database', call_kwargs)
+        self.assertIn('user', call_kwargs)
+        self.assertIn('password', call_kwargs)
+
+
 if __name__ == '__main__':
     unittest.main()

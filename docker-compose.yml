@@ -48,6 +48,27 @@ services:
       retries: 5
     restart: unless-stopped
 
+  # Microsoft SQL Server (Azure SQL Edge for ARM64/M1 compatibility)
+  mssql:
+    image: mcr.microsoft.com/azure-sql-edge:latest
+    container_name: dataprofiler-mssql
+    networks:
+      - dataprofiler-net
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_PASSWORD:-YourStrong@Password123}
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    volumes:
+      - mssql_data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'SELECT 1' | /opt/mssql/bin/sqlservr --help > /dev/null 2>&1 || exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
   # Grafana Dashboard
   grafana:
     image: grafana/grafana:latest
@@ -119,3 +140,6 @@ volumes:
     driver: local
   grafana_data:
     driver: local
+  mssql_data:
+    driver: local
+

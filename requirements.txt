@@ -1,6 +1,8 @@
 psycopg2-binary>=2.9.0
 clickhouse-connect>=0.7.0
 soda-core-postgres>=3.0.0
+soda-core-sqlserver>=3.0.0
+pymssql>=2.2.0
 jinja2>=3.0.0
 python-dotenv>=1.0.0
 setuptools>=80.9.0

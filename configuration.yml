@@ -7,3 +7,13 @@ data_source my_postgres:
   password: ${POSTGRES_PASSWORD}
   database: ${POSTGRES_DATABASE}
   schema: ${POSTGRES_SCHEMA}
+
+data_source my_mssql:
+  type: sqlserver
+  host: ${MSSQL_HOST}
+  port: ${MSSQL_PORT}
+  username: ${MSSQL_USER}
+  password: ${MSSQL_PASSWORD}
+  database: ${MSSQL_DATABASE}
+  schema: ${MSSQL_SCHEMA}
+

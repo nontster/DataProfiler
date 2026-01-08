@@ -32,17 +32,29 @@ MOCK_AUTOINCREMENT_INFO = [
 class TestTypeMaxValues:
     """Test data type maximum value constants."""
     
-    def test_smallint_max(self):
-        from src.db.autoincrement import TYPE_MAX_VALUES
-        assert TYPE_MAX_VALUES['smallint'] == 32767
+    def test_postgres_smallint_max(self):
+        from src.db.autoincrement import POSTGRES_TYPE_MAX_VALUES
+        assert POSTGRES_TYPE_MAX_VALUES['smallint'] == 32767
     
-    def test_integer_max(self):
-        from src.db.autoincrement import TYPE_MAX_VALUES
-        assert TYPE_MAX_VALUES['integer'] == 2147483647
+    def test_postgres_integer_max(self):
+        from src.db.autoincrement import POSTGRES_TYPE_MAX_VALUES
+        assert POSTGRES_TYPE_MAX_VALUES['integer'] == 2147483647
     
-    def test_bigint_max(self):
-        from src.db.autoincrement import TYPE_MAX_VALUES
-        assert TYPE_MAX_VALUES['bigint'] == 9223372036854775807
+    def test_postgres_bigint_max(self):
+        from src.db.autoincrement import POSTGRES_TYPE_MAX_VALUES
+        assert POSTGRES_TYPE_MAX_VALUES['bigint'] == 9223372036854775807
+    
+    def test_mssql_tinyint_max(self):
+        from src.db.autoincrement import MSSQL_TYPE_MAX_VALUES
+        assert MSSQL_TYPE_MAX_VALUES['tinyint'] == 255
+    
+    def test_mssql_int_max(self):
+        from src.db.autoincrement import MSSQL_TYPE_MAX_VALUES
+        assert MSSQL_TYPE_MAX_VALUES['int'] == 2147483647
+    
+    def test_mssql_bigint_max(self):
+        from src.db.autoincrement import MSSQL_TYPE_MAX_VALUES
+        assert MSSQL_TYPE_MAX_VALUES['bigint'] == 9223372036854775807
 
 
 class TestAutoIncrementDetector:
@@ -58,10 +70,20 @@ class TestAutoIncrementDetector:
         detector = get_autoincrement_detector('postgres')
         assert isinstance(detector, PostgreSQLAutoIncrementDetector)
     
+    def test_get_autoincrement_detector_mssql(self):
+        from src.db.autoincrement import get_autoincrement_detector, MSSQLAutoIncrementDetector
+        detector = get_autoincrement_detector('mssql')
+        assert isinstance(detector, MSSQLAutoIncrementDetector)
+    
+    def test_get_autoincrement_detector_sqlserver_alias(self):
+        from src.db.autoincrement import get_autoincrement_detector, MSSQLAutoIncrementDetector
+        detector = get_autoincrement_detector('sqlserver')
+        assert isinstance(detector, MSSQLAutoIncrementDetector)
+    
     def test_get_autoincrement_detector_unsupported(self):
         from src.db.autoincrement import get_autoincrement_detector
         with pytest.raises(ValueError, match="Unsupported database type"):
-            get_autoincrement_detector('mysql')
+            get_autoincrement_detector('oracle')
 
 
 class TestAutoIncrementMetrics:

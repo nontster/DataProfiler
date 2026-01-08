@@ -30,6 +30,14 @@ class Config:
     CLICKHOUSE_USER = os.getenv('CLICKHOUSE_USER', 'default')
     CLICKHOUSE_PASSWORD = os.getenv('CLICKHOUSE_PASSWORD', '')
     
+    # MSSQL Configuration
+    MSSQL_HOST = os.getenv('MSSQL_HOST', 'localhost')
+    MSSQL_PORT = int(os.getenv('MSSQL_PORT', 1433))
+    MSSQL_DATABASE = os.getenv('MSSQL_DATABASE', 'master')
+    MSSQL_USER = os.getenv('MSSQL_USER', 'sa')
+    MSSQL_PASSWORD = os.getenv('MSSQL_PASSWORD', '')
+    MSSQL_SCHEMA = os.getenv('MSSQL_SCHEMA', 'dbo')
+    
     @classmethod
     def validate(cls) -> bool:
         """
@@ -66,3 +74,15 @@ class Config:
             'username': cls.CLICKHOUSE_USER,
             'password': cls.CLICKHOUSE_PASSWORD,
         }
+    
+    @classmethod
+    def get_mssql_config(cls) -> dict:
+        """Get MSSQL configuration as dictionary."""
+        return {
+            'server': cls.MSSQL_HOST,
+            'port': cls.MSSQL_PORT,
+            'database': cls.MSSQL_DATABASE,
+            'user': cls.MSSQL_USER,
+            'password': cls.MSSQL_PASSWORD,
+        }
+

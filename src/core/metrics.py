@@ -1,17 +1,21 @@
 """
 Metrics calculation module for dbt-profiler style data profiling.
 Calculates comprehensive column statistics using direct SQL queries.
+Supports multiple database types (PostgreSQL, MSSQL).
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Literal
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from src.db.postgres import get_postgres_connection
+from src.db.connection_factory import get_connection, get_schema, get_quote_char
 from src.config import Config
 
 logger = logging.getLogger(__name__)
+
+# Type alias for supported databases
+DatabaseType = Literal['postgresql', 'postgres', 'mssql', 'sqlserver']
 
 
 @dataclass
@@ -43,12 +47,43 @@ class TableProfile:
     profiled_at: datetime = field(default_factory=datetime.now)
 
 
-def get_row_count(table_name: str) -> int:
+# PostgreSQL numeric types
+POSTGRES_NUMERIC_TYPES = [
+    'integer', 'bigint', 'smallint', 'int', 'int2', 'int4', 'int8',
+    'numeric', 'decimal', 'real', 'double precision', 'float', 'float4', 'float8',
+    'money'
+]
+
+# MSSQL numeric types
+MSSQL_NUMERIC_TYPES = [
+    'tinyint', 'smallint', 'int', 'bigint',
+    'numeric', 'decimal', 'real', 'float',
+    'money', 'smallmoney'
+]
+
+# PostgreSQL min/max supported types
+POSTGRES_MINMAX_TYPES = POSTGRES_NUMERIC_TYPES + [
+    'date', 'timestamp', 'timestamp without time zone', 
+    'timestamp with time zone', 'time', 'time without time zone',
+    'time with time zone', 'interval'
+]
+
+# MSSQL min/max supported types
+MSSQL_MINMAX_TYPES = MSSQL_NUMERIC_TYPES + [
+    'date', 'datetime', 'datetime2', 'datetimeoffset',
+    'time', 'smalldatetime'
+]
+
+
+def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql') -> int:
     """Get total row count for a table."""
-    conn = get_postgres_connection()
+    conn = get_connection(database_type)
     cur = conn.cursor()
     
-    query = f'SELECT COUNT(*) FROM "{Config.POSTGRES_SCHEMA}"."{table_name}"'
+    schema = get_schema(database_type)
+    oq, cq = get_quote_char(database_type)
+    
+    query = f'SELECT COUNT(*) FROM {oq}{schema}{cq}.{oq}{table_name}{cq}'
     cur.execute(query)
     count = cur.fetchone()[0]
     
@@ -58,31 +93,34 @@ def get_row_count(table_name: str) -> int:
     return count
 
 
-def is_numeric_type(data_type: str) -> bool:
-    """Check if a PostgreSQL data type is numeric."""
-    numeric_types = [
-        'integer', 'bigint', 'smallint', 'int', 'int2', 'int4', 'int8',
-        'numeric', 'decimal', 'real', 'double precision', 'float', 'float4', 'float8',
-        'money'
-    ]
+def is_numeric_type(data_type: str, database_type: DatabaseType = 'postgresql') -> bool:
+    """Check if a data type is numeric for the given database."""
+    db_type = database_type.lower()
+    
+    if db_type in ('postgresql', 'postgres'):
+        numeric_types = POSTGRES_NUMERIC_TYPES
+    elif db_type in ('mssql', 'sqlserver'):
+        numeric_types = MSSQL_NUMERIC_TYPES
+    else:
+        numeric_types = POSTGRES_NUMERIC_TYPES
+    
     return data_type.lower() in numeric_types
 
 
-def is_minmax_supported(data_type: str) -> bool:
+def is_minmax_supported(data_type: str, database_type: DatabaseType = 'postgresql') -> bool:
     """
     Check if MIN/MAX is meaningful for this data type.
     Per dbt-profiler: min/max only for numeric, date, and time columns.
     """
-    supported_types = [
-        # Numeric types
-        'integer', 'bigint', 'smallint', 'int', 'int2', 'int4', 'int8',
-        'numeric', 'decimal', 'real', 'double precision', 'float', 'float4', 'float8',
-        'money',
-        # Date/Time types
-        'date', 'timestamp', 'timestamp without time zone', 
-        'timestamp with time zone', 'time', 'time without time zone',
-        'time with time zone', 'interval'
-    ]
+    db_type = database_type.lower()
+    
+    if db_type in ('postgresql', 'postgres'):
+        supported_types = POSTGRES_MINMAX_TYPES
+    elif db_type in ('mssql', 'sqlserver'):
+        supported_types = MSSQL_MINMAX_TYPES
+    else:
+        supported_types = POSTGRES_MINMAX_TYPES
+    
     return data_type.lower() in supported_types
 
 
@@ -90,7 +128,8 @@ def calculate_column_metrics(
     table_name: str,
     column_name: str,
     data_type: str,
-    row_count: int
+    row_count: int,
+    database_type: DatabaseType = 'postgresql'
 ) -> ColumnProfile:
     """
     Calculate comprehensive metrics for a single column.
@@ -98,27 +137,30 @@ def calculate_column_metrics(
     Args:
         table_name: Name of the table
         column_name: Name of the column
-        data_type: PostgreSQL data type
+        data_type: Database data type
         row_count: Total rows in table
+        database_type: Type of database (postgresql or mssql)
         
     Returns:
         ColumnProfile with all calculated metrics
     """
-    conn = get_postgres_connection()
+    conn = get_connection(database_type)
     cur = conn.cursor()
     
-    schema = Config.POSTGRES_SCHEMA
+    schema = get_schema(database_type)
+    oq, cq = get_quote_char(database_type)
+    db_type = database_type.lower()
     
     # Build the metrics query
-    is_numeric = is_numeric_type(data_type)
-    supports_minmax = is_minmax_supported(data_type)
+    is_numeric = is_numeric_type(data_type, database_type)
+    supports_minmax = is_minmax_supported(data_type, database_type)
     
     # Base metrics (all column types)
     base_query = f'''
         SELECT 
-            COUNT("{column_name}") as not_null_count,
-            COUNT(DISTINCT "{column_name}") as distinct_count
-        FROM "{schema}"."{table_name}"
+            COUNT({oq}{column_name}{cq}) as not_null_count,
+            COUNT(DISTINCT {oq}{column_name}{cq}) as distinct_count
+        FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
     '''
     
     cur.execute(base_query)
@@ -137,12 +179,20 @@ def calculate_column_metrics(
     
     if supports_minmax:
         try:
-            minmax_query = f'''
-                SELECT 
-                    MIN("{column_name}")::text,
-                    MAX("{column_name}")::text
-                FROM "{schema}"."{table_name}"
-            '''
+            if db_type in ('postgresql', 'postgres'):
+                minmax_query = f'''
+                    SELECT 
+                        MIN({oq}{column_name}{cq})::text,
+                        MAX({oq}{column_name}{cq})::text
+                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                '''
+            else:  # MSSQL
+                minmax_query = f'''
+                    SELECT 
+                        CAST(MIN({oq}{column_name}{cq}) AS NVARCHAR(MAX)),
+                        CAST(MAX({oq}{column_name}{cq}) AS NVARCHAR(MAX))
+                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                '''
             cur.execute(minmax_query)
             minmax_result = cur.fetchone()
             min_value = minmax_result[0]
@@ -160,14 +210,24 @@ def calculate_column_metrics(
     
     if is_numeric:
         try:
-            numeric_query = f'''
-                SELECT 
-                    AVG("{column_name}")::float8,
-                    PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY "{column_name}")::float8,
-                    STDDEV_POP("{column_name}")::float8,
-                    STDDEV_SAMP("{column_name}")::float8
-                FROM "{schema}"."{table_name}"
-            '''
+            if db_type in ('postgresql', 'postgres'):
+                numeric_query = f'''
+                    SELECT 
+                        AVG({oq}{column_name}{cq})::float8,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {oq}{column_name}{cq})::float8,
+                        STDDEV_POP({oq}{column_name}{cq})::float8,
+                        STDDEV_SAMP({oq}{column_name}{cq})::float8
+                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                '''
+            else:  # MSSQL - use PERCENTILE_CONT with OVER clause
+                numeric_query = f'''
+                    SELECT 
+                        AVG(CAST({oq}{column_name}{cq} AS FLOAT)),
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {oq}{column_name}{cq}) OVER (),
+                        STDEVP({oq}{column_name}{cq}),
+                        STDEV({oq}{column_name}{cq})
+                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                '''
             cur.execute(numeric_query)
             numeric_result = cur.fetchone()
             avg = numeric_result[0]
@@ -198,13 +258,18 @@ def calculate_column_metrics(
     )
 
 
-def profile_table(table_name: str, columns: list[dict]) -> TableProfile:
+def profile_table(
+    table_name: str, 
+    columns: list[dict],
+    database_type: DatabaseType = 'postgresql'
+) -> TableProfile:
     """
     Profile all columns in a table.
     
     Args:
         table_name: Name of the table to profile
         columns: List of column dicts with 'name' and 'type' keys
+        database_type: Type of database (postgresql or mssql)
         
     Returns:
         TableProfile with all column profiles
@@ -212,7 +277,7 @@ def profile_table(table_name: str, columns: list[dict]) -> TableProfile:
     logger.info(f"Calculating metrics for {len(columns)} columns...")
     
     # Get row count once for the whole table
-    row_count = get_row_count(table_name)
+    row_count = get_row_count(table_name, database_type)
     logger.info(f"Table '{table_name}' has {row_count:,} rows")
     
     column_profiles = []
@@ -228,7 +293,8 @@ def profile_table(table_name: str, columns: list[dict]) -> TableProfile:
                 table_name=table_name,
                 column_name=col_name,
                 data_type=col_type,
-                row_count=row_count
+                row_count=row_count,
+                database_type=database_type
             )
             column_profiles.append(profile)
         except Exception as e:

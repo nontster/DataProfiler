@@ -12,7 +12,7 @@ import logging
 from typing import Optional
 
 from src.config import Config
-from src.db.postgres import get_table_metadata
+from src.db.connection_factory import get_table_metadata, normalize_database_type
 from src.db.clickhouse import (
     init_clickhouse, insert_profiles,
     init_autoincrement_table, insert_autoincrement_profiles,
@@ -40,13 +40,15 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py users                      # Profile 'users' table, console output
-  python main.py users --format markdown    # Output as Markdown table
-  python main.py users --format json        # Output as JSON
-  python main.py users --format csv         # Output as CSV
-  python main.py users -o users.md          # Save to file
-  python main.py users --no-store           # Don't save to ClickHouse
-  python main.py users --auto-increment     # Include auto-increment overflow analysis
+  python main.py users                         # Profile 'users' table from PostgreSQL
+  python main.py users -d mssql                # Profile from SQL Server
+  python main.py users --format markdown       # Output as Markdown table
+  python main.py users --format json           # Output as JSON
+  python main.py users --format csv            # Output as CSV
+  python main.py users -o users.md             # Save to file
+  python main.py users --no-store              # Don't save to ClickHouse
+  python main.py users --auto-increment        # Include auto-increment overflow analysis
+  python main.py test_users -d mssql --auto-increment  # MSSQL with IDENTITY analysis
         """
     )
     
@@ -107,6 +109,13 @@ Examples:
         help='Days of historical data for growth rate calculation (default: 7)'
     )
 
+    parser.add_argument(
+        '-d', '--database-type',
+        choices=['postgresql', 'mssql'],
+        default='postgresql',
+        help='Database type to profile (default: postgresql)'
+    )
+
     return parser.parse_args()
 
 
@@ -118,7 +127,8 @@ def run_profiler(
     application: str = 'default',
     environment: str = 'development',
     include_auto_increment: bool = False,
-    lookback_days: int = 7
+    lookback_days: int = 7,
+    database_type: str = 'postgresql'
 ) -> Optional[int]:
     """
     Run the data profiler for a specific table.
@@ -132,11 +142,13 @@ def run_profiler(
         environment: Environment name
         include_auto_increment: Whether to profile auto-increment columns
         lookback_days: Days of historical data for growth rate calculation
+        database_type: Database type (postgresql or mssql)
         
     Returns:
         Number of column profiles generated, or None if failed
     """
-    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}]")
+    db_type = normalize_database_type(database_type)
+    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}] (database: {db_type})")
     
     # Step 1: Initialize ClickHouse (if storing)
     if store_to_clickhouse:
@@ -151,7 +163,7 @@ def run_profiler(
     # Step 2: Get table metadata
     try:
         logger.info(f"Discovering schema for '{table_name}'...")
-        columns = get_table_metadata(table_name)
+        columns = get_table_metadata(table_name, db_type)
     except TableNotFoundError as e:
         logger.error(f"❌ {e}")
         return None
@@ -167,7 +179,7 @@ def run_profiler(
     
     # Step 3: Calculate metrics for all columns
     try:
-        table_profile = profile_table(table_name, columns)
+        table_profile = profile_table(table_name, columns, db_type)
     except Exception as e:
         logger.error(f"❌ Profiling failed: {e}")
         return None
@@ -202,7 +214,8 @@ def run_autoincrement_profiler(
     store_to_clickhouse: bool = True,
     application: str = 'default',
     environment: str = 'development',
-    lookback_days: int = 7
+    lookback_days: int = 7,
+    database_type: str = 'postgresql'
 ) -> Optional[int]:
     """
     Run auto-increment overflow analysis for a table.
@@ -213,15 +226,17 @@ def run_autoincrement_profiler(
         application: Application name
         environment: Environment name
         lookback_days: Days of historical data for growth rate
+        database_type: Database type (postgresql or mssql)
         
     Returns:
         Number of auto-increment columns profiled, or None if failed
     """
-    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}'...")
+    db_type = normalize_database_type(database_type)
+    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}' (database: {db_type})...")
     
     try:
-        # Get detector for PostgreSQL
-        detector = get_autoincrement_detector('postgresql')
+        # Get detector for the specified database type
+        detector = get_autoincrement_detector(db_type)
         
         # Get ClickHouse client for historical data (if storing)
         clickhouse_client = None
@@ -294,7 +309,8 @@ def main():
         application=args.app,
         environment=args.env,
         include_auto_increment=args.auto_increment,
-        lookback_days=args.lookback_days
+        lookback_days=args.lookback_days,
+        database_type=args.database_type
     )
     
     # Run auto-increment analysis if requested
@@ -304,7 +320,8 @@ def main():
             store_to_clickhouse=not args.no_store,
             application=args.app,
             environment=args.env,
-            lookback_days=args.lookback_days
+            lookback_days=args.lookback_days,
+            database_type=args.database_type
         )
         if ai_result is None:
             logger.warning("Auto-increment analysis had issues")

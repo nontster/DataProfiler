@@ -2,7 +2,7 @@
 
 # DataProfiler
 
-เครื่องมือสำหรับทำ **Data Profiling** อัตโนมัติจาก PostgreSQL แบบ [dbt-profiler](https://github.com/data-mie/dbt-profiler) style และจัดเก็บผลลัพธ์ลง ClickHouse
+เครื่องมือสำหรับทำ **Data Profiling** อัตโนมัติจาก **PostgreSQL** และ **Microsoft SQL Server** แบบ [dbt-profiler](https://github.com/data-mie/dbt-profiler) style และจัดเก็บผลลัพธ์ลง ClickHouse
 
 ![Dashboard Screenshot](docs/images/dashboard.png)
 
@@ -10,12 +10,13 @@
 
 DataProfiler ทำหน้าที่:
 
-1. **ดึงข้อมูล Schema** อัตโนมัติจาก PostgreSQL (information_schema)
-2. **คำนวณ Metrics** แบบ dbt-profiler style ด้วย SQL queries
-3. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
-4. **Export ได้หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
-5. **Web Dashboard** สำหรับ visualize ข้อมูล (React + TailwindCSS)
-6. **วิเคราะห์ความเสี่ยง Auto-Increment Overflow** พร้อมทำนายการเติบโตด้วย Linear Regression
+1. **รองรับหลาย Database**: PostgreSQL และ Microsoft SQL Server (Azure SQL Edge)
+2. **ดึงข้อมูล Schema** อัตโนมัติจาก database ต้นทาง (information_schema)
+3. **คำนวณ Metrics** แบบ dbt-profiler style ด้วย SQL queries
+4. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
+5. **Export ได้หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
+6. **Web Dashboard** สำหรับ visualize ข้อมูล (React + TailwindCSS)
+7. **วิเคราะห์ความเสี่ยง Auto-Increment Overflow** พร้อมทำนายการเติบโตด้วย Linear Regression
 
 ## 📊 ข้อมูลที่ Profile
 
@@ -62,13 +63,25 @@ DataProfiler มีฟีเจอร์ **วิเคราะห์ควา�
 | `serial`    | 2,147,483,647             | 1 ถึง 2.1 พันล้าน                      |
 | `bigserial` | 9,223,372,036,854,775,807 | 1 ถึง 9.2 ควินทิลเลียน                 |
 
-> **หมายเหตุ**: รองรับ PostgreSQL ทุกเวอร์ชัน (10+) โดย query ค่า sequence โดยตรงจาก sequence object เพื่อความน่าเชื่อถือสูงสุด
+#### MSSQL Data Types
+
+| Data Type  | ค่าสูงสุด                 | ช่วง                                   |
+| ---------- | ------------------------- | -------------------------------------- |
+| `tinyint`  | 255                       | 0 ถึง 255                              |
+| `smallint` | 32,767                    | -32,768 ถึง 32,767                     |
+| `int`      | 2,147,483,647             | -2.1 พันล้าน ถึง 2.1 พันล้าน           |
+| `bigint`   | 9,223,372,036,854,775,807 | -9.2 ควินทิลเลียน ถึง 9.2 ควินทิลเลียน |
+
+> **หมายเหตุ**: รองรับทั้ง PostgreSQL SERIAL/BIGSERIAL/IDENTITY columns และ MSSQL IDENTITY columns
 
 ### การใช้งาน
 
 ```bash
-# รวมการวิเคราะห์ auto-increment
+# PostgreSQL (ค่าเริ่มต้น)
 python main.py users --auto-increment
+
+# MSSQL
+python main.py test_users -d mssql --auto-increment
 
 # กำหนดระยะเวลาย้อนหลัง (ค่าเริ่มต้น: 7 วัน)
 python main.py users --auto-increment --lookback-days 14
@@ -95,12 +108,14 @@ AUTO-INCREMENT OVERFLOW RISK ANALYSIS
 ## 🛠️ Requirements
 
 - Python 3.10+
-- PostgreSQL
+- PostgreSQL และ/หรือ Microsoft SQL Server (Azure SQL Edge สำหรับ ARM64/M1)
 - ClickHouse
 - Dependencies:
   - `psycopg2` - PostgreSQL adapter
+  - `pymssql` - MSSQL adapter
   - `clickhouse-connect` - ClickHouse client
   - `soda-core-postgres` - Soda Core for PostgreSQL
+  - `soda-core-sqlserver` - Soda Core for SQL Server
   - `jinja2` - Template engine
   - `python-dotenv` - Environment variable management
   - `numpy` - Numerical computing
@@ -179,6 +194,15 @@ data_source my_postgres:
   password: ${POSTGRES_PASSWORD}
   database: ${POSTGRES_DATABASE}
   schema: ${POSTGRES_SCHEMA}
+
+data_source my_mssql:
+  type: sqlserver
+  host: ${MSSQL_HOST}
+  port: ${MSSQL_PORT}
+  username: ${MSSQL_USER}
+  password: ${MSSQL_PASSWORD}
+  database: ${MSSQL_DATABASE}
+  schema: ${MSSQL_SCHEMA}
 ```
 
 ## 🚀 Usage
@@ -186,8 +210,11 @@ data_source my_postgres:
 ### Basic Usage
 
 ```bash
-# Profile 'users' table (default app/env)
+# Profile 'users' table จาก PostgreSQL (ค่าเริ่มต้น)
 python main.py users
+
+# Profile จาก MSSQL
+python main.py test_users -d mssql
 
 # Profile with Application & Environment context
 python main.py users --app order-service --env uat
@@ -230,8 +257,13 @@ python main.py users --no-store
 # Verbose logging
 python main.py users -v
 
+# เลือกประเภท database
+python main.py test_users -d mssql           # ใช้ MSSQL
+python main.py users -d postgresql            # ใช้ PostgreSQL (ค่าเริ่มต้น)
+
 # รวมการวิเคราะห์ auto-increment overflow
 python main.py users --auto-increment
+python main.py test_users -d mssql --auto-increment
 
 # กำหนดระยะเวลาย้อนหลังสำหรับการคำนวณ growth rate
 python main.py users --auto-increment --lookback-days 14
@@ -268,8 +300,10 @@ DataProfiler/
 │   │   └── profiler.py    # Legacy Soda Core profiler
 │   └── db/                # Database connections
 │       ├── __init__.py
-│       ├── autoincrement.py  # Auto-increment detector
+│       ├── autoincrement.py  # Auto-increment detector (PostgreSQL & MSSQL)
 │       ├── clickhouse.py
+│       ├── connection_factory.py  # Multi-database factory
+│       ├── mssql.py        # MSSQL client
 │       └── postgres.py
 ├── tests/                 # Unit tests
 │   ├── __init__.py
@@ -336,11 +370,31 @@ docker-compose up -d --build
 | **Backend**    | Internal (5001)       | API Service (Flask)                  |
 | **ClickHouse** | localhost:8123        | HTTP Interface                       |
 | **PostgreSQL** | localhost:5432        | Source Database                      |
+| **MSSQL**      | localhost:1433        | Source Database (Azure SQL Edge)     |
 
 ### ข้อมูลการเข้าใช้งาน (Credentials)
 
-- **Grafana**: User: `admin`, Pass: `admin` (หรือตั้งค่าผ่าน `GRAFANA_ADMIN_PASSWORD` ใน .env)
-- **Databases**: User: `default`/`postgres`, Pass: `password123`
+- **Grafana**: User: `admin`, Pass: `admin`
+- **PostgreSQL**: User: `postgres`, Pass: `password123`
+- **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
+- **ClickHouse**: User: `default`, Pass: `password123`
+
+### การเริ่มใช้งาน MSSQL (Azure SQL Edge)
+
+MSSQL ใช้ Azure SQL Edge สำหรับ ARM64/M1:
+
+```bash
+# Start MSSQL container
+docker compose up -d mssql
+
+# รอ ~30 วินาที จากนั้น initialize database
+python init-scripts/init-mssql.py
+
+# ทดสอบ profiler
+python main.py test_users -d mssql --no-store
+```
+
+> **หมายเหตุ**: Azure SQL Edge ไม่รัน init scripts อัตโนมัติเหมือน PostgreSQL ต้องใช้ Python script สร้าง database
 
 ### ข้อมูลตัวอย่าง & การทดสอบ
 
