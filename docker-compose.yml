@@ -101,18 +101,29 @@ services:
       - dataprofiler-net
     environment:
       FLASK_ENV: production
+      # Metrics backend selection (clickhouse or postgresql)
+      METRICS_BACKEND: ${METRICS_BACKEND:-clickhouse}
+      # ClickHouse configuration
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_PORT: 8123
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password123}
-      # Override config for internal execution (e.g. main.py)
+      # PostgreSQL configuration (for source database profiling)
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
       POSTGRES_DATABASE: ${POSTGRES_DATABASE:-postgres}
+      # PostgreSQL Metrics configuration (for storing metrics when METRICS_BACKEND=postgresql)
+      PG_METRICS_HOST: postgres
+      PG_METRICS_PORT: 5432
+      PG_METRICS_USER: ${POSTGRES_USER:-postgres}
+      PG_METRICS_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      PG_METRICS_DATABASE: ${POSTGRES_DATABASE:-postgres}
     depends_on:
       clickhouse:
+        condition: service_healthy
+      postgres:
         condition: service_healthy
     restart: unless-stopped
 

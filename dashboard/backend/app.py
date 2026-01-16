@@ -1,6 +1,6 @@
 """
 Flask API backend for Data Profile Dashboard (Multi-Environment).
-Serves profiling data from ClickHouse.
+Serves profiling data from ClickHouse or PostgreSQL based on configuration.
 """
 
 import os
@@ -12,6 +12,8 @@ from flask_cors import CORS
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 import clickhouse_connect
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), '.env'))
@@ -19,14 +21,24 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file_
 app = Flask(__name__)
 CORS(app)
 
+# Metrics backend configuration (fixed at launch)
+METRICS_BACKEND = os.getenv('METRICS_BACKEND', 'clickhouse')
+
 # ClickHouse configuration
 CH_HOST = os.getenv('CLICKHOUSE_HOST', 'localhost')
 CH_PORT = int(os.getenv('CLICKHOUSE_PORT', 8123))
 CH_USER = os.getenv('CLICKHOUSE_USER', 'default')
 CH_PASSWORD = os.getenv('CLICKHOUSE_PASSWORD', '')
 
+# PostgreSQL Metrics configuration
+PG_HOST = os.getenv('PG_METRICS_HOST', os.getenv('POSTGRES_HOST', 'localhost'))
+PG_PORT = int(os.getenv('PG_METRICS_PORT', os.getenv('POSTGRES_PORT', 5432)))
+PG_DATABASE = os.getenv('PG_METRICS_DATABASE', os.getenv('POSTGRES_DATABASE', 'postgres'))
+PG_USER = os.getenv('PG_METRICS_USER', os.getenv('POSTGRES_USER', 'postgres'))
+PG_PASSWORD = os.getenv('PG_METRICS_PASSWORD', os.getenv('POSTGRES_PASSWORD', ''))
 
-def get_client():
+
+def get_clickhouse_client():
     """Get ClickHouse client."""
     return clickhouse_connect.get_client(
         host=CH_HOST,
@@ -36,10 +48,41 @@ def get_client():
     )
 
 
+def get_postgres_connection():
+    """Get PostgreSQL connection for metrics."""
+    return psycopg2.connect(
+        host=PG_HOST,
+        port=PG_PORT,
+        dbname=PG_DATABASE,
+        user=PG_USER,
+        password=PG_PASSWORD
+    )
+
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    """Get current backend configuration."""
+    return jsonify({
+        'metrics_backend': METRICS_BACKEND,
+        'backend_display_name': 'PostgreSQL' if METRICS_BACKEND == 'postgresql' else 'ClickHouse'
+    })
+
+
 @app.route('/api/metadata', methods=['GET'])
 def get_metadata():
     """Get distinct applications and environments."""
-    client = get_client()
+    if METRICS_BACKEND == 'postgresql':
+        return get_metadata_pg()
+    return get_metadata_ch()
+
+
+def get_metadata_ch():
+    """Get metadata from ClickHouse."""
+    client = get_clickhouse_client()
     
     query = """
         SELECT DISTINCT application, environment 
@@ -68,13 +111,55 @@ def get_metadata():
     return jsonify(metadata)
 
 
+def get_metadata_pg():
+    """Get metadata from PostgreSQL."""
+    conn = get_postgres_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    query = """
+        SELECT DISTINCT application, environment 
+        FROM data_profiles
+        ORDER BY application, environment
+    """
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    
+    cursor.close()
+    conn.close()
+    
+    apps = {}
+    for row in rows:
+        app_name = row['application']
+        env_name = row['environment']
+        
+        if app_name not in apps:
+            apps[app_name] = []
+        apps[app_name].append(env_name)
+    
+    # Format for easy frontend consumption
+    metadata = []
+    for app_name, envs in apps.items():
+        metadata.append({
+            'application': app_name,
+            'environments': envs
+        })
+        
+    return jsonify(metadata)
+
+
 @app.route('/api/tables', methods=['GET'])
 def get_tables():
     """Get list of profiled tables filtered by app and env."""
     application = request.args.get('app')
     environment = request.args.get('env')
     
-    # Base query
+    if METRICS_BACKEND == 'postgresql':
+        return get_tables_pg(application, environment)
+    return get_tables_ch(application, environment)
+
+
+def get_tables_ch(application, environment):
+    """Get tables from ClickHouse."""
     query = """
         SELECT 
             table_name,
@@ -85,7 +170,6 @@ def get_tables():
         WHERE 1=1
     """
     
-    # Add filters
     if application:
         query += f" AND application = '{application}'"
     if environment:
@@ -96,7 +180,7 @@ def get_tables():
         ORDER BY table_name
     """
     
-    client = get_client()
+    client = get_clickhouse_client()
     result = client.query(query)
     
     tables = []
@@ -111,13 +195,57 @@ def get_tables():
     return jsonify(tables)
 
 
+def get_tables_pg(application, environment):
+    """Get tables from PostgreSQL."""
+    query = """
+        SELECT 
+            table_name,
+            max(row_count) as row_count,
+            count(DISTINCT column_name) as column_count,
+            max(scan_time) as last_profiled
+        FROM data_profiles
+        WHERE 1=1
+    """
+    
+    params = []
+    if application:
+        query += " AND application = %s"
+        params.append(application)
+    if environment:
+        query += " AND environment = %s"
+        params.append(environment)
+        
+    query += """
+        GROUP BY table_name
+        ORDER BY table_name
+    """
+    
+    conn = get_postgres_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    tables = []
+    for row in rows:
+        tables.append({
+            'table_name': row['table_name'],
+            'row_count': row['row_count'],
+            'column_count': row['column_count'],
+            'last_profiled': row['last_profiled'].isoformat() if row['last_profiled'] else None
+        })
+    
+    return jsonify(tables)
+
+
 @app.route('/api/profiles/<table_name>', methods=['GET'])
 def get_profiles(table_name):
     """Get latest profile for a specific table."""
     application = request.args.get('app', 'default')
     environment = request.args.get('env', 'development')
     
-    client = get_client()
+    client = get_clickhouse_client()
     
     # Get the latest scan_time for this table/app/env
     latest_query = f"""
@@ -198,7 +326,7 @@ def compare_profiles(table_name):
     if not env1 or not env2:
         return jsonify({'error': 'Both env1 and env2 are required'}), 400
     
-    client = get_client()
+    client = get_clickhouse_client()
     
     def get_latest_profile(env):
         """Get the latest profile for an environment."""
@@ -333,7 +461,7 @@ def get_autoincrement(table_name):
     application = request.args.get('app', 'default')
     environment = request.args.get('env', 'development')
     
-    client = get_client()
+    client = get_clickhouse_client()
     
     # Get the latest auto-increment metrics for this table
     query = f"""
@@ -400,7 +528,7 @@ def compare_autoincrement(table_name):
     if not env1 or not env2:
         return jsonify({'error': 'Both env1 and env2 are required'}), 400
     
-    client = get_client()
+    client = get_clickhouse_client()
     
     def get_autoincrement_data(env):
         query = f"""

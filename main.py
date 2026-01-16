@@ -18,6 +18,10 @@ from src.db.clickhouse import (
     init_autoincrement_table, insert_autoincrement_profiles,
     get_clickhouse_client
 )
+from src.db.postgres_metrics import (
+    init_postgres_metrics, insert_profiles_pg,
+    insert_autoincrement_profiles_pg, fetch_historical_data_pg
+)
 from src.db.autoincrement import get_autoincrement_detector
 from src.core.metrics import profile_table
 from src.core.formatters import format_profile
@@ -116,6 +120,13 @@ Examples:
         help='Database type to profile (default: postgresql)'
     )
 
+    parser.add_argument(
+        '--metrics-backend',
+        choices=['clickhouse', 'postgresql'],
+        default=None,
+        help='Backend for storing metrics (default: from METRICS_BACKEND env var or clickhouse)'
+    )
+
     return parser.parse_args()
 
 
@@ -123,12 +134,13 @@ def run_profiler(
     table_name: str,
     output_format: str = 'table',
     output_file: Optional[str] = None,
-    store_to_clickhouse: bool = True,
+    store_metrics: bool = True,
     application: str = 'default',
     environment: str = 'development',
     include_auto_increment: bool = False,
     lookback_days: int = 7,
-    database_type: str = 'postgresql'
+    database_type: str = 'postgresql',
+    metrics_backend: Optional[str] = None
 ) -> Optional[int]:
     """
     Run the data profiler for a specific table.
@@ -137,28 +149,37 @@ def run_profiler(
         table_name: Name of the table to profile
         output_format: Output format (table, markdown, json, csv)
         output_file: Optional file path to save output
-        store_to_clickhouse: Whether to store results in ClickHouse
+        store_metrics: Whether to store results in metrics backend
         application: Application name
         environment: Environment name
         include_auto_increment: Whether to profile auto-increment columns
         lookback_days: Days of historical data for growth rate calculation
         database_type: Database type (postgresql or mssql)
+        metrics_backend: Backend for storing metrics (clickhouse or postgresql)
         
     Returns:
         Number of column profiles generated, or None if failed
     """
     db_type = normalize_database_type(database_type)
-    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}] (database: {db_type})")
     
-    # Step 1: Initialize ClickHouse (if storing)
-    if store_to_clickhouse:
-        if not init_clickhouse():
-            logger.error("Aborting: ClickHouse initialization failed")
-            return None
-        if include_auto_increment:
-            if not init_autoincrement_table():
-                logger.error("Aborting: Auto-increment table initialization failed")
+    # Determine metrics backend
+    backend = metrics_backend or Config.METRICS_BACKEND
+    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}] (database: {db_type}, metrics: {backend})")
+    
+    # Step 1: Initialize metrics backend (if storing)
+    if store_metrics:
+        if backend == 'postgresql':
+            if not init_postgres_metrics():
+                logger.error("Aborting: PostgreSQL metrics initialization failed")
                 return None
+        else:
+            if not init_clickhouse():
+                logger.error("Aborting: ClickHouse initialization failed")
+                return None
+            if include_auto_increment:
+                if not init_autoincrement_table():
+                    logger.error("Aborting: Auto-increment table initialization failed")
+                    return None
     
     # Step 2: Get table metadata
     try:
@@ -199,58 +220,72 @@ def run_profiler(
         logger.error(f"❌ Output formatting failed: {e}")
         return None
     
-    # Step 5: Store in ClickHouse (if enabled)
-    if store_to_clickhouse:
-        if insert_profiles(table_profile, application=application, environment=environment):
-            logger.info(f"✅ Results stored in ClickHouse (data_profiles)")
+    # Step 5: Store in metrics backend (if enabled)
+    if store_metrics:
+        if backend == 'postgresql':
+            if insert_profiles_pg(table_profile, application=application, environment=environment):
+                logger.info(f"✅ Results stored in PostgreSQL (data_profiles)")
+            else:
+                logger.warning("Failed to store results in PostgreSQL")
         else:
-            logger.warning("Failed to store results in ClickHouse")
+            if insert_profiles(table_profile, application=application, environment=environment):
+                logger.info(f"✅ Results stored in ClickHouse (data_profiles)")
+            else:
+                logger.warning("Failed to store results in ClickHouse")
     
     return len(table_profile.column_profiles)
 
 
 def run_autoincrement_profiler(
     table_name: str,
-    store_to_clickhouse: bool = True,
+    store_metrics: bool = True,
     application: str = 'default',
     environment: str = 'development',
     lookback_days: int = 7,
-    database_type: str = 'postgresql'
+    database_type: str = 'postgresql',
+    metrics_backend: Optional[str] = None
 ) -> Optional[int]:
     """
     Run auto-increment overflow analysis for a table.
     
     Args:
         table_name: Name of the table to analyze
-        store_to_clickhouse: Whether to store results in ClickHouse
+        store_metrics: Whether to store results in metrics backend
         application: Application name
         environment: Environment name
         lookback_days: Days of historical data for growth rate
         database_type: Database type (postgresql or mssql)
+        metrics_backend: Backend for storing metrics (clickhouse or postgresql)
         
     Returns:
         Number of auto-increment columns profiled, or None if failed
     """
     db_type = normalize_database_type(database_type)
-    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}' (database: {db_type})...")
+    backend = metrics_backend or Config.METRICS_BACKEND
+    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}' (database: {db_type}, metrics: {backend})...")
     
     try:
         # Get detector for the specified database type
         detector = get_autoincrement_detector(db_type)
         
-        # Get ClickHouse client for historical data (if storing)
+        # Get client for historical data (if storing)
         clickhouse_client = None
-        if store_to_clickhouse:
-            try:
-                clickhouse_client = get_clickhouse_client()
-            except Exception as e:
-                logger.warning(f"Could not connect to ClickHouse for historical data: {e}")
+        pg_historical_fetcher = None
+        if store_metrics:
+            if backend == 'clickhouse':
+                try:
+                    clickhouse_client = get_clickhouse_client()
+                except Exception as e:
+                    logger.warning(f"Could not connect to ClickHouse for historical data: {e}")
+            elif backend == 'postgresql':
+                pg_historical_fetcher = fetch_historical_data_pg
         
         # Profile auto-increment columns
         profiles = profile_table_autoincrement(
             table_name=table_name,
             detector=detector,
             clickhouse_client=clickhouse_client,
+            pg_historical_fetcher=pg_historical_fetcher,
             application=application,
             environment=environment,
             lookback_days=lookback_days,
@@ -275,12 +310,18 @@ def run_autoincrement_profiler(
                 print(f"   Growth rate: ~{p.daily_growth_rate:,.0f} IDs/day")
         print("=" * 60 + "\n")
         
-        # Store in ClickHouse
-        if store_to_clickhouse and profiles:
-            if insert_autoincrement_profiles(profiles, application, environment):
-                logger.info("✅ Auto-increment results stored in ClickHouse")
+        # Store in metrics backend
+        if store_metrics and profiles:
+            if backend == 'postgresql':
+                if insert_autoincrement_profiles_pg(profiles, application, environment):
+                    logger.info("✅ Auto-increment results stored in PostgreSQL")
+                else:
+                    logger.warning("Failed to store auto-increment results in PostgreSQL")
             else:
-                logger.warning("Failed to store auto-increment results")
+                if insert_autoincrement_profiles(profiles, application, environment):
+                    logger.info("✅ Auto-increment results stored in ClickHouse")
+                else:
+                    logger.warning("Failed to store auto-increment results in ClickHouse")
         
         return len(profiles)
         
@@ -300,28 +341,33 @@ def main():
     # Validate configuration
     Config.validate()
     
+    # Determine metrics backend
+    metrics_backend = args.metrics_backend or Config.METRICS_BACKEND
+    
     # Run the profiler
     result = run_profiler(
         table_name=args.table,
         output_format=args.format,
         output_file=args.output,
-        store_to_clickhouse=not args.no_store,
+        store_metrics=not args.no_store,
         application=args.app,
         environment=args.env,
         include_auto_increment=args.auto_increment,
         lookback_days=args.lookback_days,
-        database_type=args.database_type
+        database_type=args.database_type,
+        metrics_backend=metrics_backend
     )
     
     # Run auto-increment analysis if requested
     if args.auto_increment:
         ai_result = run_autoincrement_profiler(
             table_name=args.table,
-            store_to_clickhouse=not args.no_store,
+            store_metrics=not args.no_store,
             application=args.app,
             environment=args.env,
             lookback_days=args.lookback_days,
-            database_type=args.database_type
+            database_type=args.database_type,
+            metrics_backend=metrics_backend
         )
         if ai_result is None:
             logger.warning("Auto-increment analysis had issues")

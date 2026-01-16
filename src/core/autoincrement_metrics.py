@@ -215,6 +215,7 @@ def fetch_historical_data(
 def calculate_autoincrement_metrics(
     raw_data: dict,
     clickhouse_client=None,
+    pg_historical_fetcher=None,
     application: str = 'default',
     environment: str = 'development',
     lookback_days: int = DEFAULT_LOOKBACK_DAYS
@@ -225,6 +226,7 @@ def calculate_autoincrement_metrics(
     Args:
         raw_data: Dict from autoincrement detector with current values
         clickhouse_client: Optional ClickHouse client for historical data
+        pg_historical_fetcher: Optional function to fetch historical data from PostgreSQL
         application: Application name for querying history
         environment: Environment name for querying history
         lookback_days: Number of days to analyze for growth rate
@@ -241,6 +243,10 @@ def calculate_autoincrement_metrics(
     daily_growth_rate = None
     days_until_full = None
     
+    timestamps = []
+    values = []
+    
+    # Try ClickHouse first, then PostgreSQL
     if clickhouse_client is not None:
         timestamps, values = fetch_historical_data(
             clickhouse_client=clickhouse_client,
@@ -250,20 +256,28 @@ def calculate_autoincrement_metrics(
             column_name=column_name,
             lookback_days=lookback_days,
         )
+    elif pg_historical_fetcher is not None:
+        timestamps, values = pg_historical_fetcher(
+            application=application,
+            environment=environment,
+            table_name=table_name,
+            column_name=column_name,
+            lookback_days=lookback_days,
+        )
+    
+    if timestamps and values:
+        # Add current data point for more accurate calculation
+        timestamps.append(datetime.now())
+        values.append(current_value)
         
-        if timestamps and values:
-            # Add current data point for more accurate calculation
-            timestamps.append(datetime.now())
-            values.append(current_value)
-            
-            daily_growth_rate = calculate_linear_regression_growth_rate(timestamps, values)
-            
-            if daily_growth_rate is not None:
-                days_until_full = calculate_days_until_full(
-                    current_value=current_value,
-                    max_value=max_type_value,
-                    daily_growth_rate=daily_growth_rate
-                )
+        daily_growth_rate = calculate_linear_regression_growth_rate(timestamps, values)
+        
+        if daily_growth_rate is not None:
+            days_until_full = calculate_days_until_full(
+                current_value=current_value,
+                max_value=max_type_value,
+                daily_growth_rate=daily_growth_rate
+            )
     
     # Create the profile
     profile = AutoIncrementProfile(
@@ -289,6 +303,7 @@ def profile_table_autoincrement(
     table_name: str,
     detector,
     clickhouse_client=None,
+    pg_historical_fetcher=None,
     application: str = 'default',
     environment: str = 'development',
     lookback_days: int = DEFAULT_LOOKBACK_DAYS
@@ -300,6 +315,7 @@ def profile_table_autoincrement(
         table_name: Name of the table to profile
         detector: AutoIncrementDetector instance
         clickhouse_client: Optional ClickHouse client for historical data
+        pg_historical_fetcher: Optional function to fetch historical data from PostgreSQL
         application: Application name
         environment: Environment name
         lookback_days: Days of historical data to analyze
@@ -322,6 +338,7 @@ def profile_table_autoincrement(
         profile = calculate_autoincrement_metrics(
             raw_data=raw_data,
             clickhouse_client=clickhouse_client,
+            pg_historical_fetcher=pg_historical_fetcher,
             application=application,
             environment=environment,
             lookback_days=lookback_days,

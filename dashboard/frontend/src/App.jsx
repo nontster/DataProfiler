@@ -24,10 +24,19 @@ function App() {
   const [comparison, setComparison] = useState(null)
   const [autoIncrement, setAutoIncrement] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [backendConfig, setBackendConfig] = useState(null)
 
   // Colors for environments
   const ENV1_COLOR = '#3b82f6' // blue
   const ENV2_COLOR = '#22c55e' // green
+
+  // Fetch backend config on mount
+  useEffect(() => {
+    fetch('/api/config')
+      .then(res => res.json())
+      .then(data => setBackendConfig(data))
+      .catch(err => console.error('Failed to load config:', err))
+  }, [])
 
   // Fetch metadata on mount
   useEffect(() => {
@@ -223,6 +232,15 @@ function App() {
         <h1 className="text-2xl font-bold text-blue-400 flex items-center gap-2">
           <span>📊</span> Data Profile Dashboard
           <span className="text-sm font-normal text-gray-400 ml-2">Environment Comparison</span>
+          {backendConfig && (
+            <span className={`text-xs font-normal px-2 py-0.5 rounded-full ml-2 ${
+              backendConfig.metrics_backend === 'postgresql' 
+                ? 'bg-blue-900/50 text-blue-300 border border-blue-700' 
+                : 'bg-orange-900/50 text-orange-300 border border-orange-700'
+            }`}>
+              📊 {backendConfig.backend_display_name}
+            </span>
+          )}
         </h1>
 
         {/* Global Filters */}

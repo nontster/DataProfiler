@@ -38,6 +38,16 @@ class Config:
     MSSQL_PASSWORD = os.getenv('MSSQL_PASSWORD', '')
     MSSQL_SCHEMA = os.getenv('MSSQL_SCHEMA', 'dbo')
     
+    # Metrics Storage Configuration
+    METRICS_BACKEND = os.getenv('METRICS_BACKEND', 'clickhouse')  # 'clickhouse' or 'postgresql'
+    
+    # PostgreSQL Metrics Configuration (defaults to same as source PostgreSQL)
+    PG_METRICS_HOST = os.getenv('PG_METRICS_HOST', os.getenv('POSTGRES_HOST', 'localhost'))
+    PG_METRICS_PORT = int(os.getenv('PG_METRICS_PORT', os.getenv('POSTGRES_PORT', 5432)))
+    PG_METRICS_DATABASE = os.getenv('PG_METRICS_DATABASE', os.getenv('POSTGRES_DATABASE', 'postgres'))
+    PG_METRICS_USER = os.getenv('PG_METRICS_USER', os.getenv('POSTGRES_USER', 'postgres'))
+    PG_METRICS_PASSWORD = os.getenv('PG_METRICS_PASSWORD', os.getenv('POSTGRES_PASSWORD', ''))
+    
     @classmethod
     def validate(cls) -> bool:
         """

@@ -2,7 +2,7 @@
 
 # DataProfiler
 
-Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server** with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics, storing results in ClickHouse.
+Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server** with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics. Supports storing results in **ClickHouse** or **PostgreSQL**.
 
 ![Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
 
@@ -13,7 +13,7 @@ DataProfiler provides:
 1. **Multi-Database Support**: PostgreSQL and Microsoft SQL Server (Azure SQL Edge)
 2. **Automatic Schema Discovery** from source databases (information_schema)
 3. **dbt-profiler Style Metrics** calculation via SQL queries
-4. **Result Storage** in ClickHouse for analysis and tracking
+4. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
 5. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
 6. **Web Dashboard** for data visualization (React + TailwindCSS)
 7. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
@@ -175,6 +175,18 @@ CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
 CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=your_actual_password
+
+# Metrics Backend Configuration
+# Options: 'clickhouse' (default) or 'postgresql'
+METRICS_BACKEND=clickhouse
+
+# PostgreSQL Metrics Configuration (optional, if using PostgreSQL for metrics)
+# Defaults to same as POSTGRES_* if not specified
+# PG_METRICS_HOST=localhost
+# PG_METRICS_PORT=5432
+# PG_METRICS_DATABASE=postgres
+# PG_METRICS_USER=postgres
+# PG_METRICS_PASSWORD=your_password
 ```
 
 > ⚠️ **Important:** The `.env` file is already git-ignored. No need to worry about committing credentials.
@@ -266,6 +278,10 @@ python main.py test_users -d mssql --auto-increment
 # Custom lookback period for growth calculation
 python main.py users --auto-increment --lookback-days 14
 
+# Choose metrics backend (default: clickhouse)
+python main.py users --metrics-backend=postgresql
+python main.py users --metrics-backend=clickhouse
+
 # Show help
 python main.py --help
 ```
@@ -323,7 +339,8 @@ DataProfiler/
 │   └── db/                   # Database connections
 │       ├── __init__.py
 │       ├── autoincrement.py  # Auto-increment detector (PostgreSQL & MSSQL)
-│       ├── clickhouse.py     # ClickHouse client
+│       ├── clickhouse.py     # ClickHouse metrics client
+│       ├── postgres_metrics.py  # PostgreSQL metrics client
 │       ├── connection_factory.py  # Multi-database factory
 │       ├── mssql.py          # MSSQL client
 │       └── postgres.py       # PostgreSQL client
@@ -363,6 +380,20 @@ This project is fully containerized. You can spin up the entire stack (DBs, Back
 # Start all services
 docker-compose up -d --build
 ```
+
+### Metrics Backend Selection
+
+You can choose where to store profiling metrics:
+
+```bash
+# Use ClickHouse (default)
+docker-compose up -d
+
+# Use PostgreSQL for metrics storage
+METRICS_BACKEND=postgresql docker-compose up -d
+```
+
+The React dashboard will display which backend is active in the header.
 
 ### Services Overview
 
@@ -544,6 +575,20 @@ Two dashboards are automatically provisioned:
 | **Environment Comparison Dashboard** | Compare profiles between two environments side-by-side with difference highlighting       |
 
 ![Grafana Environment Comparison](docs/images/grafana_environment_comparison_dashboard.png)
+
+### PostgreSQL Metrics Support
+
+Grafana is pre-configured with both ClickHouse and PostgreSQL datasources:
+
+| Datasource             | Description                               |
+| ---------------------- | ----------------------------------------- |
+| **ClickHouse**         | Default metrics storage                   |
+| **PostgreSQL-Metrics** | Alternative when using PostgreSQL backend |
+
+Two versions of dashboards are provided:
+
+- **Environment Comparison Dashboard** - uses ClickHouse
+- **Environment Comparison Dashboard (PostgreSQL)** - uses PostgreSQL
 
 ### Setup
 
