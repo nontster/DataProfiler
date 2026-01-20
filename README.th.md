@@ -333,6 +333,146 @@ pytest -v
 pytest --cov=src --cov-report=term-missing
 ```
 
+## ⏰ Control-M Integration
+
+DataProfiler มี wrapper script สำหรับรันเป็น scheduled job บน **Control-M** หรือ job scheduler อื่นๆ
+
+### ตำแหน่ง Wrapper Script
+
+```
+scripts/run_profiler.sh
+```
+
+### Environment Variables สำหรับ Control-M
+
+กำหนด environment variables เหล่านี้ใน Control-M job definition:
+
+#### Database Connection (จำเป็น)
+
+| Variable            | คำอธิบาย        |
+| ------------------- | --------------- |
+| `POSTGRES_HOST`     | PostgreSQL host |
+| `POSTGRES_PORT`     | PostgreSQL port |
+| `POSTGRES_DATABASE` | ชื่อ database   |
+| `POSTGRES_USER`     | Username        |
+| `POSTGRES_PASSWORD` | Password        |
+
+สำหรับ MSSQL ใช้ `MSSQL_*` variables แทน
+
+#### Metrics Backend (จำเป็นถ้าต้องการเก็บ metrics)
+
+**ClickHouse:**
+| Variable | คำอธิบาย |
+|----------|----------|
+| `CLICKHOUSE_HOST` | ClickHouse host |
+| `CLICKHOUSE_PORT` | ClickHouse HTTP port |
+| `CLICKHOUSE_USER` | Username |
+| `CLICKHOUSE_PASSWORD` | Password |
+
+**PostgreSQL (ทางเลือก):**
+| Variable | คำอธิบาย |
+|----------|----------|
+| `PG_METRICS_HOST` | Metrics PostgreSQL host (optional, ใช้ค่าจาก `POSTGRES_*` ถ้าไม่ระบุ) |
+
+#### Profiler Options (ไม่บังคับ)
+
+| Variable                  | ค่าเริ่มต้น  | คำอธิบาย                                          |
+| ------------------------- | ------------ | ------------------------------------------------- |
+| `PROFILER_TABLE`          | `users`      | ชื่อ table ที่จะ profile                          |
+| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv` |
+| `PROFILER_OUTPUT_FILE`    | -            | File path สำหรับบันทึก output                     |
+| `PROFILER_APP`            | `default`    | ชื่อ Application                                  |
+| `PROFILER_ENV`            | `production` | ชื่อ Environment                                  |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`              |
+| `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`       |
+| `PROFILER_AUTO_INCREMENT` | `false`      | เปิดใช้การวิเคราะห์ auto-increment                |
+| `PROFILER_LOOKBACK_DAYS`  | `7`          | จำนวนวันสำหรับคำนวณ growth rate                   |
+| `PROFILER_NO_STORE`       | `false`      | ไม่เก็บ metrics                                   |
+| `PROFILER_VERBOSE`        | `false`      | เปิด verbose logging                              |
+| `PYTHON_PATH`             | `python3`    | Path ไปยัง Python executable                      |
+| `PROFILER_HOME`           | (script dir) | Path ไปยัง DataProfiler installation              |
+
+### Exit Codes
+
+| Code | คำอธิบาย                                                       |
+| ---- | -------------------------------------------------------------- |
+| `0`  | สำเร็จ                                                         |
+| `1`  | ข้อผิดพลาด configuration (ขาด environment variables ที่จำเป็น) |
+| `2`  | ข้อผิดพลาดการทำงาน (profiler ล้มเหลว)                          |
+| `3`  | ข้อผิดพลาด Python environment                                  |
+
+### ตัวอย่าง Control-M Job
+
+#### ตัวอย่าง 1: PostgreSQL + ClickHouse Metrics
+
+```bash
+# Job: DATA_PROFILER_USERS_PROD
+# Application: DataOps
+# Sub-Application: Profiling
+
+# Environment Variables (set ใน Control-M):
+POSTGRES_HOST=db.production.internal
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=app_db
+POSTGRES_USER=profiler_svc
+POSTGRES_PASSWORD=<secret>
+CLICKHOUSE_HOST=ch.production.internal
+CLICKHOUSE_PORT=8123
+PROFILER_TABLE=users
+PROFILER_APP=order-service
+PROFILER_ENV=production
+PROFILER_AUTO_INCREMENT=true
+
+# Command:
+/opt/dataprofiler/scripts/run_profiler.sh
+```
+
+#### ตัวอย่าง 2: MSSQL + PostgreSQL Metrics
+
+```bash
+# Job: DATA_PROFILER_ORDERS_MSSQL
+# Application: DataOps
+# Sub-Application: Profiling
+
+# Environment Variables (set ใน Control-M):
+# Source Database (MSSQL)
+MSSQL_HOST=sqlserver.production.internal
+MSSQL_PORT=1433
+MSSQL_DATABASE=sales_db
+MSSQL_USER=profiler_svc
+MSSQL_PASSWORD=<secret>
+MSSQL_SCHEMA=dbo
+
+# Metrics Storage (PostgreSQL)
+METRICS_BACKEND=postgresql
+PG_METRICS_HOST=metrics-db.production.internal
+PG_METRICS_PORT=5432
+PG_METRICS_DATABASE=profiler_metrics
+PG_METRICS_USER=metrics_user
+PG_METRICS_PASSWORD=<secret>
+
+# Profiler Options
+PROFILER_TABLE=orders
+PROFILER_DB_TYPE=mssql
+PROFILER_APP=sales-service
+PROFILER_ENV=production
+PROFILER_AUTO_INCREMENT=true
+PROFILER_LOOKBACK_DAYS=14
+
+# Command:
+/opt/dataprofiler/scripts/run_profiler.sh
+```
+
+### Logging
+
+Wrapper script สร้าง log files ใน `$PROFILER_HOME/logs/` ในรูปแบบ:
+
+```
+profiler_<CTM_ORDERID>.log
+```
+
+Control-M variables `CTM_JOBNAME` และ `CTM_ORDERID` จะถูกใช้อัตโนมัติสำหรับ job identification ใน logs
+
 ## 🔄 Workflow
 
 ```mermaid
@@ -502,7 +642,6 @@ Grafana ถูกรวมอยู่ใน `docker-compose.yml` แล้ว:
    ```
 
 2. เข้าใช้งาน Grafana:
-
    - URL: http://localhost:3000
    - User: `admin`
    - Password: `admin`

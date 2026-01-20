@@ -302,6 +302,9 @@ DataProfiler/
 ├── README.th.md              # Documentation (Thai)
 ├── requirements.txt          # Python dependencies
 │
+├── scripts/                  # Automation scripts
+│   └── run_profiler.sh       # Control-M wrapper script
+│
 ├── dashboard/                # Web Dashboard
 │   ├── backend/              # Flask API server
 │   │   ├── app.py            # API endpoints
@@ -371,6 +374,146 @@ pytest -v
 # Run with coverage report
 pytest --cov=src --cov-report=term-missing
 ```
+
+## ⏰ Control-M Integration
+
+DataProfiler includes a wrapper script for running as a scheduled job in **Control-M** or similar job schedulers.
+
+### Wrapper Script Location
+
+```
+scripts/run_profiler.sh
+```
+
+### Environment Variables for Control-M
+
+Configure these environment variables in your Control-M job definition:
+
+#### Database Connection (Required)
+
+| Variable            | Description     |
+| ------------------- | --------------- |
+| `POSTGRES_HOST`     | PostgreSQL host |
+| `POSTGRES_PORT`     | PostgreSQL port |
+| `POSTGRES_DATABASE` | Database name   |
+| `POSTGRES_USER`     | Username        |
+| `POSTGRES_PASSWORD` | Password        |
+
+For MSSQL, use equivalent `MSSQL_*` variables instead.
+
+#### Metrics Backend (Required if storing metrics)
+
+**ClickHouse:**
+| Variable | Description |
+|----------|-------------|
+| `CLICKHOUSE_HOST` | ClickHouse host |
+| `CLICKHOUSE_PORT` | ClickHouse HTTP port |
+| `CLICKHOUSE_USER` | Username |
+| `CLICKHOUSE_PASSWORD` | Password |
+
+**PostgreSQL (alternative):**
+| Variable | Description |
+|----------|-------------|
+| `PG_METRICS_HOST` | Metrics PostgreSQL host (optional, defaults to `POSTGRES_*`) |
+
+#### Profiler Options (Optional)
+
+| Variable                  | Default      | Description                                       |
+| ------------------------- | ------------ | ------------------------------------------------- |
+| `PROFILER_TABLE`          | `users`      | Table name to profile                             |
+| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv` |
+| `PROFILER_OUTPUT_FILE`    | -            | File path to save output                          |
+| `PROFILER_APP`            | `default`    | Application name                                  |
+| `PROFILER_ENV`            | `production` | Environment name                                  |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`              |
+| `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`       |
+| `PROFILER_AUTO_INCREMENT` | `false`      | Enable auto-increment analysis                    |
+| `PROFILER_LOOKBACK_DAYS`  | `7`          | Days for growth rate calculation                  |
+| `PROFILER_NO_STORE`       | `false`      | Skip storing metrics                              |
+| `PROFILER_VERBOSE`        | `false`      | Enable verbose logging                            |
+| `PYTHON_PATH`             | `python3`    | Path to Python executable                         |
+| `PROFILER_HOME`           | (script dir) | Path to DataProfiler installation                 |
+
+### Exit Codes
+
+| Code | Description                                                  |
+| ---- | ------------------------------------------------------------ |
+| `0`  | Success                                                      |
+| `1`  | Configuration error (missing required environment variables) |
+| `2`  | Execution error (profiler failed)                            |
+| `3`  | Python environment error                                     |
+
+### Control-M Job Examples
+
+#### Example 1: PostgreSQL + ClickHouse Metrics
+
+```bash
+# Job: DATA_PROFILER_USERS_PROD
+# Application: DataOps
+# Sub-Application: Profiling
+
+# Environment Variables (set in Control-M):
+POSTGRES_HOST=db.production.internal
+POSTGRES_PORT=5432
+POSTGRES_DATABASE=app_db
+POSTGRES_USER=profiler_svc
+POSTGRES_PASSWORD=<secret>
+CLICKHOUSE_HOST=ch.production.internal
+CLICKHOUSE_PORT=8123
+PROFILER_TABLE=users
+PROFILER_APP=order-service
+PROFILER_ENV=production
+PROFILER_AUTO_INCREMENT=true
+
+# Command:
+/opt/dataprofiler/scripts/run_profiler.sh
+```
+
+#### Example 2: MSSQL + PostgreSQL Metrics
+
+```bash
+# Job: DATA_PROFILER_ORDERS_MSSQL
+# Application: DataOps
+# Sub-Application: Profiling
+
+# Environment Variables (set in Control-M):
+# Source Database (MSSQL)
+MSSQL_HOST=sqlserver.production.internal
+MSSQL_PORT=1433
+MSSQL_DATABASE=sales_db
+MSSQL_USER=profiler_svc
+MSSQL_PASSWORD=<secret>
+MSSQL_SCHEMA=dbo
+
+# Metrics Storage (PostgreSQL)
+METRICS_BACKEND=postgresql
+PG_METRICS_HOST=metrics-db.production.internal
+PG_METRICS_PORT=5432
+PG_METRICS_DATABASE=profiler_metrics
+PG_METRICS_USER=metrics_user
+PG_METRICS_PASSWORD=<secret>
+
+# Profiler Options
+PROFILER_TABLE=orders
+PROFILER_DB_TYPE=mssql
+PROFILER_APP=sales-service
+PROFILER_ENV=production
+PROFILER_AUTO_INCREMENT=true
+PROFILER_LOOKBACK_DAYS=14
+
+# Command:
+/opt/dataprofiler/scripts/run_profiler.sh
+```
+
+### Logging
+
+The wrapper script creates logs in `$PROFILER_HOME/logs/` with the format:
+
+```
+profiler_<CTM_ORDERID>.log
+```
+
+Control-M variables `CTM_JOBNAME` and `CTM_ORDERID` are automatically used for job identification in logs.
 
 ## 🐳 Docker Full Stack Environment
 
@@ -601,7 +744,6 @@ The Grafana service is included in `docker-compose.yml` and pre-configured with 
    ```
 
 2. Open Grafana:
-
    - URL: http://localhost:3000
    - User: `admin`
    - Password: `admin`

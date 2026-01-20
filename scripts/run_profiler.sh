@@ -1,0 +1,338 @@
+#!/bin/bash
+#===============================================================================
+# Data Profiler Wrapper Script for Control-M
+#===============================================================================
+# 
+# Description:
+#   Wrapper script to execute DataProfiler from Control-M scheduling system.
+#   All configuration should be passed via environment variables from Control-M.
+#
+# Required Environment Variables (configure in Control-M):
+#   Database Connection:
+#     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_PASSWORD
+#     MSSQL_HOST, MSSQL_PORT, MSSQL_DATABASE, MSSQL_USER, MSSQL_PASSWORD (if using MSSQL)
+#   
+#   Metrics Backend (choose one):
+#     CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD
+#     PG_METRICS_HOST, PG_METRICS_PORT, etc. (if using PostgreSQL for metrics)
+#
+# Optional Environment Variables:
+#   PROFILER_TABLE        - Table name to profile (default: users)
+#   PROFILER_FORMAT       - Output format: table|markdown|json|csv (default: table)
+#   PROFILER_OUTPUT_FILE  - File path to save output (optional)
+#   PROFILER_APP          - Application name (default: default)
+#   PROFILER_ENV          - Environment name (default: production)
+#   PROFILER_DB_TYPE      - Database type: postgresql|mssql (default: postgresql)
+#   METRICS_BACKEND       - Metrics backend: clickhouse|postgresql (default: clickhouse)
+#   PROFILER_AUTO_INCREMENT - Enable auto-increment analysis: true|false (default: false)
+#   PROFILER_LOOKBACK_DAYS  - Days for growth rate calculation (default: 7)
+#   PROFILER_NO_STORE       - Skip storing to metrics backend: true|false (default: false)
+#   PROFILER_VERBOSE        - Enable verbose logging: true|false (default: false)
+#   PYTHON_PATH             - Path to Python executable (default: python3)
+#   PROFILER_HOME           - Path to DataProfiler installation (default: script location)
+#
+# Exit Codes:
+#   0 - Success
+#   1 - Configuration error (missing required env vars)
+#   2 - Execution error (profiler failed)
+#   3 - Python environment error
+#
+# Usage in Control-M:
+#   Set environment variables in the job definition, then execute this script.
+#
+#===============================================================================
+
+set -o pipefail
+
+# ============================================================================
+# Configuration
+# ============================================================================
+
+# Determine script and project directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROFILER_HOME="${PROFILER_HOME:-$(dirname "$SCRIPT_DIR")}"
+
+# Python configuration
+PYTHON_PATH="${PYTHON_PATH:-python3}"
+
+# Job identification for logging
+JOB_NAME="${CTM_JOBNAME:-DataProfiler}"
+JOB_ID="${CTM_ORDERID:-$(date +%Y%m%d%H%M%S)}"
+
+# Log file (can be overridden)
+LOG_DIR="${PROFILER_HOME}/logs"
+LOG_FILE="${LOG_FILE:-${LOG_DIR}/profiler_${JOB_ID}.log}"
+
+# ============================================================================
+# Logging Functions
+# ============================================================================
+
+log() {
+    local level="$1"
+    local message="$2"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[${timestamp}] [${level}] [${JOB_NAME}:${JOB_ID}] ${message}" | tee -a "${LOG_FILE}"
+}
+
+log_info() {
+    log "INFO" "$1"
+}
+
+log_warn() {
+    log "WARN" "$1"
+}
+
+log_error() {
+    log "ERROR" "$1"
+}
+
+log_debug() {
+    if [[ "${PROFILER_VERBOSE}" == "true" ]]; then
+        log "DEBUG" "$1"
+    fi
+}
+
+# ============================================================================
+# Validation Functions
+# ============================================================================
+
+validate_env_var() {
+    local var_name="$1"
+    local var_value="${!var_name}"
+    
+    if [[ -z "$var_value" ]]; then
+        log_error "Required environment variable '${var_name}' is not set"
+        return 1
+    fi
+    log_debug "Validated: ${var_name}=***"
+    return 0
+}
+
+validate_database_config() {
+    local db_type="${PROFILER_DB_TYPE:-postgresql}"
+    local errors=0
+    
+    log_info "Validating database configuration for type: ${db_type}"
+    
+    if [[ "$db_type" == "postgresql" ]]; then
+        validate_env_var "POSTGRES_HOST" || ((errors++))
+        validate_env_var "POSTGRES_PORT" || ((errors++))
+        validate_env_var "POSTGRES_DATABASE" || ((errors++))
+        validate_env_var "POSTGRES_USER" || ((errors++))
+        validate_env_var "POSTGRES_PASSWORD" || ((errors++))
+    elif [[ "$db_type" == "mssql" ]]; then
+        validate_env_var "MSSQL_HOST" || ((errors++))
+        validate_env_var "MSSQL_PORT" || ((errors++))
+        validate_env_var "MSSQL_DATABASE" || ((errors++))
+        validate_env_var "MSSQL_USER" || ((errors++))
+        validate_env_var "MSSQL_PASSWORD" || ((errors++))
+    else
+        log_error "Invalid database type: ${db_type}. Must be 'postgresql' or 'mssql'"
+        return 1
+    fi
+    
+    return $errors
+}
+
+validate_metrics_config() {
+    local backend="${METRICS_BACKEND:-clickhouse}"
+    local errors=0
+    
+    # Skip validation if not storing metrics
+    if [[ "${PROFILER_NO_STORE}" == "true" ]]; then
+        log_info "Metrics storage disabled, skipping backend validation"
+        return 0
+    fi
+    
+    log_info "Validating metrics backend configuration: ${backend}"
+    
+    if [[ "$backend" == "clickhouse" ]]; then
+        validate_env_var "CLICKHOUSE_HOST" || ((errors++))
+        validate_env_var "CLICKHOUSE_PORT" || ((errors++))
+    elif [[ "$backend" == "postgresql" ]]; then
+        # PostgreSQL metrics can use same credentials as source DB or separate
+        if [[ -n "${PG_METRICS_HOST}" ]]; then
+            validate_env_var "PG_METRICS_HOST" || ((errors++))
+            validate_env_var "PG_METRICS_PORT" || ((errors++))
+            validate_env_var "PG_METRICS_DATABASE" || ((errors++))
+            validate_env_var "PG_METRICS_USER" || ((errors++))
+            validate_env_var "PG_METRICS_PASSWORD" || ((errors++))
+        else
+            log_info "Using source PostgreSQL connection for metrics storage"
+            validate_env_var "POSTGRES_HOST" || ((errors++))
+            validate_env_var "POSTGRES_PORT" || ((errors++))
+        fi
+    else
+        log_error "Invalid metrics backend: ${backend}. Must be 'clickhouse' or 'postgresql'"
+        return 1
+    fi
+    
+    return $errors
+}
+
+validate_python_env() {
+    log_info "Validating Python environment..."
+    
+    # Check if Python is available
+    if ! command -v "${PYTHON_PATH}" &> /dev/null; then
+        log_error "Python not found at: ${PYTHON_PATH}"
+        return 1
+    fi
+    
+    local python_version=$("${PYTHON_PATH}" --version 2>&1)
+    log_info "Python version: ${python_version}"
+    
+    # Check if main.py exists
+    if [[ ! -f "${PROFILER_HOME}/main.py" ]]; then
+        log_error "main.py not found in: ${PROFILER_HOME}"
+        return 1
+    fi
+    
+    # Check if virtual environment exists and activate it
+    if [[ -d "${PROFILER_HOME}/venv" ]]; then
+        log_info "Activating virtual environment..."
+        source "${PROFILER_HOME}/venv/bin/activate"
+        PYTHON_PATH="python"
+    fi
+    
+    log_info "Python environment validated successfully"
+    return 0
+}
+
+# ============================================================================
+# Main Execution
+# ============================================================================
+
+build_command_args() {
+    local args=()
+    
+    # Table name (positional argument)
+    local table_name="${PROFILER_TABLE:-users}"
+    args+=("${table_name}")
+    
+    # Output format
+    if [[ -n "${PROFILER_FORMAT}" ]]; then
+        args+=("--format" "${PROFILER_FORMAT}")
+    fi
+    
+    # Output file
+    if [[ -n "${PROFILER_OUTPUT_FILE}" ]]; then
+        args+=("--output" "${PROFILER_OUTPUT_FILE}")
+    fi
+    
+    # Application name
+    if [[ -n "${PROFILER_APP}" ]]; then
+        args+=("--app" "${PROFILER_APP}")
+    fi
+    
+    # Environment name
+    if [[ -n "${PROFILER_ENV}" ]]; then
+        args+=("--env" "${PROFILER_ENV}")
+    fi
+    
+    # Database type
+    if [[ -n "${PROFILER_DB_TYPE}" ]]; then
+        args+=("--database-type" "${PROFILER_DB_TYPE}")
+    fi
+    
+    # Metrics backend
+    if [[ -n "${METRICS_BACKEND}" ]]; then
+        args+=("--metrics-backend" "${METRICS_BACKEND}")
+    fi
+    
+    # Auto-increment analysis
+    if [[ "${PROFILER_AUTO_INCREMENT}" == "true" ]]; then
+        args+=("--auto-increment")
+    fi
+    
+    # Lookback days
+    if [[ -n "${PROFILER_LOOKBACK_DAYS}" ]]; then
+        args+=("--lookback-days" "${PROFILER_LOOKBACK_DAYS}")
+    fi
+    
+    # No store flag
+    if [[ "${PROFILER_NO_STORE}" == "true" ]]; then
+        args+=("--no-store")
+    fi
+    
+    # Verbose logging
+    if [[ "${PROFILER_VERBOSE}" == "true" ]]; then
+        args+=("--verbose")
+    fi
+    
+    echo "${args[@]}"
+}
+
+main() {
+    # Create log directory if needed
+    mkdir -p "${LOG_DIR}"
+    
+    log_info "=========================================="
+    log_info "DataProfiler Execution Started"
+    log_info "=========================================="
+    log_info "PROFILER_HOME: ${PROFILER_HOME}"
+    log_info "Job Name: ${JOB_NAME}"
+    log_info "Job ID: ${JOB_ID}"
+    
+    # Print Control-M context if available
+    if [[ -n "${CTM_JOBNAME}" ]]; then
+        log_info "Control-M Job: ${CTM_JOBNAME}"
+        log_info "Control-M Order ID: ${CTM_ORDERID:-N/A}"
+        log_info "Control-M Run Counter: ${CTM_RUN_COUNTER:-N/A}"
+    fi
+    
+    # Step 1: Validate Python environment
+    if ! validate_python_env; then
+        log_error "Python environment validation failed"
+        exit 3
+    fi
+    
+    # Step 2: Validate database configuration
+    if ! validate_database_config; then
+        log_error "Database configuration validation failed"
+        exit 1
+    fi
+    
+    # Step 3: Validate metrics configuration
+    if ! validate_metrics_config; then
+        log_error "Metrics backend configuration validation failed"
+        exit 1
+    fi
+    
+    # Step 4: Build command arguments
+    local cmd_args=$(build_command_args)
+    log_info "Executing: ${PYTHON_PATH} main.py ${cmd_args}"
+    
+    # Step 5: Change to project directory and execute
+    cd "${PROFILER_HOME}" || {
+        log_error "Failed to change directory to ${PROFILER_HOME}"
+        exit 2
+    }
+    
+    # Execute the profiler
+    local start_time=$(date +%s)
+    
+    "${PYTHON_PATH}" main.py ${cmd_args} 2>&1 | while IFS= read -r line; do
+        echo "[PROFILER] ${line}" | tee -a "${LOG_FILE}"
+    done
+    
+    local exit_code=${PIPESTATUS[0]}
+    local end_time=$(date +%s)
+    local duration=$((end_time - start_time))
+    
+    log_info "=========================================="
+    log_info "Execution completed in ${duration} seconds"
+    log_info "Exit code: ${exit_code}"
+    log_info "=========================================="
+    
+    if [[ ${exit_code} -ne 0 ]]; then
+        log_error "DataProfiler execution failed with exit code: ${exit_code}"
+        exit 2
+    fi
+    
+    log_info "DataProfiler execution completed successfully"
+    exit 0
+}
+
+# Execute main function
+main "$@"
