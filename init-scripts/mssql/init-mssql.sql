@@ -18,10 +18,10 @@ BEGIN
 END
 GO
 
--- Create test_users table with IDENTITY column for auto-increment testing
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_users' AND schema_id = SCHEMA_ID('dbo'))
+-- Create users table with IDENTITY column for auto-increment testing
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
-    CREATE TABLE dbo.test_users (
+    CREATE TABLE dbo.users (
         id INT IDENTITY(1,1) PRIMARY KEY,
         username NVARCHAR(100) NOT NULL,
         email NVARCHAR(255) NOT NULL,
@@ -33,7 +33,7 @@ BEGIN
     );
     
     -- Insert sample data
-    INSERT INTO dbo.test_users (username, email, age, salary, is_active)
+    INSERT INTO dbo.users (username, email, age, salary, is_active)
     VALUES 
         ('alice', 'alice@example.com', 28, 75000.00, 1),
         ('bob', 'bob@example.com', 35, 85000.50, 1),
@@ -46,14 +46,14 @@ BEGIN
         ('iris', 'iris@example.com', 33, 88000.25, 1),
         ('jack', 'jack@example.com', 41, 105000.75, 1);
     
-    PRINT 'Created test_users table with 10 sample records';
+    PRINT 'Created users table with 10 sample records';
 END
 GO
 
--- Create test_products table with BIGINT IDENTITY for overflow testing
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'test_products' AND schema_id = SCHEMA_ID('dbo'))
+-- Create products table with BIGINT IDENTITY for overflow testing
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'products' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
-    CREATE TABLE dbo.test_products (
+    CREATE TABLE dbo.products (
         product_id BIGINT IDENTITY(1,1) PRIMARY KEY,
         name NVARCHAR(200) NOT NULL,
         price DECIMAL(12,2),
@@ -62,7 +62,7 @@ BEGIN
     );
     
     -- Insert sample data
-    INSERT INTO dbo.test_products (name, price, quantity, category)
+    INSERT INTO dbo.products (name, price, quantity, category)
     VALUES 
         ('Laptop Pro', 1299.99, 50, 'Electronics'),
         ('Wireless Mouse', 29.99, 200, 'Electronics'),
@@ -70,7 +70,7 @@ BEGIN
         ('Monitor 27"', 399.99, 30, 'Electronics'),
         ('Keyboard Mechanical', 89.99, 100, 'Electronics');
     
-    PRINT 'Created test_products table with 5 sample records';
+    PRINT 'Created products table with 5 sample records';
 END
 GO
 

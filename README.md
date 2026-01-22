@@ -81,7 +81,7 @@ DataProfiler includes **Auto-Increment Column Overflow Risk Analysis** to predic
 python main.py users --auto-increment
 
 # MSSQL
-python main.py test_users -d mssql --auto-increment
+python main.py users -d mssql --auto-increment
 
 # With custom lookback period (default: 7 days)
 python main.py users --auto-increment --lookback-days 14
@@ -224,7 +224,7 @@ data_source my_mssql:
 python main.py users
 
 # Profile from MSSQL
-python main.py test_users -d mssql
+python main.py users -d mssql
 
 # Profile with Application & Environment context
 python main.py users --app order-service --env uat
@@ -267,23 +267,86 @@ python main.py users --no-store
 # Verbose logging
 python main.py users -v
 
-# Select database type
-python main.py test_users -d mssql           # Use MSSQL
-python main.py users -d postgresql            # Use PostgreSQL (default)
+# Show help
+python main.py --help
+```
 
+### Database Type Selection (`-d`, `--database-type`)
+
+Choose which source database to profile:
+
+| Option       | Description          | Required Environment Variables                     |
+| ------------ | -------------------- | -------------------------------------------------- |
+| `postgresql` | PostgreSQL (default) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
+| `mssql`      | Microsoft SQL Server | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
+
+```bash
+# Profile from PostgreSQL (default)
+python main.py users
+
+# Profile from MSSQL
+python main.py users -d mssql
+python main.py orders --database-type mssql
+
+# MSSQL with auto-increment analysis
+python main.py users -d mssql --auto-increment
+```
+
+### Metrics Backend Selection (`--metrics-backend`)
+
+Choose where to store profiling results:
+
+| Option       | Description          | Required Environment Variables                         |
+| ------------ | -------------------- | ------------------------------------------------------ |
+| `clickhouse` | ClickHouse (default) | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`                   |
+| `postgresql` | PostgreSQL           | `PG_METRICS_*` or falls back to `POSTGRES_*` variables |
+
+```bash
+# Use ClickHouse (default)
+python main.py users
+
+# Use PostgreSQL for metrics storage
+python main.py users --metrics-backend postgresql
+
+# Combine: Profile MSSQL, store in PostgreSQL
+python main.py orders -d mssql --metrics-backend postgresql
+```
+
+### Auto-Increment Analysis
+
+```bash
 # Include auto-increment overflow analysis
 python main.py users --auto-increment
-python main.py test_users -d mssql --auto-increment
+python main.py users -d mssql --auto-increment
 
 # Custom lookback period for growth calculation
 python main.py users --auto-increment --lookback-days 14
+```
 
-# Choose metrics backend (default: clickhouse)
-python main.py users --metrics-backend=postgresql
-python main.py users --metrics-backend=clickhouse
+### Complete Example: Profile MSSQL with PostgreSQL Metrics
 
-# Show help
-python main.py --help
+```bash
+# Set environment variables
+export MSSQL_HOST=sqlserver.local
+export MSSQL_PORT=1433
+export MSSQL_DATABASE=sales_db
+export MSSQL_USER=sa
+export MSSQL_PASSWORD='YourStrong@Password123'
+export MSSQL_SCHEMA=dbo
+
+export PG_METRICS_HOST=metrics-db.local
+export PG_METRICS_PORT=5432
+export PG_METRICS_DATABASE=profiler_metrics
+export PG_METRICS_USER=metrics_user
+export PG_METRICS_PASSWORD='your_password'
+
+# Run profiler
+python main.py orders \
+  -d mssql \
+  --metrics-backend postgresql \
+  --app sales-service \
+  --env production \
+  --auto-increment
 ```
 
 ## 📁 Project Structure
@@ -385,6 +448,51 @@ DataProfiler includes a wrapper script for running as a scheduled job in **Contr
 scripts/run_profiler.sh
 ```
 
+### CLI Arguments Support
+
+The wrapper script supports passing CLI arguments directly to the Python profiler. CLI arguments **override** environment variables.
+
+```bash
+# Show help
+scripts/run_profiler.sh -h
+scripts/run_profiler.sh --help
+
+# Override database type via CLI (ignores PROFILER_DB_TYPE env var)
+scripts/run_profiler.sh -d mssql
+scripts/run_profiler.sh --database-type mssql
+
+# Override metrics backend via CLI (ignores METRICS_BACKEND env var)
+scripts/run_profiler.sh --metrics-backend postgresql
+
+# Specify table name via CLI (ignores PROFILER_TABLE env var)
+scripts/run_profiler.sh users
+
+# Combine CLI arguments
+scripts/run_profiler.sh users -d mssql --metrics-backend postgresql --auto-increment
+
+scripts/run_profiler.sh users --app myapp --env uat --database-type mssql --metrics-backend postgresql --auto-increment
+
+# Skip storing metrics
+scripts/run_profiler.sh --no-store
+```
+
+#### Argument Precedence
+
+CLI arguments take precedence over environment variables:
+
+| Configuration | Priority | Example                        |
+| ------------- | -------- | ------------------------------ |
+| CLI argument  | 1 (High) | `--metrics-backend postgresql` |
+| Environment   | 2 (Low)  | `METRICS_BACKEND=clickhouse`   |
+
+Example: If `METRICS_BACKEND=clickhouse` is set but you run:
+
+```bash
+scripts/run_profiler.sh --metrics-backend postgresql
+```
+
+The script will use **PostgreSQL** for metrics storage.
+
 ### Environment Variables for Control-M
 
 Configure these environment variables in your Control-M job definition:
@@ -457,9 +565,11 @@ POSTGRES_HOST=db.production.internal
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=app_db
 POSTGRES_USER=profiler_svc
-POSTGRES_PASSWORD=<secret>
+POSTGRES_PASSWORD='your_secure_password'
 CLICKHOUSE_HOST=ch.production.internal
 CLICKHOUSE_PORT=8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD='your_secure_password'
 PROFILER_TABLE=users
 PROFILER_APP=order-service
 PROFILER_ENV=production
@@ -468,6 +578,8 @@ PROFILER_AUTO_INCREMENT=true
 # Command:
 /opt/dataprofiler/scripts/run_profiler.sh
 ```
+
+> **Local Development**: Use Docker Compose defaults: `POSTGRES_USER=postgres`, `POSTGRES_PASSWORD=password123`, `CLICKHOUSE_USER=default`, `CLICKHOUSE_PASSWORD=password123`
 
 #### Example 2: MSSQL + PostgreSQL Metrics
 
@@ -482,7 +594,7 @@ MSSQL_HOST=sqlserver.production.internal
 MSSQL_PORT=1433
 MSSQL_DATABASE=sales_db
 MSSQL_USER=profiler_svc
-MSSQL_PASSWORD=<secret>
+MSSQL_PASSWORD='your_secure_password'
 MSSQL_SCHEMA=dbo
 
 # Metrics Storage (PostgreSQL)
@@ -491,7 +603,7 @@ PG_METRICS_HOST=metrics-db.production.internal
 PG_METRICS_PORT=5432
 PG_METRICS_DATABASE=profiler_metrics
 PG_METRICS_USER=metrics_user
-PG_METRICS_PASSWORD=<secret>
+PG_METRICS_PASSWORD='your_secure_password'
 
 # Profiler Options
 PROFILER_TABLE=orders
@@ -504,6 +616,8 @@ PROFILER_LOOKBACK_DAYS=14
 # Command:
 /opt/dataprofiler/scripts/run_profiler.sh
 ```
+
+> **Local Development**: Use Docker Compose defaults: `MSSQL_USER=sa`, `MSSQL_PASSWORD=YourStrong@Password123`
 
 ### Logging
 
@@ -556,6 +670,52 @@ The React dashboard will display which backend is active in the header.
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
 
+### Local Development Quick Start
+
+Copy-paste these environment variables for local development with Docker Compose:
+
+#### PostgreSQL Source + ClickHouse Metrics (Default)
+
+```bash
+# Source Database (PostgreSQL)
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_DATABASE=postgres
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=password123
+
+# Metrics Storage (ClickHouse)
+export CLICKHOUSE_HOST=localhost
+export CLICKHOUSE_PORT=8123
+export CLICKHOUSE_USER=default
+export CLICKHOUSE_PASSWORD=password123
+
+# Run profiler
+python main.py users --app myapp --env development
+```
+
+#### MSSQL Source + PostgreSQL Metrics
+
+```bash
+# Source Database (MSSQL)
+export MSSQL_HOST=localhost
+export MSSQL_PORT=1433
+export MSSQL_DATABASE=testdb
+export MSSQL_USER=sa
+export MSSQL_PASSWORD='YourStrong@Password123'
+export MSSQL_SCHEMA=dbo
+
+# Metrics Storage (PostgreSQL)
+export PG_METRICS_HOST=localhost
+export PG_METRICS_PORT=5432
+export PG_METRICS_DATABASE=postgres
+export PG_METRICS_USER=postgres
+export PG_METRICS_PASSWORD=password123
+
+# Run profiler
+python main.py users -d mssql --metrics-backend postgresql --app myapp --env development
+```
+
 ### Starting MSSQL (Azure SQL Edge)
 
 MSSQL uses Azure SQL Edge for ARM64/M1 compatibility:
@@ -565,10 +725,10 @@ MSSQL uses Azure SQL Edge for ARM64/M1 compatibility:
 docker compose up -d mssql
 
 # Wait ~30 seconds for startup, then initialize database
-python init-scripts/init-mssql.py
+python init-scripts/mssql/init-mssql.py
 
 # Test profiler
-python main.py test_users -d mssql --no-store
+python main.py users -d mssql --no-store
 ```
 
 > **Note**: Azure SQL Edge doesn't run init scripts automatically like PostgreSQL. Use the Python script to create test databases.
@@ -581,30 +741,33 @@ Docker automatically creates sample data in PostgreSQL with **100+ records** for
 
 To add more test data for auto-increment growth rate calculation:
 
+**For PostgreSQL:**
+
 ```bash
 # Add 100 new users to PostgreSQL
-docker exec dataprofiler-postgres psql -U postgres -d postgres -c "
-INSERT INTO users (username, email, age, salary, is_active)
-SELECT
-  'newuser_' || generate_series,
-  'newuser' || generate_series || '@test.com',
-  (random()*60+18)::int,
-  (random()*150000+30000)::numeric(10,2),
-  random() > 0.2
-FROM generate_series(1, 100);
-"
+python init-scripts/postgres/generate-postgres-data.py --users 100
 
 # Add 50 new products
-docker exec dataprofiler-postgres psql -U postgres -d postgres -c "
-INSERT INTO products (name, description, price, stock_quantity, is_available)
-SELECT
-  'Product_' || generate_series,
-  'Description for product ' || generate_series,
-  (random()*1000+10)::numeric(10,2),
-  (random()*500)::int,
-  random() > 0.1
-FROM generate_series(1, 50);
-"
+python init-scripts/postgres/generate-postgres-data.py --products 50 --no-users
+
+# Add both with specific counts
+python init-scripts/postgres/generate-postgres-data.py --users 500 --products 200
+```
+
+**For MSSQL:**
+
+```bash
+# Add 100 new users to MSSQL
+python init-scripts/mssql/generate-mssql-data.py --users 100
+
+# Add 50 new products to MSSQL
+python init-scripts/mssql/generate-mssql-data.py --products 50 --no-users
+
+# Add both users and products
+python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200
+
+# Show current statistics only
+python init-scripts/mssql/generate-mssql-data.py --stats-only
 ```
 
 #### 2. Run Data Profiler

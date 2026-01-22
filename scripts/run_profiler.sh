@@ -136,6 +136,7 @@ validate_database_config() {
 
 validate_metrics_config() {
     local backend="${METRICS_BACKEND:-clickhouse}"
+    local db_type="${PROFILER_DB_TYPE:-postgresql}"
     local errors=0
     
     # Skip validation if not storing metrics
@@ -152,15 +153,22 @@ validate_metrics_config() {
     elif [[ "$backend" == "postgresql" ]]; then
         # PostgreSQL metrics can use same credentials as source DB or separate
         if [[ -n "${PG_METRICS_HOST}" ]]; then
+            # Use dedicated PG_METRICS_* variables
             validate_env_var "PG_METRICS_HOST" || ((errors++))
             validate_env_var "PG_METRICS_PORT" || ((errors++))
             validate_env_var "PG_METRICS_DATABASE" || ((errors++))
             validate_env_var "PG_METRICS_USER" || ((errors++))
             validate_env_var "PG_METRICS_PASSWORD" || ((errors++))
-        else
+        elif [[ "$db_type" == "postgresql" ]]; then
+            # Fallback to source PostgreSQL connection (only valid when source is PostgreSQL)
             log_info "Using source PostgreSQL connection for metrics storage"
             validate_env_var "POSTGRES_HOST" || ((errors++))
             validate_env_var "POSTGRES_PORT" || ((errors++))
+        else
+            # Source is MSSQL but PG_METRICS_* not set - error
+            log_error "When using MSSQL as source database, you must configure PG_METRICS_* variables for PostgreSQL metrics storage"
+            log_error "Required: PG_METRICS_HOST, PG_METRICS_PORT, PG_METRICS_DATABASE, PG_METRICS_USER, PG_METRICS_PASSWORD"
+            return 1
         fi
     else
         log_error "Invalid metrics backend: ${backend}. Must be 'clickhouse' or 'postgresql'"
@@ -197,6 +205,97 @@ validate_python_env() {
     
     log_info "Python environment validated successfully"
     return 0
+}
+
+# ============================================================================
+# CLI Argument Parsing (for validation purposes)
+# ============================================================================
+
+# Extract CLI arguments that affect validation
+parse_cli_args() {
+    # Reset variables that CLI args can override
+    CLI_METRICS_BACKEND=""
+    CLI_DATABASE_TYPE=""
+    CLI_NO_STORE="false"
+    CLI_TABLE=""
+    CLI_APP=""
+    CLI_ENV=""
+    CLI_AUTO_INCREMENT="false"
+    CLI_LOOKBACK_DAYS=""
+    
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --metrics-backend|-m)
+                CLI_METRICS_BACKEND="$2"
+                shift 2
+                ;;
+            --database-type|-d)
+                CLI_DATABASE_TYPE="$2"
+                shift 2
+                ;;
+            --app)
+                CLI_APP="$2"
+                shift 2
+                ;;
+            --env)
+                CLI_ENV="$2"
+                shift 2
+                ;;
+            --auto-increment)
+                CLI_AUTO_INCREMENT="true"
+                shift
+                ;;
+            --lookback-days)
+                CLI_LOOKBACK_DAYS="$2"
+                shift 2
+                ;;
+            --no-store)
+                CLI_NO_STORE="true"
+                shift
+                ;;
+            --*|-*)
+                # Skip other options with value
+                if [[ $# -gt 1 && ! "$2" =~ ^- ]]; then
+                    shift 2
+                else
+                    shift
+                fi
+                ;;
+            *)
+                # Positional argument (table name)
+                if [[ -z "$CLI_TABLE" ]]; then
+                    CLI_TABLE="$1"
+                fi
+                shift
+                ;;
+        esac
+    done
+    
+    # Apply CLI overrides to validation variables
+    if [[ -n "$CLI_METRICS_BACKEND" ]]; then
+        METRICS_BACKEND="$CLI_METRICS_BACKEND"
+    fi
+    if [[ -n "$CLI_DATABASE_TYPE" ]]; then
+        PROFILER_DB_TYPE="$CLI_DATABASE_TYPE"
+    fi
+    if [[ "$CLI_NO_STORE" == "true" ]]; then
+        PROFILER_NO_STORE="true"
+    fi
+    if [[ -n "$CLI_TABLE" ]]; then
+        PROFILER_TABLE="$CLI_TABLE"
+    fi
+    if [[ -n "$CLI_APP" ]]; then
+        PROFILER_APP="$CLI_APP"
+    fi
+    if [[ -n "$CLI_ENV" ]]; then
+        PROFILER_ENV="$CLI_ENV"
+    fi
+    if [[ "$CLI_AUTO_INCREMENT" == "true" ]]; then
+        PROFILER_AUTO_INCREMENT="true"
+    fi
+    if [[ -n "$CLI_LOOKBACK_DAYS" ]]; then
+        PROFILER_LOOKBACK_DAYS="$CLI_LOOKBACK_DAYS"
+    fi
 }
 
 # ============================================================================
@@ -264,6 +363,20 @@ build_command_args() {
 }
 
 main() {
+    # Handle --help / -h before any validation
+    for arg in "$@"; do
+        if [[ "$arg" == "-h" || "$arg" == "--help" ]]; then
+            cd "${PROFILER_HOME}" || exit 1
+            # Activate virtual environment if exists
+            if [[ -d "${PROFILER_HOME}/venv" ]]; then
+                source "${PROFILER_HOME}/venv/bin/activate"
+                PYTHON_PATH="python"
+            fi
+            "${PYTHON_PATH}" main.py --help
+            exit 0
+        fi
+    done
+    
     # Create log directory if needed
     mkdir -p "${LOG_DIR}"
     
@@ -280,6 +393,10 @@ main() {
         log_info "Control-M Order ID: ${CTM_ORDERID:-N/A}"
         log_info "Control-M Run Counter: ${CTM_RUN_COUNTER:-N/A}"
     fi
+    
+    # Parse CLI arguments to override environment variables for validation
+    parse_cli_args "$@"
+    log_info "Effective config - DB Type: ${PROFILER_DB_TYPE:-postgresql}, Metrics Backend: ${METRICS_BACKEND:-clickhouse}, Table: ${PROFILER_TABLE:-users}"
     
     # Step 1: Validate Python environment
     if ! validate_python_env; then

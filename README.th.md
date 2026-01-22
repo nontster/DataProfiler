@@ -81,7 +81,7 @@ DataProfiler มีฟีเจอร์ **วิเคราะห์ควา�
 python main.py users --auto-increment
 
 # MSSQL
-python main.py test_users -d mssql --auto-increment
+python main.py users -d mssql --auto-increment
 
 # กำหนดระยะเวลาย้อนหลัง (ค่าเริ่มต้น: 7 วัน)
 python main.py users --auto-increment --lookback-days 14
@@ -214,7 +214,7 @@ data_source my_mssql:
 python main.py users
 
 # Profile จาก MSSQL
-python main.py test_users -d mssql
+python main.py users -d mssql
 
 # Profile with Application & Environment context
 python main.py users --app order-service --env uat
@@ -248,28 +248,95 @@ python main.py users --format json --output profiles/users.json
 python main.py users --format csv --output profiles/users.csv
 ```
 
-### Additional Options
+### Options เพิ่มเติม
 
 ```bash
-# Skip storing to ClickHouse
+# ไม่เก็บผลลัพธ์ลง Metrics Backend
 python main.py users --no-store
 
 # Verbose logging
 python main.py users -v
 
-# เลือกประเภท database
-python main.py test_users -d mssql           # ใช้ MSSQL
-python main.py users -d postgresql            # ใช้ PostgreSQL (ค่าเริ่มต้น)
+# ดู help
+python main.py --help
+```
 
+### การเลือกประเภท Database (`-d`, `--database-type`)
+
+เลือก source database ที่ต้องการ profile:
+
+| Option       | รายละเอียด               | Environment Variables ที่ต้องการ                   |
+| ------------ | ------------------------ | -------------------------------------------------- |
+| `postgresql` | PostgreSQL (ค่าเริ่มต้น) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
+| `mssql`      | Microsoft SQL Server     | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
+
+```bash
+# Profile จาก PostgreSQL (ค่าเริ่มต้น)
+python main.py users
+
+# Profile จาก MSSQL
+python main.py users -d mssql
+python main.py orders --database-type mssql
+
+# MSSQL พร้อมวิเคราะห์ auto-increment
+python main.py users -d mssql --auto-increment
+```
+
+### การเลือก Metrics Backend (`--metrics-backend`)
+
+เลือกที่เก็บผลลัพธ์การ profiling:
+
+| Option       | รายละเอียด               | Environment Variables ที่ต้องการ          |
+| ------------ | ------------------------ | ----------------------------------------- |
+| `clickhouse` | ClickHouse (ค่าเริ่มต้น) | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`      |
+| `postgresql` | PostgreSQL               | `PG_METRICS_*` หรือใช้ค่าจาก `POSTGRES_*` |
+
+```bash
+# ใช้ ClickHouse (ค่าเริ่มต้น)
+python main.py users
+
+# ใช้ PostgreSQL เป็นที่เก็บ metrics
+python main.py users --metrics-backend postgresql
+
+# รวมกัน: Profile จาก MSSQL, เก็บใน PostgreSQL
+python main.py orders -d mssql --metrics-backend postgresql
+```
+
+### การวิเคราะห์ Auto-Increment
+
+```bash
 # รวมการวิเคราะห์ auto-increment overflow
 python main.py users --auto-increment
-python main.py test_users -d mssql --auto-increment
+python main.py users -d mssql --auto-increment
 
-# กำหนดระยะเวลาย้อนหลังสำหรับการคำนวณ growth rate
+# กำหนดระยะเวลาย้อนหลังสำหรับคำนวณ growth rate
 python main.py users --auto-increment --lookback-days 14
+```
 
-# Show help
-python main.py --help
+### ตัวอย่างแบบสมบูรณ์: Profile MSSQL พร้อมเก็บใน PostgreSQL
+
+```bash
+# กำหนด environment variables
+export MSSQL_HOST=sqlserver.local
+export MSSQL_PORT=1433
+export MSSQL_DATABASE=sales_db
+export MSSQL_USER=sa
+export MSSQL_PASSWORD='YourStrong@Password123'
+export MSSQL_SCHEMA=dbo
+
+export PG_METRICS_HOST=metrics-db.local
+export PG_METRICS_PORT=5432
+export PG_METRICS_DATABASE=profiler_metrics
+export PG_METRICS_USER=metrics_user
+export PG_METRICS_PASSWORD='your_password'
+
+# รัน profiler
+python main.py orders \
+  -d mssql \
+  --metrics-backend postgresql \
+  --app sales-service \
+  --env production \
+  --auto-increment
 ```
 
 ## 📁 Project Structure
@@ -343,6 +410,49 @@ DataProfiler มี wrapper script สำหรับรันเป็น sched
 scripts/run_profiler.sh
 ```
 
+### รองรับ CLI Arguments
+
+Wrapper script รองรับการส่ง CLI arguments ไปยัง Python profiler โดยตรง CLI arguments จะ **override** environment variables
+
+```bash
+# ดู help
+scripts/run_profiler.sh -h
+scripts/run_profiler.sh --help
+
+# Override database type ผ่าน CLI (ไม่สนใจ PROFILER_DB_TYPE env var)
+scripts/run_profiler.sh -d mssql
+scripts/run_profiler.sh --database-type mssql
+
+# Override metrics backend ผ่าน CLI (ไม่สนใจ METRICS_BACKEND env var)
+scripts/run_profiler.sh --metrics-backend postgresql
+
+# ระบุชื่อ table ผ่าน CLI (ไม่สนใจ PROFILER_TABLE env var)
+scripts/run_profiler.sh orders
+
+# รวม CLI arguments หลายตัว
+scripts/run_profiler.sh orders -d mssql --metrics-backend postgresql --auto-increment
+
+# ไม่เก็บ metrics
+scripts/run_profiler.sh --no-store
+```
+
+#### ลำดับความสำคัญของ Arguments
+
+CLI arguments มีความสำคัญกว่า environment variables:
+
+| Configuration | ลำดับ   | ตัวอย่าง                       |
+| ------------- | ------- | ------------------------------ |
+| CLI argument  | 1 (สูง) | `--metrics-backend postgresql` |
+| Environment   | 2 (ต่ำ) | `METRICS_BACKEND=clickhouse`   |
+
+ตัวอย่าง: ถ้าตั้ง `METRICS_BACKEND=clickhouse` แต่รัน:
+
+```bash
+scripts/run_profiler.sh --metrics-backend postgresql
+```
+
+Script จะใช้ **PostgreSQL** ในการเก็บ metrics
+
 ### Environment Variables สำหรับ Control-M
 
 กำหนด environment variables เหล่านี้ใน Control-M job definition:
@@ -415,9 +525,11 @@ POSTGRES_HOST=db.production.internal
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=app_db
 POSTGRES_USER=profiler_svc
-POSTGRES_PASSWORD=<secret>
+POSTGRES_PASSWORD='your_secure_password'
 CLICKHOUSE_HOST=ch.production.internal
 CLICKHOUSE_PORT=8123
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD='your_secure_password'
 PROFILER_TABLE=users
 PROFILER_APP=order-service
 PROFILER_ENV=production
@@ -426,6 +538,8 @@ PROFILER_AUTO_INCREMENT=true
 # Command:
 /opt/dataprofiler/scripts/run_profiler.sh
 ```
+
+> **Local Development**: ใช้ค่า default จาก Docker Compose: `POSTGRES_USER=postgres`, `POSTGRES_PASSWORD=password123`, `CLICKHOUSE_USER=default`, `CLICKHOUSE_PASSWORD=password123`
 
 #### ตัวอย่าง 2: MSSQL + PostgreSQL Metrics
 
@@ -440,7 +554,7 @@ MSSQL_HOST=sqlserver.production.internal
 MSSQL_PORT=1433
 MSSQL_DATABASE=sales_db
 MSSQL_USER=profiler_svc
-MSSQL_PASSWORD=<secret>
+MSSQL_PASSWORD='your_secure_password'
 MSSQL_SCHEMA=dbo
 
 # Metrics Storage (PostgreSQL)
@@ -449,7 +563,7 @@ PG_METRICS_HOST=metrics-db.production.internal
 PG_METRICS_PORT=5432
 PG_METRICS_DATABASE=profiler_metrics
 PG_METRICS_USER=metrics_user
-PG_METRICS_PASSWORD=<secret>
+PG_METRICS_PASSWORD='your_secure_password'
 
 # Profiler Options
 PROFILER_TABLE=orders
@@ -462,6 +576,8 @@ PROFILER_LOOKBACK_DAYS=14
 # Command:
 /opt/dataprofiler/scripts/run_profiler.sh
 ```
+
+> **Local Development**: ใช้ค่า default จาก Docker Compose: `MSSQL_USER=sa`, `MSSQL_PASSWORD=YourStrong@Password123`
 
 ### Logging
 
@@ -519,6 +635,52 @@ docker-compose up -d --build
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
 
+### Local Development Quick Start
+
+คัดลอก environment variables เหล่านี้สำหรับพัฒนาใน local กับ Docker Compose:
+
+#### PostgreSQL Source + ClickHouse Metrics (ค่าเริ่มต้น)
+
+```bash
+# Source Database (PostgreSQL)
+export POSTGRES_HOST=localhost
+export POSTGRES_PORT=5432
+export POSTGRES_DATABASE=postgres
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=password123
+
+# Metrics Storage (ClickHouse)
+export CLICKHOUSE_HOST=localhost
+export CLICKHOUSE_PORT=8123
+export CLICKHOUSE_USER=default
+export CLICKHOUSE_PASSWORD=password123
+
+# รัน profiler
+python main.py users --app myapp --env development
+```
+
+#### MSSQL Source + PostgreSQL Metrics
+
+```bash
+# Source Database (MSSQL)
+export MSSQL_HOST=localhost
+export MSSQL_PORT=1433
+export MSSQL_DATABASE=testdb
+export MSSQL_USER=sa
+export MSSQL_PASSWORD='YourStrong@Password123'
+export MSSQL_SCHEMA=dbo
+
+# Metrics Storage (PostgreSQL)
+export PG_METRICS_HOST=localhost
+export PG_METRICS_PORT=5432
+export PG_METRICS_DATABASE=postgres
+export PG_METRICS_USER=postgres
+export PG_METRICS_PASSWORD=password123
+
+# รัน profiler
+python main.py users -d mssql --metrics-backend postgresql --app myapp --env development
+```
+
 ### การเริ่มใช้งาน MSSQL (Azure SQL Edge)
 
 MSSQL ใช้ Azure SQL Edge สำหรับ ARM64/M1:
@@ -528,17 +690,50 @@ MSSQL ใช้ Azure SQL Edge สำหรับ ARM64/M1:
 docker compose up -d mssql
 
 # รอ ~30 วินาที จากนั้น initialize database
-python init-scripts/init-mssql.py
+python init-scripts/mssql/init-mssql.py
 
 # ทดสอบ profiler
-python main.py test_users -d mssql --no-store
+python main.py users -d mssql --no-store
 ```
 
 > **หมายเหตุ**: Azure SQL Edge ไม่รัน init scripts อัตโนมัติเหมือน PostgreSQL ต้องใช้ Python script สร้าง database
 
 ### ข้อมูลตัวอย่าง & การทดสอบ
 
-Docker จะสร้างข้อมูลตัวอย่าง **100+ records** ใน PostgreSQL ให้อัตโนมัติ (ตาราง `users` และ `products`) สามารถสั่งรัน Profiler ผ่าน Docker ได้เลย:
+Docker จะสร้างข้อมูลตัวอย่าง **100+ records** ใน PostgreSQL ให้อัตโนมัติ (ตาราง `users` และ `products`)
+
+#### สร้างข้อมูลเพิ่มเติม
+
+**สำหรับ PostgreSQL:**
+
+```bash
+# เพิ่ม 100 users ใน PostgreSQL
+python init-scripts/postgres/generate-postgres-data.py --users 100
+
+# เพิ่ม 50 new products
+python init-scripts/postgres/generate-postgres-data.py --products 50 --no-users
+
+# เพิ่มทั้ง users และ products
+python init-scripts/postgres/generate-postgres-data.py --users 500 --products 200
+```
+
+**สำหรับ MSSQL:**
+
+```bash
+# เพิ่ม 100 users ใน MSSQL
+python init-scripts/mssql/generate-mssql-data.py --users 100
+
+# เพิ่ม 50 products ใน MSSQL
+python init-scripts/mssql/generate-mssql-data.py --products 50 --no-users
+
+# เพิ่มทั้ง users และ products
+python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200
+
+# ดูสถิติปัจจุบัน
+python init-scripts/mssql/generate-mssql-data.py --stats-only
+```
+
+#### รัน Profiler
 
 ```bash
 # รัน profiler ภายใน backend container
