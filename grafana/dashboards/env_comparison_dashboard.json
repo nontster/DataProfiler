@@ -224,7 +224,7 @@
             "uid": "dataprofiler-clickhouse"
           },
           "queryType": "sql",
-          "rawSql": "SELECT formatDateTime(max(scan_time), '%Y-%m-%d %H:%i:%s') as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -282,7 +282,7 @@
             "uid": "dataprofiler-clickhouse"
           },
           "queryType": "sql",
-          "rawSql": "SELECT formatDateTime(max(scan_time), '%Y-%m-%d %H:%i:%s') as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],

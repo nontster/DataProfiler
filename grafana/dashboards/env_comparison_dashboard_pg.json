@@ -224,7 +224,7 @@
             "uid": "dataprofiler-postgres"
           },
           "format": "table",
-          "rawSql": "SELECT to_char(max(scan_time), 'YYYY-MM-DD HH24:MI:SS') as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -282,7 +282,7 @@
             "uid": "dataprofiler-postgres"
           },
           "format": "table",
-          "rawSql": "SELECT to_char(max(scan_time), 'YYYY-MM-DD HH24:MI:SS') as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
