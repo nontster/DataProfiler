@@ -6,13 +6,13 @@ datasources:
     type: grafana-clickhouse-datasource
     access: proxy
     jsonData:
-      server: clickhouse
-      port: 8123
+      server: ${CLICKHOUSE_HOST}
+      port: ${CLICKHOUSE_PORT}
       protocol: http
-      username: default
+      username: ${CLICKHOUSE_USER}
       defaultDatabase: default
     secureJsonData:
-      password: password123
+      password: ${CLICKHOUSE_PASSWORD}
     isDefault: true
     editable: true
 
@@ -20,14 +20,16 @@ datasources:
     uid: dataprofiler-postgres
     type: postgres
     access: proxy
-    url: postgres:5432
-    database: postgres
-    user: postgres
+    url: ${POSTGRES_HOST}:${POSTGRES_PORT}
+    database: ${POSTGRES_DATABASE}
+    user: ${POSTGRES_USER}
     jsonData:
       sslmode: disable
       maxOpenConns: 10
       maxIdleConns: 10
       connMaxLifetime: 14400
+      postgresVersion: 1200
+      timescaledb: false
     secureJsonData:
-      password: password123
+      password: ${POSTGRES_PASSWORD}
     editable: true
