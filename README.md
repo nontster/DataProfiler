@@ -675,16 +675,16 @@ Profile tables with application and environment context:
 source venv/bin/activate
 
 # Profile 'users' table for UAT environment
-python main.py users --app order-service --env uat
+python main.py users --app user-service --env uat
 
 # Profile 'users' table for Production environment
-python main.py users --app order-service --env production
+python main.py users --app user-service --env production
 
 # Profile with auto-increment overflow analysis
-python main.py users --app order-service --env production --auto-increment
+python main.py users --app user-service --env production --auto-increment
 
 # Profile 'products' table with all options
-python main.py products --app order-service --env production --auto-increment
+python main.py products --app user-service --env production --auto-increment
 ```
 
 #### 3. Using Docker (Alternative)

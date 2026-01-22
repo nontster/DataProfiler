@@ -4,7 +4,7 @@
 
 เครื่องมือสำหรับทำ **Data Profiling** อัตโนมัติจาก **PostgreSQL** และ **Microsoft SQL Server** แบบ [dbt-profiler](https://github.com/data-mie/dbt-profiler) style และจัดเก็บผลลัพธ์ลง ClickHouse
 
-![Dashboard Screenshot](docs/images/dashboard.png)
+![Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
 
 ## 🎯 ภาพรวม
 
