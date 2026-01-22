@@ -24,11 +24,11 @@ datasources:
     database: ${POSTGRES_DATABASE}
     user: ${POSTGRES_USER}
     jsonData:
-      sslmode: disable
+      sslmode: "disable"
       maxOpenConns: 10
       maxIdleConns: 10
       connMaxLifetime: 14400
-      postgresVersion: 1200
+      postgresVersion: 1500
       timescaledb: false
     secureJsonData:
       password: ${POSTGRES_PASSWORD}

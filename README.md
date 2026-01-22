@@ -74,37 +74,6 @@ DataProfiler includes **Auto-Increment Column Overflow Risk Analysis** to predic
 
 > **Note**: Supports both PostgreSQL SERIAL/BIGSERIAL/IDENTITY columns and MSSQL IDENTITY columns.
 
-### Usage
-
-```bash
-# PostgreSQL (default)
-python main.py users --auto-increment
-
-# MSSQL
-python main.py users -d mssql --auto-increment
-
-# With custom lookback period (default: 7 days)
-python main.py users --auto-increment --lookback-days 14
-
-# With application and environment context
-python main.py users --app order-service --env production --auto-increment
-```
-
-### Output Example
-
-```
-============================================================
-AUTO-INCREMENT OVERFLOW RISK ANALYSIS
-============================================================
-
-🟢 users.id (integer)
-   Current: 1,234,567 / 2,147,483,647
-   Usage: 0.057479%
-   Days until full: 4,521 days
-   Growth rate: ~500 IDs/day
-============================================================
-```
-
 ## 🛠️ Requirements
 
 - Python 3.10+
@@ -193,7 +162,7 @@ METRICS_BACKEND=clickhouse
 
 ### 2. Soda Core Configuration
 
-Edit `configuration.yml` for Soda Core:
+(Optional) Edit `configuration.yml` for Soda Core:
 
 ```yaml
 data_source my_postgres:
@@ -227,8 +196,8 @@ python main.py users
 python main.py users -d mssql
 
 # Profile with Application & Environment context
-python main.py users --app order-service --env uat
-python main.py users --app order-service --env production
+python main.py users -d mssql --app user-service --env uat --auto-increment --metrics-backend postgresql
+python main.py users -d mssql --app user-service --env production --auto-increment --metrics-backend postgresql
 
 # Profile a specific table
 python main.py products
@@ -323,28 +292,29 @@ python main.py users -d mssql --auto-increment
 python main.py users --auto-increment --lookback-days 14
 ```
 
-### Complete Example: Profile MSSQL with PostgreSQL Metrics
+### Complete Example: Profile MSSQL with PostgreSQL Metrics Backend
 
 ```bash
 # Set environment variables
-export MSSQL_HOST=sqlserver.local
+export MSSQL_HOST=localhost
 export MSSQL_PORT=1433
-export MSSQL_DATABASE=sales_db
+export MSSQL_DATABASE=testdb
 export MSSQL_USER=sa
 export MSSQL_PASSWORD='YourStrong@Password123'
 export MSSQL_SCHEMA=dbo
 
-export PG_METRICS_HOST=metrics-db.local
+export METRICS_BACKEND=postgresql
+export PG_METRICS_HOST=localhost
 export PG_METRICS_PORT=5432
-export PG_METRICS_DATABASE=profiler_metrics
-export PG_METRICS_USER=metrics_user
-export PG_METRICS_PASSWORD='your_password'
+export PG_METRICS_DATABASE=postgres
+export PG_METRICS_USER=postgres
+export PG_METRICS_PASSWORD='password123'
 
 # Run profiler
-python main.py orders \
+python main.py users \
   -d mssql \
   --metrics-backend postgresql \
-  --app sales-service \
+  --app user� Dashboard-service \
   --env production \
   --auto-increment
 ```
@@ -470,7 +440,7 @@ scripts/run_profiler.sh users
 # Combine CLI arguments
 scripts/run_profiler.sh users -d mssql --metrics-backend postgresql --auto-increment
 
-scripts/run_profiler.sh users --app myapp --env uat --database-type mssql --metrics-backend postgresql --auto-increment
+scripts/run_profiler.sh users --app user-service --env uat --database-type mssql --metrics-backend postgresql --auto-increment
 
 # Skip storing metrics
 scripts/run_profiler.sh --no-store
@@ -497,32 +467,14 @@ The script will use **PostgreSQL** for metrics storage.
 
 Configure these environment variables in your Control-M job definition:
 
-#### Database Connection (Required)
+#### Database Connection & Metrics Backend
 
-| Variable            | Description     |
-| ------------------- | --------------- |
-| `POSTGRES_HOST`     | PostgreSQL host |
-| `POSTGRES_PORT`     | PostgreSQL port |
-| `POSTGRES_DATABASE` | Database name   |
-| `POSTGRES_USER`     | Username        |
-| `POSTGRES_PASSWORD` | Password        |
+Refer to the **[Configuration](#%EF%B8%8F-configuration)** section for the required environment variables:
 
-For MSSQL, use equivalent `MSSQL_*` variables instead.
-
-#### Metrics Backend (Required if storing metrics)
-
-**ClickHouse:**
-| Variable | Description |
-|----------|-------------|
-| `CLICKHOUSE_HOST` | ClickHouse host |
-| `CLICKHOUSE_PORT` | ClickHouse HTTP port |
-| `CLICKHOUSE_USER` | Username |
-| `CLICKHOUSE_PASSWORD` | Password |
-
-**PostgreSQL (alternative):**
-| Variable | Description |
-|----------|-------------|
-| `PG_METRICS_HOST` | Metrics PostgreSQL host (optional, defaults to `POSTGRES_*`) |
+- `POSTGRES_*`
+- `MSSQL_*`
+- `CLICKHOUSE_*`
+- `PG_METRICS_*`
 
 #### Profiler Options (Optional)
 
@@ -556,68 +508,58 @@ For MSSQL, use equivalent `MSSQL_*` variables instead.
 #### Example 1: PostgreSQL + ClickHouse Metrics
 
 ```bash
-# Job: DATA_PROFILER_USERS_PROD
-# Application: DataOps
-# Sub-Application: Profiling
-
 # Environment Variables (set in Control-M):
-POSTGRES_HOST=db.production.internal
+# Source Database (PostgreSQL)
+POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
-POSTGRES_DATABASE=app_db
-POSTGRES_USER=profiler_svc
-POSTGRES_PASSWORD='your_secure_password'
-CLICKHOUSE_HOST=ch.production.internal
+POSTGRES_DATABASE=postgres
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD='password123'
+
+CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
 CLICKHOUSE_USER=default
-CLICKHOUSE_PASSWORD='your_secure_password'
+CLICKHOUSE_PASSWORD='password123'
+
 PROFILER_TABLE=users
-PROFILER_APP=order-service
-PROFILER_ENV=production
+PROFILER_APP=user-service
+PROFILER_ENV=uat
 PROFILER_AUTO_INCREMENT=true
 
 # Command:
-/opt/dataprofiler/scripts/run_profiler.sh
+scripts/run_profiler.sh
 ```
-
-> **Local Development**: Use Docker Compose defaults: `POSTGRES_USER=postgres`, `POSTGRES_PASSWORD=password123`, `CLICKHOUSE_USER=default`, `CLICKHOUSE_PASSWORD=password123`
 
 #### Example 2: MSSQL + PostgreSQL Metrics
 
 ```bash
-# Job: DATA_PROFILER_ORDERS_MSSQL
-# Application: DataOps
-# Sub-Application: Profiling
-
 # Environment Variables (set in Control-M):
 # Source Database (MSSQL)
-MSSQL_HOST=sqlserver.production.internal
+MSSQL_HOST=localhost
 MSSQL_PORT=1433
-MSSQL_DATABASE=sales_db
-MSSQL_USER=profiler_svc
-MSSQL_PASSWORD='your_secure_password'
+MSSQL_DATABASE=testdb
+MSSQL_USER=sa
+MSSQL_PASSWORD='YourStrong@Password123'
 MSSQL_SCHEMA=dbo
 
 # Metrics Storage (PostgreSQL)
 METRICS_BACKEND=postgresql
-PG_METRICS_HOST=metrics-db.production.internal
+PG_METRICS_HOST=localhost
 PG_METRICS_PORT=5432
-PG_METRICS_DATABASE=profiler_metrics
-PG_METRICS_USER=metrics_user
-PG_METRICS_PASSWORD='your_secure_password'
+PG_METRICS_DATABASE=postgres
+PG_METRICS_USER=postgres
+PG_METRICS_PASSWORD='password123'
 
 # Profiler Options
-PROFILER_TABLE=orders
+PROFILER_TABLE=users
 PROFILER_DB_TYPE=mssql
-PROFILER_APP=sales-service
-PROFILER_ENV=production
+PROFILER_APP=user-service
+PROFILER_ENV=uat
 PROFILER_AUTO_INCREMENT=true
-PROFILER_LOOKBACK_DAYS=14
 
 # Command:
-/opt/dataprofiler/scripts/run_profiler.sh
+scripts/run_profiler.sh
 ```
-
-> **Local Development**: Use Docker Compose defaults: `MSSQL_USER=sa`, `MSSQL_PASSWORD=YourStrong@Password123`
 
 ### Logging
 
@@ -669,52 +611,6 @@ The React dashboard will display which backend is active in the header.
 - **PostgreSQL**: User: `postgres`, Pass: `password123`
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
-
-### Local Development Quick Start
-
-Copy-paste these environment variables for local development with Docker Compose:
-
-#### PostgreSQL Source + ClickHouse Metrics (Default)
-
-```bash
-# Source Database (PostgreSQL)
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-export POSTGRES_DATABASE=postgres
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=password123
-
-# Metrics Storage (ClickHouse)
-export CLICKHOUSE_HOST=localhost
-export CLICKHOUSE_PORT=8123
-export CLICKHOUSE_USER=default
-export CLICKHOUSE_PASSWORD=password123
-
-# Run profiler
-python main.py users --app myapp --env development
-```
-
-#### MSSQL Source + PostgreSQL Metrics
-
-```bash
-# Source Database (MSSQL)
-export MSSQL_HOST=localhost
-export MSSQL_PORT=1433
-export MSSQL_DATABASE=testdb
-export MSSQL_USER=sa
-export MSSQL_PASSWORD='YourStrong@Password123'
-export MSSQL_SCHEMA=dbo
-
-# Metrics Storage (PostgreSQL)
-export PG_METRICS_HOST=localhost
-export PG_METRICS_PORT=5432
-export PG_METRICS_DATABASE=postgres
-export PG_METRICS_USER=postgres
-export PG_METRICS_PASSWORD=password123
-
-# Run profiler
-python main.py users -d mssql --metrics-backend postgresql --app myapp --env development
-```
 
 ### Starting MSSQL (Azure SQL Edge)
 
@@ -795,7 +691,7 @@ python main.py products --app order-service --env production --auto-increment
 
 ```bash
 # Run profiler inside backend container
-docker-compose exec backend python ../main.py users --app order-service --env production --auto-increment
+docker-compose exec backend python main.py users --app user-service --env production --auto-increment
 ```
 
 #### 4. View Results

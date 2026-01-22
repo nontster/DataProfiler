@@ -457,32 +457,14 @@ Script จะใช้ **PostgreSQL** ในการเก็บ metrics
 
 กำหนด environment variables เหล่านี้ใน Control-M job definition:
 
-#### Database Connection (จำเป็น)
+#### Database Connection & Metrics Backend
 
-| Variable            | คำอธิบาย        |
-| ------------------- | --------------- |
-| `POSTGRES_HOST`     | PostgreSQL host |
-| `POSTGRES_PORT`     | PostgreSQL port |
-| `POSTGRES_DATABASE` | ชื่อ database   |
-| `POSTGRES_USER`     | Username        |
-| `POSTGRES_PASSWORD` | Password        |
+อ้างอิงส่วน **[Configuration](#%EF%B8%8F-configuration)** สำหรับ environment variables ที่จำเป็น:
 
-สำหรับ MSSQL ใช้ `MSSQL_*` variables แทน
-
-#### Metrics Backend (จำเป็นถ้าต้องการเก็บ metrics)
-
-**ClickHouse:**
-| Variable | คำอธิบาย |
-|----------|----------|
-| `CLICKHOUSE_HOST` | ClickHouse host |
-| `CLICKHOUSE_PORT` | ClickHouse HTTP port |
-| `CLICKHOUSE_USER` | Username |
-| `CLICKHOUSE_PASSWORD` | Password |
-
-**PostgreSQL (ทางเลือก):**
-| Variable | คำอธิบาย |
-|----------|----------|
-| `PG_METRICS_HOST` | Metrics PostgreSQL host (optional, ใช้ค่าจาก `POSTGRES_*` ถ้าไม่ระบุ) |
+- `POSTGRES_*`
+- `MSSQL_*`
+- `CLICKHOUSE_*`
+- `PG_METRICS_*`
 
 #### Profiler Options (ไม่บังคับ)
 
@@ -634,52 +616,6 @@ docker-compose up -d --build
 - **PostgreSQL**: User: `postgres`, Pass: `password123`
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
-
-### Local Development Quick Start
-
-คัดลอก environment variables เหล่านี้สำหรับพัฒนาใน local กับ Docker Compose:
-
-#### PostgreSQL Source + ClickHouse Metrics (ค่าเริ่มต้น)
-
-```bash
-# Source Database (PostgreSQL)
-export POSTGRES_HOST=localhost
-export POSTGRES_PORT=5432
-export POSTGRES_DATABASE=postgres
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=password123
-
-# Metrics Storage (ClickHouse)
-export CLICKHOUSE_HOST=localhost
-export CLICKHOUSE_PORT=8123
-export CLICKHOUSE_USER=default
-export CLICKHOUSE_PASSWORD=password123
-
-# รัน profiler
-python main.py users --app myapp --env development
-```
-
-#### MSSQL Source + PostgreSQL Metrics
-
-```bash
-# Source Database (MSSQL)
-export MSSQL_HOST=localhost
-export MSSQL_PORT=1433
-export MSSQL_DATABASE=testdb
-export MSSQL_USER=sa
-export MSSQL_PASSWORD='YourStrong@Password123'
-export MSSQL_SCHEMA=dbo
-
-# Metrics Storage (PostgreSQL)
-export PG_METRICS_HOST=localhost
-export PG_METRICS_PORT=5432
-export PG_METRICS_DATABASE=postgres
-export PG_METRICS_USER=postgres
-export PG_METRICS_PASSWORD=password123
-
-# รัน profiler
-python main.py users -d mssql --metrics-backend postgresql --app myapp --env development
-```
 
 ### การเริ่มใช้งาน MSSQL (Azure SQL Edge)
 
