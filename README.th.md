@@ -794,6 +794,68 @@ npm run dev
 | Styling   | TailwindCSS        |
 | Charts    | Recharts           |
 
+### Environment Comparison Dashboard
+
+Dashboard รองรับ **dual-environment comparison** สำหรับเปรียบเทียบ data profiles ระหว่าง environments (เช่น UAT เทียบกับ Production)
+
+![React Environment Comparison Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
+
+#### ฟีเจอร์
+
+- **Dual Environment Selectors**: เลือกสอง environments เพื่อเปรียบเทียบ side-by-side
+- **Summary Panel**: แสดง row counts และ profiling timestamps ของทั้งสอง environments
+- **Comparison Charts**: กราฟแท่งเปรียบเทียบ Not Null Proportion และ Distinct Proportion
+- **Difference Highlighting**: ไฮไลท์ความแตกต่างด้วยสี (เขียว = ดีขึ้น, แดง = แย่ลง)
+- **Min/Max Filtering**: แสดง min/max เฉพาะ columns ที่เป็น numeric หรือ date/time
+- **Auto-Increment Comparison**: เปรียบเทียบ overflow risk metrics ระหว่าง environments
+
+#### API Endpoints
+
+| Endpoint                                                                   | คำอธิบาย                                          |
+| -------------------------------------------------------------------------- | ------------------------------------------------- |
+| `GET /api/metadata`                                                        | แสดงรายชื่อ applications และ environments ทั้งหมด |
+| `GET /api/profiles/compare/<table>?app=<app>&env1=<env1>&env2=<env2>`      | เปรียบเทียบ profiles ระหว่างสอง environments      |
+| `GET /api/autoincrement/compare/<table>?app=<app>&env1=<env1>&env2=<env2>` | เปรียบเทียบ auto-increment metrics                |
+
+### Schema Comparison Dashboard
+
+Dashboard รองรับ **dual-environment schema comparison** สำหรับเปรียบเทียบ table schemas ระหว่าง environments (เช่น UAT เทียบกับ Production)
+
+![React Schema Comparison Dashboard Screenshot](docs/images/react_schema_comparison_dashboard.png)
+
+#### ฟีเจอร์
+
+- **Tab Navigation**: สลับระหว่างมุมมอง Data Profile และ Schema Comparison
+- **Summary Cards**: แสดงจำนวน columns ทั้งหมด, ตรงกัน, แตกต่าง, และเฉพาะใน environment
+- **Comparison Table**: มุมมอง side-by-side ของ column schemas พร้อม:
+  - เปรียบเทียบ Data Type
+  - สถานะ Nullable (NULL / NOT NULL)
+  - ตัวบ่งชี้ Primary Key (🔑)
+  - ตัวบ่งชี้ Index membership (📇)
+- **Difference Highlighting**: Status badges แบบสี:
+  - ✓ Match (เทา) - Column มีอยู่และตรงกันในทั้งสอง environments
+  - ⚠ Modified (เหลือง) - Column มีอยู่แต่มีความแตกต่าง
+  - - Added (เขียว) - Column มีเฉพาะใน Environment 2
+  - - Removed (แดง) - Column มีเฉพาะใน Environment 1
+
+#### API Endpoints
+
+| Endpoint                                                            | คำอธิบาย                                   |
+| ------------------------------------------------------------------- | ------------------------------------------ |
+| `GET /api/schema/compare/<table>?app=<app>&env1=<env1>&env2=<env2>` | เปรียบเทียบ schema ระหว่างสอง environments |
+
+#### การใช้งาน
+
+ในการเก็บข้อมูล schema ให้รัน profiler ด้วย `--profile-schema` flag:
+
+```bash
+# Profile schema สำหรับ UAT
+python main.py users --profile-schema --app user-service --env uat
+
+# Profile schema สำหรับ Production
+python main.py users --profile-schema --app user-service --env production
+```
+
 ## 📈 Grafana Dashboard (ทางเลือกเสริม)
 
 โปรเจกต์นี้มาพร้อมกับ **Grafana** ที่เชื่อมต่อกับ ClickHouse ให้โดยอัตโนมัติ

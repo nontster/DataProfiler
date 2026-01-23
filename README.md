@@ -4,11 +4,6 @@
 
 Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server** with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics. Supports storing results in **ClickHouse** or **PostgreSQL**.
 
-![React Environment Comparison Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
-
-![React Schema Comparison Dashboard Screenshot](docs/images/react_schema_comparison_dashboard.png)
-
-
 ## 🎯 Overview
 
 DataProfiler provides:
@@ -780,7 +775,7 @@ npm run dev
 
 The dashboard supports **dual-environment comparison** to compare data profiles between environments (e.g., UAT vs Production).
 
-![Environment Comparison](docs/images/react_environment_comparison_dashboard.png)
+![React Environment Comparison Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
 
 #### Features
 
@@ -798,6 +793,45 @@ The dashboard supports **dual-environment comparison** to compare data profiles 
 | `GET /api/metadata`                                                        | List all applications and their environments |
 | `GET /api/profiles/compare/<table>?app=<app>&env1=<env1>&env2=<env2>`      | Compare profiles between two environments    |
 | `GET /api/autoincrement/compare/<table>?app=<app>&env1=<env1>&env2=<env2>` | Compare auto-increment metrics               |
+
+### Schema Comparison Dashboard
+
+The dashboard supports **dual-environment schema comparison** to compare table schemas between environments (e.g., UAT vs Production).
+
+![React Schema Comparison Dashboard Screenshot](docs/images/react_schema_comparison_dashboard.png)
+
+#### Features
+
+- **Tab Navigation**: Switch between Data Profile and Schema Comparison views
+- **Summary Cards**: Shows total columns, matching, different, and environment-specific columns
+- **Comparison Table**: Side-by-side view of column schemas with:
+  - Data Type comparison
+  - Nullable status (NULL / NOT NULL)
+  - Primary Key indicators (🔑)
+  - Index membership indicators (📇)
+- **Difference Highlighting**: Color-coded status badges:
+  - ✓ Match (gray) - Column exists and matches in both environments
+  - ⚠ Modified (yellow) - Column exists but has differences
+  - - Added (green) - Column only exists in Environment 2
+  - - Removed (red) - Column only exists in Environment 1
+
+#### API Endpoints
+
+| Endpoint                                                            | Description                             |
+| ------------------------------------------------------------------- | --------------------------------------- |
+| `GET /api/schema/compare/<table>?app=<app>&env1=<env1>&env2=<env2>` | Compare schema between two environments |
+
+#### Usage
+
+To capture schema data, run the profiler with `--profile-schema` flag:
+
+```bash
+# Profile schema for UAT
+python main.py users --profile-schema --app user-service --env uat
+
+# Profile schema for Production
+python main.py users --profile-schema --app user-service --env production
+```
 
 ## 📈 Grafana Dashboard (Alternative)
 
@@ -820,11 +854,12 @@ Two dashboards are automatically provisioned:
 | ------------------------------------ | ----------------------------------------------------------------------------------------- |
 | **Main Dashboard**                   | Single environment view with data profiles, column details, and auto-increment monitoring |
 | **Environment Comparison Dashboard** | Compare profiles between two environments side-by-side with difference highlighting       |
-| **Schema Comparison Dashboard** | Compare schema between two environments side-by-side with difference highlighting       |
+| **Schema Comparison Dashboard**      | Compare schema between two environments side-by-side with difference highlighting         |
 
 ![Grafana Environment Comparison](docs/images/grafana_environment_comparison_dashboard.png)
 
 ![Grafana Schema Comparison](docs/images/grafana_schema_comparison_dashboard.png)
+
 ### PostgreSQL Metrics Support
 
 Grafana is pre-configured with both ClickHouse and PostgreSQL datasources:
