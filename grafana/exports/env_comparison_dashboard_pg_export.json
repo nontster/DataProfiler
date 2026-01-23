@@ -36,7 +36,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "# Environment Comparison Dashboard\nCompare data profile metrics between two environments - using PostgreSQL backend",
+        "content": "# Environment Comparison Dashboard (PostgreSQL)\nCompare data profile metrics between two environments - using PostgreSQL backend",
         "mode": "markdown"
       },
       "pluginVersion": "10.0.0",
@@ -230,7 +230,7 @@
             "uid": "${DS_DATAPROFILER_POSTGRES}"
           },
           "format": "table",
-          "rawSql": "SELECT to_char(max(scan_time), 'YYYY-MM-DD HH24:MI:SS') as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -290,11 +290,127 @@
             "uid": "${DS_DATAPROFILER_POSTGRES}"
           },
           "format": "table",
-          "rawSql": "SELECT to_char(max(scan_time), 'YYYY-MM-DD HH24:MI:SS') as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
       "title": "${env2} Profiled At",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_DATAPROFILER_POSTGRES}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^database_host$/",
+          "values": true
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_DATAPROFILER_POSTGRES}"
+          },
+          "format": "table",
+          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Database Host",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_DATAPROFILER_POSTGRES}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^database_host$/",
+          "values": true
+        },
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_DATAPROFILER_POSTGRES}"
+          },
+          "format": "table",
+          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Database Host",
       "type": "stat"
     },
     {
@@ -303,7 +419,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 10
       },
       "id": 51,
       "panels": [],
@@ -401,7 +517,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 11
       },
       "id": 10,
       "options": {
@@ -446,7 +562,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 21
       },
       "id": 52,
       "panels": [],
@@ -544,7 +660,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 22
       },
       "id": 11,
       "options": {
@@ -589,7 +705,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 32
       },
       "id": 53,
       "panels": [],
@@ -845,7 +961,7 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 33
       },
       "id": 20,
       "options": {
@@ -885,7 +1001,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 45
       },
       "id": 60,
       "panels": [],
@@ -930,7 +1046,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 43
+        "y": 46
       },
       "id": 61,
       "options": {
@@ -998,7 +1114,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 43
+        "y": 46
       },
       "id": 62,
       "options": {
@@ -1074,7 +1190,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 43
+        "y": 46
       },
       "id": 63,
       "options": {
@@ -1152,7 +1268,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 43
+        "y": 46
       },
       "id": 64,
       "options": {
@@ -1312,7 +1428,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 52
       },
       "id": 65,
       "options": {
@@ -1445,14 +1561,14 @@
   "timepicker": {},
   "timezone": "",
   "title": "Environment Comparison Dashboard (PostgreSQL)",
-  "uid": null,
+  "uid": "env-comparison-dashboard-pg",
   "version": 1,
   "weekStart": "",
   "__inputs": [
     {
       "name": "DS_DATAPROFILER_POSTGRES",
-      "label": "DataProfiler PostgreSQL Datasource",
-      "description": "Select the PostgreSQL datasource containing data_profiles table",
+      "label": "DataProfiler PostgreSQL",
+      "description": "PostgreSQL database containing data_profiles table",
       "type": "datasource",
       "pluginId": "postgres",
       "pluginName": "PostgreSQL"
