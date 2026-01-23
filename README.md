@@ -837,8 +837,6 @@ python main.py users --profile-schema --app user-service --env production
 
 This project includes a **Grafana** instance connected to ClickHouse for advanced visualization.
 
-![Grafana Dashboard](docs/images/grafana_data_profiler_dashboard.png)
-
 ### Features
 
 - **Direct ClickHouse Integration**: No middleware required.
