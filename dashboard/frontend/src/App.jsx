@@ -23,8 +23,10 @@ function App() {
   const [selectedTable, setSelectedTable] = useState(null)
   const [comparison, setComparison] = useState(null)
   const [autoIncrement, setAutoIncrement] = useState(null)
+  const [schemaComparison, setSchemaComparison] = useState(null)
   const [loading, setLoading] = useState(true)
   const [backendConfig, setBackendConfig] = useState(null)
+  const [activeTab, setActiveTab] = useState('data')
 
   // Colors for environments
   const ENV1_COLOR = '#3b82f6' // blue
@@ -151,6 +153,15 @@ function App() {
         .catch(err => {
           console.error('Failed to load auto-increment:', err)
           setAutoIncrement(null)
+        })
+      
+      // Fetch schema comparison
+      fetch(`/api/schema/compare/${selectedTable}?app=${selectedApp}&env1=${selectedEnv1}&env2=${selectedEnv2}`)
+        .then(res => res.json())
+        .then(data => setSchemaComparison(data))
+        .catch(err => {
+          console.error('Failed to load schema comparison:', err)
+          setSchemaComparison(null)
         })
     }
   }, [selectedTable, selectedApp, selectedEnv1, selectedEnv2])
@@ -406,6 +417,37 @@ function App() {
                 </div>
               </div>
 
+              {/* Tab Navigation */}
+              <div className="mb-6 flex gap-2">
+                <button
+                  onClick={() => setActiveTab('data')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeTab === 'data'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  📊 Data Profile
+                </button>
+                <button
+                  onClick={() => setActiveTab('schema')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    activeTab === 'schema'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  🔧 Schema Comparison
+                  {schemaComparison?.summary?.different_columns > 0 && (
+                    <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 rounded-full">
+                      {schemaComparison.summary.different_columns}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {activeTab === 'data' && (
+              <>
               {/* Charts Section - Side by Side Comparison */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
                 {/* Not Null Proportion Comparison Chart */}
@@ -661,6 +703,187 @@ function App() {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+              </>
+              )}
+
+              {/* Schema Comparison Tab */}
+              {activeTab === 'schema' && (
+                <div className="space-y-6">
+                  {/* Schema Summary */}
+                  {schemaComparison && schemaComparison.summary && (
+                    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+                      <h3 className="text-lg font-semibold mb-4 text-gray-200 flex items-center gap-2">
+                        <span className="text-2xl">🔧</span>
+                        Schema Comparison Summary
+                      </h3>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div className="bg-gray-700/50 rounded-lg p-4 text-center">
+                          <div className="text-2xl font-bold text-white">{schemaComparison.summary.total_columns}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Total Columns</div>
+                        </div>
+                        <div className="bg-green-900/30 rounded-lg p-4 text-center border border-green-800">
+                          <div className="text-2xl font-bold text-green-400">{schemaComparison.summary.matching_columns}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Matching</div>
+                        </div>
+                        <div className="bg-red-900/30 rounded-lg p-4 text-center border border-red-800">
+                          <div className="text-2xl font-bold text-red-400">{schemaComparison.summary.different_columns}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Different</div>
+                        </div>
+                        <div className="bg-blue-900/30 rounded-lg p-4 text-center border border-blue-800">
+                          <div className="text-2xl font-bold text-blue-400">{schemaComparison.summary.only_in_env1}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Only in {selectedEnv1.toUpperCase()}</div>
+                        </div>
+                        <div className="bg-purple-900/30 rounded-lg p-4 text-center border border-purple-800">
+                          <div className="text-2xl font-bold text-purple-400">{schemaComparison.summary.only_in_env2}</div>
+                          <div className="text-xs text-gray-400 uppercase tracking-wider mt-1">Only in {selectedEnv2.toUpperCase()}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Schema Comparison Table */}
+                  {schemaComparison && schemaComparison.columns && schemaComparison.columns.length > 0 ? (
+                    <div className="bg-gray-800 rounded-xl border border-gray-700 overflow-hidden shadow-sm">
+                      <h3 className="text-lg font-semibold p-4 border-b border-gray-700 text-gray-200 bg-gray-800/50">
+                        Column Schema Comparison
+                      </h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-750 text-gray-400 uppercase text-xs font-semibold tracking-wider">
+                            <tr>
+                              <th className="px-4 py-3 text-left">Column</th>
+                              <th className="px-4 py-3 text-left">Status</th>
+                              <th className="px-3 py-3 text-left border-l border-gray-600 bg-blue-900/20">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                  {selectedEnv1.toUpperCase()} Type
+                                </span>
+                              </th>
+                              <th className="px-3 py-3 text-center bg-blue-900/20">Nullable</th>
+                              <th className="px-3 py-3 text-center bg-blue-900/20">PK</th>
+                              <th className="px-3 py-3 text-center bg-blue-900/20">Index</th>
+                              <th className="px-3 py-3 text-left border-l border-gray-600 bg-green-900/20">
+                                <span className="flex items-center gap-1">
+                                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                                  {selectedEnv2.toUpperCase()} Type
+                                </span>
+                              </th>
+                              <th className="px-3 py-3 text-center bg-green-900/20">Nullable</th>
+                              <th className="px-3 py-3 text-center bg-green-900/20">PK</th>
+                              <th className="px-3 py-3 text-center bg-green-900/20">Index</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-700">
+                            {schemaComparison.columns.map((col, idx) => (
+                              <tr key={col.column_name} className={`hover:bg-gray-750 transition-colors ${
+                                col.has_differences ? 'bg-red-900/10' : idx % 2 === 0 ? 'bg-gray-800' : 'bg-gray-800/50'
+                              }`}>
+                                <td className="px-4 py-3 font-medium text-purple-400">
+                                  <div className="flex items-center gap-2">
+                                    {col.column_name}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  {!col.in_env1 && (
+                                    <span className="text-xs bg-green-900/50 text-green-400 px-1.5 py-0.5 rounded border border-green-700">
+                                      + Added in {selectedEnv2}
+                                    </span>
+                                  )}
+                                  {!col.in_env2 && (
+                                    <span className="text-xs bg-red-900/50 text-red-400 px-1.5 py-0.5 rounded border border-red-700">
+                                      - Removed in {selectedEnv2}
+                                    </span>
+                                  )}
+                                  {col.in_env1 && col.in_env2 && col.has_differences && (
+                                    <span className="text-xs bg-yellow-900/50 text-yellow-400 px-1.5 py-0.5 rounded border border-yellow-700">
+                                      ⚠ Modified
+                                    </span>
+                                  )}
+                                  {col.in_env1 && col.in_env2 && !col.has_differences && (
+                                    <span className="text-xs bg-gray-700 text-gray-400 px-1.5 py-0.5 rounded">
+                                      ✓ Match
+                                    </span>
+                                  )}
+                                </td>
+                                
+                                {/* Env1 values */}
+                                <td className={`px-3 py-3 text-left border-l border-gray-700 font-mono text-xs ${
+                                  col.differences?.includes('data_type') ? 'text-yellow-400 font-bold' : 'text-gray-300'
+                                }`}>
+                                  {col.env1?.data_type || '-'}
+                                </td>
+                                <td className={`px-3 py-3 text-center ${
+                                  col.differences?.includes('is_nullable') ? 'text-yellow-400' : ''
+                                }`}>
+                                  {col.env1 ? (col.env1.is_nullable ? 
+                                    <span className="text-gray-400">NULL</span> : 
+                                    <span className="text-blue-400 font-bold">NOT NULL</span>
+                                  ) : '-'}
+                                </td>
+                                <td className={`px-3 py-3 text-center ${
+                                  col.differences?.includes('is_primary_key') ? 'text-yellow-400' : ''
+                                }`}>
+                                  {col.env1?.is_primary_key ? 
+                                    <span className="text-yellow-400">🔑</span> : 
+                                    <span className="text-gray-600">-</span>
+                                  }
+                                </td>
+                                <td className={`px-3 py-3 text-center ${
+                                  col.differences?.includes('is_in_index') ? 'text-yellow-400' : ''
+                                }`}>
+                                  {col.env1?.is_in_index ? 
+                                    <span className="text-cyan-400">📇</span> : 
+                                    <span className="text-gray-600">-</span>
+                                  }
+                                </td>
+                                
+                                {/* Env2 values */}
+                                <td className={`px-3 py-3 text-left border-l border-gray-700 font-mono text-xs ${
+                                  col.differences?.includes('data_type') ? 'text-yellow-400 font-bold' : 'text-gray-300'
+                                }`}>
+                                  {col.env2?.data_type || '-'}
+                                </td>
+                                <td className={`px-3 py-3 text-center ${
+                                  col.differences?.includes('is_nullable') ? 'text-yellow-400' : ''
+                                }`}>
+                                  {col.env2 ? (col.env2.is_nullable ? 
+                                    <span className="text-gray-400">NULL</span> : 
+                                    <span className="text-green-400 font-bold">NOT NULL</span>
+                                  ) : '-'}
+                                </td>
+                                <td className={`px-3 py-3 text-center ${
+                                  col.differences?.includes('is_primary_key') ? 'text-yellow-400' : ''
+                                }`}>
+                                  {col.env2?.is_primary_key ? 
+                                    <span className="text-yellow-400">🔑</span> : 
+                                    <span className="text-gray-600">-</span>
+                                  }
+                                </td>
+                                <td className={`px-3 py-3 text-center ${
+                                  col.differences?.includes('is_in_index') ? 'text-yellow-400' : ''
+                                }`}>
+                                  {col.env2?.is_in_index ? 
+                                    <span className="text-cyan-400">📇</span> : 
+                                    <span className="text-gray-600">-</span>
+                                  }
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-800 rounded-xl p-8 border border-gray-700 text-center">
+                      <div className="text-4xl mb-4">🔧</div>
+                      <p className="text-gray-400">No schema data available for this table.</p>
+                      <p className="text-sm text-gray-500 mt-2">
+                        Run <code className="bg-gray-700 px-2 py-0.5 rounded">--profile-schema</code> to capture schema metadata.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </>

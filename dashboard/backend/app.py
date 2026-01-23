@@ -614,6 +614,13 @@ def get_autoincrement(table_name):
     application = request.args.get('app', 'default')
     environment = request.args.get('env', 'development')
     
+    if METRICS_BACKEND == 'postgresql':
+        return get_autoincrement_pg(table_name, application, environment)
+    return get_autoincrement_ch(table_name, application, environment)
+
+
+def get_autoincrement_ch(table_name, application, environment):
+    """Get auto-increment data from ClickHouse."""
     client = get_clickhouse_client()
     
     # Get the latest auto-increment metrics for this table
@@ -671,6 +678,66 @@ def get_autoincrement(table_name):
         })
 
 
+def get_autoincrement_pg(table_name, application, environment):
+    """Get auto-increment data from PostgreSQL."""
+    try:
+        conn = get_postgres_connection()
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        
+        cursor.execute("""
+            SELECT DISTINCT ON (column_name)
+                column_name,
+                data_type,
+                current_value,
+                max_type_value,
+                usage_percentage,
+                remaining_values,
+                days_until_full,
+                daily_growth_rate,
+                alert_status,
+                scan_time
+            FROM auto_increment_metrics
+            WHERE table_name = %s
+              AND application = %s
+              AND environment = %s
+            ORDER BY column_name, scan_time DESC
+        """, (table_name, application, environment))
+        
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        
+        columns = []
+        for row in rows:
+            columns.append({
+                'column_name': row['column_name'],
+                'data_type': row['data_type'],
+                'current_value': row['current_value'],
+                'max_type_value': row['max_type_value'],
+                'usage_percentage': row['usage_percentage'],
+                'remaining_values': row['remaining_values'],
+                'days_until_full': row['days_until_full'],
+                'daily_growth_rate': row['daily_growth_rate'],
+                'alert_status': row['alert_status'],
+                'scan_time': row['scan_time'].isoformat() if row['scan_time'] else None
+            })
+        
+        return jsonify({
+            'table_name': table_name,
+            'application': application,
+            'environment': environment,
+            'columns': columns
+        })
+    except Exception as e:
+        # Table might not have auto-increment columns or no data yet
+        return jsonify({
+            'table_name': table_name,
+            'application': application,
+            'environment': environment,
+            'columns': []
+        })
+
+
 @app.route('/api/autoincrement/compare/<table_name>', methods=['GET'])
 def compare_autoincrement(table_name):
     """Compare auto-increment overflow risk between two environments."""
@@ -681,6 +748,13 @@ def compare_autoincrement(table_name):
     if not env1 or not env2:
         return jsonify({'error': 'Both env1 and env2 are required'}), 400
     
+    if METRICS_BACKEND == 'postgresql':
+        return compare_autoincrement_pg(table_name, application, env1, env2)
+    return compare_autoincrement_ch(table_name, application, env1, env2)
+
+
+def compare_autoincrement_ch(table_name, application, env1, env2):
+    """Compare auto-increment using ClickHouse backend."""
     client = get_clickhouse_client()
     
     def get_autoincrement_data(env):
@@ -726,6 +800,65 @@ def compare_autoincrement(table_name):
     data1 = get_autoincrement_data(env1)
     data2 = get_autoincrement_data(env2)
     
+    return build_autoincrement_comparison_response(table_name, application, env1, env2, data1, data2)
+
+
+def compare_autoincrement_pg(table_name, application, env1, env2):
+    """Compare auto-increment using PostgreSQL backend."""
+    conn = get_postgres_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    def get_autoincrement_data(env):
+        try:
+            cursor.execute("""
+                SELECT DISTINCT ON (column_name)
+                    column_name,
+                    data_type,
+                    current_value,
+                    max_type_value,
+                    usage_percentage,
+                    remaining_values,
+                    days_until_full,
+                    daily_growth_rate,
+                    alert_status,
+                    scan_time
+                FROM auto_increment_metrics
+                WHERE table_name = %s
+                  AND application = %s
+                  AND environment = %s
+                ORDER BY column_name, scan_time DESC
+            """, (table_name, application, env))
+            
+            rows = cursor.fetchall()
+            data = {}
+            for row in rows:
+                data[row['column_name']] = {
+                    'column_name': row['column_name'],
+                    'data_type': row['data_type'],
+                    'current_value': row['current_value'],
+                    'max_type_value': row['max_type_value'],
+                    'usage_percentage': row['usage_percentage'],
+                    'remaining_values': row['remaining_values'],
+                    'days_until_full': row['days_until_full'],
+                    'daily_growth_rate': row['daily_growth_rate'],
+                    'alert_status': row['alert_status'],
+                    'scan_time': row['scan_time'].isoformat() if row['scan_time'] else None
+                }
+            return data
+        except Exception:
+            return {}
+    
+    data1 = get_autoincrement_data(env1)
+    data2 = get_autoincrement_data(env2)
+    
+    cursor.close()
+    conn.close()
+    
+    return build_autoincrement_comparison_response(table_name, application, env1, env2, data1, data2)
+
+
+def build_autoincrement_comparison_response(table_name, application, env1, env2, data1, data2):
+    """Build the auto-increment comparison response."""
     # Merge columns from both environments
     all_columns = set(data1.keys()) | set(data2.keys())
     
@@ -748,6 +881,298 @@ def compare_autoincrement(table_name):
         'application': application,
         'env1': env1,
         'env2': env2,
+        'columns': comparison
+    })
+
+
+# =============================================================================
+# Schema Comparison Endpoints
+# =============================================================================
+
+@app.route('/api/schema/compare/<table_name>', methods=['GET'])
+def compare_schema(table_name):
+    """Compare schema between two environments."""
+    application = request.args.get('app', 'default')
+    env1 = request.args.get('env1')
+    env2 = request.args.get('env2')
+    
+    if not env1 or not env2:
+        return jsonify({'error': 'Both env1 and env2 are required'}), 400
+    
+    if METRICS_BACKEND == 'postgresql':
+        return compare_schema_pg(table_name, application, env1, env2)
+    return compare_schema_ch(table_name, application, env1, env2)
+
+
+def compare_schema_ch(table_name, application, env1, env2):
+    """Compare schema using ClickHouse backend."""
+    client = get_clickhouse_client()
+    
+    def get_latest_schema(env):
+        """Get the latest schema for an environment."""
+        # Get the latest scan_time for this table/app/env
+        latest_query = f"""
+            SELECT max(scan_time) 
+            FROM schema_profiles 
+            WHERE table_name = '{table_name}' 
+              AND application = '{application}'
+              AND environment = '{env}'
+        """
+        try:
+            latest_result = client.query(latest_query)
+            latest_time = latest_result.result_rows[0][0] if latest_result.result_rows else None
+        except Exception:
+            return None
+        
+        if not latest_time:
+            return None
+        
+        query = f"""
+            SELECT 
+                column_name,
+                column_position,
+                data_type,
+                is_nullable,
+                column_default,
+                max_length,
+                numeric_precision,
+                numeric_scale,
+                is_primary_key,
+                is_in_index,
+                index_names,
+                is_foreign_key,
+                fk_references,
+                scan_time,
+                database_host,
+                database_name,
+                schema_name
+            FROM schema_profiles
+            WHERE table_name = '{table_name}' 
+              AND scan_time = '{latest_time}'
+              AND application = '{application}'
+              AND environment = '{env}'
+            ORDER BY column_position
+        """
+        
+        result = client.query(query)
+        
+        columns = {}
+        scan_time = None
+        database_host = None
+        database_name = None
+        schema_name = None
+        
+        for row in result.result_rows:
+            columns[row[0]] = {
+                'column_name': row[0],
+                'column_position': row[1],
+                'data_type': row[2],
+                'is_nullable': bool(row[3]),
+                'column_default': row[4],
+                'max_length': row[5],
+                'numeric_precision': row[6],
+                'numeric_scale': row[7],
+                'is_primary_key': bool(row[8]),
+                'is_in_index': bool(row[9]),
+                'index_names': row[10],
+                'is_foreign_key': bool(row[11]),
+                'fk_references': row[12]
+            }
+            scan_time = row[13].isoformat() if row[13] else None
+            database_host = row[14] if len(row) > 14 else None
+            database_name = row[15] if len(row) > 15 else None
+            schema_name = row[16] if len(row) > 16 else None
+        
+        return {
+            'columns': columns,
+            'scan_time': scan_time,
+            'database_host': database_host,
+            'database_name': database_name,
+            'schema_name': schema_name
+        }
+    
+    schema1 = get_latest_schema(env1)
+    schema2 = get_latest_schema(env2)
+    
+    return build_schema_comparison_response(table_name, application, env1, env2, schema1, schema2)
+
+
+def compare_schema_pg(table_name, application, env1, env2):
+    """Compare schema using PostgreSQL backend."""
+    conn = get_postgres_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    def get_latest_schema(env):
+        """Get the latest schema for an environment."""
+        # Get the latest scan_time for this table/app/env
+        cursor.execute("""
+            SELECT max(scan_time) 
+            FROM schema_profiles 
+            WHERE table_name = %s 
+              AND application = %s
+              AND environment = %s
+        """, (table_name, application, env))
+        row = cursor.fetchone()
+        latest_time = row['max'] if row else None
+        
+        if not latest_time:
+            return None
+        
+        cursor.execute("""
+            SELECT 
+                column_name,
+                column_position,
+                data_type,
+                is_nullable,
+                column_default,
+                max_length,
+                numeric_precision,
+                numeric_scale,
+                is_primary_key,
+                is_in_index,
+                index_names,
+                is_foreign_key,
+                fk_references,
+                scan_time,
+                database_host,
+                database_name,
+                schema_name
+            FROM schema_profiles
+            WHERE table_name = %s 
+              AND scan_time = %s
+              AND application = %s
+              AND environment = %s
+            ORDER BY column_position
+        """, (table_name, latest_time, application, env))
+        
+        rows = cursor.fetchall()
+        
+        columns = {}
+        scan_time = None
+        database_host = None
+        database_name = None
+        schema_name = None
+        
+        for row in rows:
+            columns[row['column_name']] = {
+                'column_name': row['column_name'],
+                'column_position': row['column_position'],
+                'data_type': row['data_type'],
+                'is_nullable': bool(row['is_nullable']),
+                'column_default': row['column_default'],
+                'max_length': row['max_length'],
+                'numeric_precision': row['numeric_precision'],
+                'numeric_scale': row['numeric_scale'],
+                'is_primary_key': bool(row['is_primary_key']),
+                'is_in_index': bool(row['is_in_index']),
+                'index_names': row['index_names'],
+                'is_foreign_key': bool(row['is_foreign_key']),
+                'fk_references': row['fk_references']
+            }
+            scan_time = row['scan_time'].isoformat() if row['scan_time'] else None
+            database_host = row['database_host']
+            database_name = row['database_name']
+            schema_name = row['schema_name']
+        
+        return {
+            'columns': columns,
+            'scan_time': scan_time,
+            'database_host': database_host,
+            'database_name': database_name,
+            'schema_name': schema_name
+        }
+    
+    schema1 = get_latest_schema(env1)
+    schema2 = get_latest_schema(env2)
+    
+    cursor.close()
+    conn.close()
+    
+    return build_schema_comparison_response(table_name, application, env1, env2, schema1, schema2)
+
+
+def build_schema_comparison_response(table_name, application, env1, env2, schema1, schema2):
+    """Build the schema comparison response."""
+    # Get all unique column names from both schemas
+    all_columns = set()
+    if schema1:
+        all_columns.update(schema1['columns'].keys())
+    if schema2:
+        all_columns.update(schema2['columns'].keys())
+    
+    # Build comparison data
+    comparison = []
+    for col_name in sorted(all_columns):
+        col1 = schema1['columns'].get(col_name) if schema1 else None
+        col2 = schema2['columns'].get(col_name) if schema2 else None
+        
+        # Detect differences
+        differences = []
+        if col1 and col2:
+            if col1.get('data_type') != col2.get('data_type'):
+                differences.append('data_type')
+            if col1.get('is_nullable') != col2.get('is_nullable'):
+                differences.append('is_nullable')
+            if col1.get('column_default') != col2.get('column_default'):
+                differences.append('column_default')
+            if col1.get('is_primary_key') != col2.get('is_primary_key'):
+                differences.append('is_primary_key')
+            if col1.get('is_in_index') != col2.get('is_in_index'):
+                differences.append('is_in_index')
+            if col1.get('is_foreign_key') != col2.get('is_foreign_key'):
+                differences.append('is_foreign_key')
+        
+        comparison.append({
+            'column_name': col_name,
+            'env1': col1,
+            'env2': col2,
+            'in_env1': col1 is not None,
+            'in_env2': col2 is not None,
+            'differences': differences,
+            'has_differences': len(differences) > 0 or (col1 is None) != (col2 is None)
+        })
+    
+    # Sort by: columns with differences first, then by column position
+    comparison.sort(key=lambda x: (
+        not x['has_differences'],
+        x['env1']['column_position'] if x['env1'] else (x['env2']['column_position'] if x['env2'] else 999)
+    ))
+    
+    # Summary stats
+    total_columns = len(all_columns)
+    matching_columns = sum(1 for c in comparison if not c['has_differences'])
+    different_columns = sum(1 for c in comparison if c['has_differences'])
+    only_in_env1 = sum(1 for c in comparison if c['in_env1'] and not c['in_env2'])
+    only_in_env2 = sum(1 for c in comparison if c['in_env2'] and not c['in_env1'])
+    
+    return jsonify({
+        'table_name': table_name,
+        'application': application,
+        'env1': {
+            'name': env1,
+            'scan_time': schema1['scan_time'] if schema1 else None,
+            'database_host': schema1['database_host'] if schema1 else None,
+            'database_name': schema1['database_name'] if schema1 else None,
+            'schema_name': schema1['schema_name'] if schema1 else None,
+            'column_count': len(schema1['columns']) if schema1 else 0,
+            'exists': schema1 is not None
+        },
+        'env2': {
+            'name': env2,
+            'scan_time': schema2['scan_time'] if schema2 else None,
+            'database_host': schema2['database_host'] if schema2 else None,
+            'database_name': schema2['database_name'] if schema2 else None,
+            'schema_name': schema2['schema_name'] if schema2 else None,
+            'column_count': len(schema2['columns']) if schema2 else 0,
+            'exists': schema2 is not None
+        },
+        'summary': {
+            'total_columns': total_columns,
+            'matching_columns': matching_columns,
+            'different_columns': different_columns,
+            'only_in_env1': only_in_env1,
+            'only_in_env2': only_in_env2
+        },
         'columns': comparison
     })
 

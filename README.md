@@ -4,7 +4,10 @@
 
 Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server** with [dbt-profiler](https://github.com/data-mie/dbt-profiler) style metrics. Supports storing results in **ClickHouse** or **PostgreSQL**.
 
-![Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
+![React Environment Comparison Dashboard Screenshot](docs/images/react_environment_comparison_dashboard.png)
+
+![React Schema Comparison Dashboard Screenshot](docs/images/react_schema_comparison_dashboard.png)
+
 
 ## 🎯 Overview
 
