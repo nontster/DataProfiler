@@ -54,7 +54,7 @@
       },
       "id": 50,
       "panels": [],
-      "title": "📊 Environment Summary",
+      "title": "\ud83d\udcca Environment Summary",
       "type": "row"
     },
     {
@@ -93,7 +93,9 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -151,7 +153,9 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -209,7 +213,9 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["first"],
+          "calcs": [
+            "first"
+          ],
           "fields": "/^profiled_at$/",
           "values": true
         },
@@ -267,7 +273,9 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["first"],
+          "calcs": [
+            "first"
+          ],
           "fields": "/^profiled_at$/",
           "values": true
         },
@@ -290,16 +298,136 @@
       "type": "stat"
     },
     {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 0,
+        "y": 7
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "format": "table",
+          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Database Host",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 12,
+        "y": 7
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "format": "table",
+          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Database Host",
+      "type": "stat"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 7
+        "y": 10
       },
       "id": 51,
       "panels": [],
-      "title": "📈 Not Null Proportion Comparison",
+      "title": "\ud83d\udcc8 Not Null Proportion Comparison",
       "type": "row"
     },
     {
@@ -393,7 +521,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 8
+        "y": 11
       },
       "id": 10,
       "options": {
@@ -438,11 +566,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 18
+        "y": 21
       },
       "id": 52,
       "panels": [],
-      "title": "📊 Distinct Proportion Comparison",
+      "title": "\ud83d\udcca Distinct Proportion Comparison",
       "type": "row"
     },
     {
@@ -536,7 +664,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 19
+        "y": 22
       },
       "id": 11,
       "options": {
@@ -581,11 +709,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 32
       },
       "id": 53,
       "panels": [],
-      "title": "📋 Column Details Comparison",
+      "title": "\ud83d\udccb Column Details Comparison",
       "type": "row"
     },
     {
@@ -689,7 +817,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Δ Not Null"
+                "value": "\u0394 Not Null"
               },
               {
                 "id": "unit",
@@ -740,7 +868,7 @@
             "properties": [
               {
                 "id": "displayName",
-                "value": "Δ Distinct"
+                "value": "\u0394 Distinct"
               },
               {
                 "id": "unit",
@@ -837,13 +965,15 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 33
       },
       "id": 20,
       "options": {
         "footer": {
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true,
@@ -875,11 +1005,11 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 42
+        "y": 45
       },
       "id": 60,
       "panels": [],
-      "title": "⚠️ Auto-Increment Overflow Monitoring",
+      "title": "\u26a0\ufe0f Auto-Increment Overflow Monitoring",
       "type": "row"
     },
     {
@@ -920,13 +1050,15 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 43
+        "y": 46
       },
       "id": 61,
       "options": {
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -986,13 +1118,15 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 43
+        "y": 46
       },
       "id": 62,
       "options": {
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["lastNotNull"],
+          "calcs": [
+            "lastNotNull"
+          ],
           "fields": "",
           "values": false
         },
@@ -1060,7 +1194,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 43
+        "y": 46
       },
       "id": 63,
       "options": {
@@ -1069,7 +1203,9 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["min"],
+          "calcs": [
+            "min"
+          ],
           "fields": "",
           "values": false
         },
@@ -1136,7 +1272,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 43
+        "y": 46
       },
       "id": 64,
       "options": {
@@ -1145,7 +1281,9 @@
         "justifyMode": "auto",
         "orientation": "auto",
         "reduceOptions": {
-          "calcs": ["min"],
+          "calcs": [
+            "min"
+          ],
           "fields": "",
           "values": false
         },
@@ -1189,17 +1327,17 @@
                 "CRITICAL": {
                   "color": "red",
                   "index": 0,
-                  "text": "🔴 CRITICAL"
+                  "text": "\ud83d\udd34 CRITICAL"
                 },
                 "OK": {
                   "color": "green",
                   "index": 2,
-                  "text": "🟢 OK"
+                  "text": "\ud83d\udfe2 OK"
                 },
                 "WARNING": {
                   "color": "yellow",
                   "index": 1,
-                  "text": "🟡 WARNING"
+                  "text": "\ud83d\udfe1 WARNING"
                 }
               },
               "type": "value"
@@ -1294,13 +1432,15 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 52
       },
       "id": 65,
       "options": {
         "footer": {
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true,
@@ -1329,7 +1469,11 @@
   ],
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["dataprofiler", "comparison", "postgresql"],
+  "tags": [
+    "dataprofiler",
+    "comparison",
+    "postgresql"
+  ],
   "templating": {
     "list": [
       {

@@ -362,6 +362,14 @@ function App() {
                             <span className="text-gray-400 text-xs">
                               Profiled: {formatDateTime(comparison.env1.scan_time)}
                             </span>
+                            {comparison.env1.database_host && (
+                              <>
+                                <span className="text-gray-500">|</span>
+                                <span className="text-gray-400 text-xs font-mono" title="Database Host">
+                                  🖥️ {comparison.env1.database_host}
+                                </span>
+                              </>
+                            )}
                           </>
                         ) : (
                           <span className="text-red-400">(No data)</span>
@@ -380,6 +388,14 @@ function App() {
                             <span className="text-gray-400 text-xs">
                               Profiled: {formatDateTime(comparison.env2.scan_time)}
                             </span>
+                            {comparison.env2.database_host && (
+                              <>
+                                <span className="text-gray-500">|</span>
+                                <span className="text-gray-400 text-xs font-mono" title="Database Host">
+                                  🖥️ {comparison.env2.database_host}
+                                </span>
+                              </>
+                            )}
                           </>
                         ) : (
                           <span className="text-red-400">(No data)</span>

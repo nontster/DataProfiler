@@ -326,6 +326,13 @@ def compare_profiles(table_name):
     if not env1 or not env2:
         return jsonify({'error': 'Both env1 and env2 are required'}), 400
     
+    if METRICS_BACKEND == 'postgresql':
+        return compare_profiles_pg(table_name, application, env1, env2)
+    return compare_profiles_ch(table_name, application, env1, env2)
+
+
+def compare_profiles_ch(table_name, application, env1, env2):
+    """Compare profiles using ClickHouse backend."""
     client = get_clickhouse_client()
     
     def get_latest_profile(env):
@@ -344,7 +351,6 @@ def compare_profiles(table_name):
         if not latest_time:
             return None
         
-        # Get all columns for the latest scan
         query = f"""
             SELECT 
                 column_name,
@@ -360,7 +366,8 @@ def compare_profiles(table_name):
                 median,
                 std_dev_population,
                 std_dev_sample,
-                scan_time
+                scan_time,
+                database_host
             FROM data_profiles
             WHERE table_name = '{table_name}' 
               AND scan_time = '{latest_time}'
@@ -374,6 +381,7 @@ def compare_profiles(table_name):
         columns = {}
         row_count = 0
         scan_time = None
+        database_host = None
         for row in result.result_rows:
             columns[row[0]] = {
                 'column_name': row[0],
@@ -393,11 +401,13 @@ def compare_profiles(table_name):
             }
             row_count = row[2]
             scan_time = row[13].isoformat() if row[13] else None
+            database_host = row[14] if len(row) > 14 else None
         
         return {
             'columns': columns,
             'row_count': row_count,
-            'scan_time': scan_time
+            'scan_time': scan_time,
+            'database_host': database_host
         }
     
     profile1 = get_latest_profile(env1)
@@ -443,12 +453,155 @@ def compare_profiles(table_name):
             'name': env1,
             'row_count': profile1['row_count'] if profile1 else None,
             'scan_time': profile1['scan_time'] if profile1 else None,
+            'database_host': profile1['database_host'] if profile1 else None,
             'exists': profile1 is not None
         },
         'env2': {
             'name': env2,
             'row_count': profile2['row_count'] if profile2 else None,
             'scan_time': profile2['scan_time'] if profile2 else None,
+            'database_host': profile2['database_host'] if profile2 else None,
+            'exists': profile2 is not None
+        },
+        'columns': comparison
+    })
+
+
+def compare_profiles_pg(table_name, application, env1, env2):
+    """Compare profiles using PostgreSQL backend."""
+    conn = get_postgres_connection()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    
+    def get_latest_profile(env):
+        """Get the latest profile for an environment."""
+        # Get the latest scan_time for this table/app/env
+        cursor.execute("""
+            SELECT max(scan_time) 
+            FROM data_profiles 
+            WHERE table_name = %s 
+              AND application = %s
+              AND environment = %s
+        """, (table_name, application, env))
+        row = cursor.fetchone()
+        latest_time = row['max'] if row else None
+        
+        if not latest_time:
+            return None
+        
+        # Get all columns for the latest scan
+        cursor.execute("""
+            SELECT 
+                column_name,
+                data_type,
+                row_count,
+                not_null_proportion,
+                distinct_proportion,
+                distinct_count,
+                is_unique,
+                min_value,
+                max_value,
+                avg_value,
+                median_value,
+                std_dev_population,
+                std_dev_sample,
+                scan_time,
+                database_host
+            FROM data_profiles
+            WHERE table_name = %s 
+              AND scan_time = %s
+              AND application = %s
+              AND environment = %s
+            ORDER BY column_name
+        """, (table_name, latest_time, application, env))
+        
+        rows = cursor.fetchall()
+        
+        columns = {}
+        row_count = 0
+        scan_time = None
+        database_host = None
+        for row in rows:
+            columns[row['column_name']] = {
+                'column_name': row['column_name'],
+                'data_type': row['data_type'],
+                'row_count': row['row_count'],
+                'not_null_proportion': row['not_null_proportion'],
+                'distinct_proportion': row['distinct_proportion'],
+                'distinct_count': row['distinct_count'],
+                'is_unique': bool(row['is_unique']),
+                'min': row['min_value'],
+                'max': row['max_value'],
+                'avg': row['avg_value'],
+                'median': row['median_value'],
+                'std_dev_population': row['std_dev_population'],
+                'std_dev_sample': row['std_dev_sample'],
+                'scan_time': row['scan_time'].isoformat() if row['scan_time'] else None
+            }
+            row_count = row['row_count']
+            scan_time = row['scan_time'].isoformat() if row['scan_time'] else None
+            database_host = row['database_host']
+        
+        return {
+            'columns': columns,
+            'row_count': row_count,
+            'scan_time': scan_time,
+            'database_host': database_host
+        }
+    
+    profile1 = get_latest_profile(env1)
+    profile2 = get_latest_profile(env2)
+    
+    cursor.close()
+    conn.close()
+    
+    # Get all unique column names from both profiles
+    all_columns = set()
+    if profile1:
+        all_columns.update(profile1['columns'].keys())
+    if profile2:
+        all_columns.update(profile2['columns'].keys())
+    
+    # Build comparison data
+    comparison = []
+    for col_name in sorted(all_columns):
+        col1 = profile1['columns'].get(col_name) if profile1 else None
+        col2 = profile2['columns'].get(col_name) if profile2 else None
+        
+        # Calculate differences
+        not_null_diff = None
+        distinct_diff = None
+        if col1 and col2:
+            if col1['not_null_proportion'] is not None and col2['not_null_proportion'] is not None:
+                not_null_diff = col2['not_null_proportion'] - col1['not_null_proportion']
+            if col1['distinct_proportion'] is not None and col2['distinct_proportion'] is not None:
+                distinct_diff = col2['distinct_proportion'] - col1['distinct_proportion']
+        
+        comparison.append({
+            'column_name': col_name,
+            'data_type': col1['data_type'] if col1 else (col2['data_type'] if col2 else None),
+            'env1': col1,
+            'env2': col2,
+            'not_null_diff': not_null_diff,
+            'distinct_diff': distinct_diff,
+            'in_env1': col1 is not None,
+            'in_env2': col2 is not None
+        })
+    
+    return jsonify({
+        'table_name': table_name,
+        'application': application,
+        'env1': {
+            'name': env1,
+            'row_count': profile1['row_count'] if profile1 else None,
+            'scan_time': profile1['scan_time'] if profile1 else None,
+            'database_host': profile1['database_host'] if profile1 else None,
+            'exists': profile1 is not None
+        },
+        'env2': {
+            'name': env2,
+            'row_count': profile2['row_count'] if profile2 else None,
+            'scan_time': profile2['scan_time'] if profile2 else None,
+            'database_host': profile2['database_host'] if profile2 else None,
             'exists': profile2 is not None
         },
         'columns': comparison
