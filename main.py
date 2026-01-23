@@ -223,12 +223,12 @@ def run_profiler(
     # Step 5: Store in metrics backend (if enabled)
     if store_metrics:
         if backend == 'postgresql':
-            if insert_profiles_pg(table_profile, application=application, environment=environment):
+            if insert_profiles_pg(table_profile, application=application, environment=environment, database_type=db_type):
                 logger.info(f"✅ Results stored in PostgreSQL (data_profiles)")
             else:
                 logger.warning("Failed to store results in PostgreSQL")
         else:
-            if insert_profiles(table_profile, application=application, environment=environment):
+            if insert_profiles(table_profile, application=application, environment=environment, database_type=db_type):
                 logger.info(f"✅ Results stored in ClickHouse (data_profiles)")
             else:
                 logger.warning("Failed to store results in ClickHouse")
@@ -313,12 +313,12 @@ def run_autoincrement_profiler(
         # Store in metrics backend
         if store_metrics and profiles:
             if backend == 'postgresql':
-                if insert_autoincrement_profiles_pg(profiles, application, environment):
+                if insert_autoincrement_profiles_pg(profiles, application, environment, database_type):
                     logger.info("✅ Auto-increment results stored in PostgreSQL")
                 else:
                     logger.warning("Failed to store auto-increment results in PostgreSQL")
             else:
-                if insert_autoincrement_profiles(profiles, application, environment):
+                if insert_autoincrement_profiles(profiles, application, environment, database_type):
                     logger.info("✅ Auto-increment results stored in ClickHouse")
                 else:
                     logger.warning("Failed to store auto-increment results in ClickHouse")

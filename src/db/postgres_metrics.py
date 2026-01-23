@@ -154,7 +154,8 @@ def init_postgres_metrics() -> bool:
 def insert_profiles_pg(
     table_profile,
     application: str = "default",
-    environment: str = "development"
+    environment: str = "development",
+    database_type: str = "postgresql"
 ) -> bool:
     """
     Insert profiling records into PostgreSQL.
@@ -163,6 +164,7 @@ def insert_profiles_pg(
         table_profile: TableProfile object with column profiles
         application: Application/service name (e.g., 'order-service')
         environment: Environment name (e.g., 'uat', 'production')
+        database_type: Source database type ('postgresql' or 'mssql')
         
     Returns:
         bool: True if insert successful, False otherwise
@@ -175,14 +177,24 @@ def insert_profiles_pg(
         conn = get_postgres_metrics_connection()
         cursor = conn.cursor()
         
+        # Determine source database info based on database_type
+        if database_type == 'mssql':
+            source_host = Config.MSSQL_HOST
+            source_database = Config.MSSQL_DATABASE
+            source_schema = Config.MSSQL_SCHEMA
+        else:
+            source_host = Config.POSTGRES_HOST
+            source_database = Config.POSTGRES_DATABASE
+            source_schema = Config.POSTGRES_SCHEMA
+        
         data = []
         for col in table_profile.column_profiles:
             row = (
                 application,
                 environment,
-                Config.POSTGRES_HOST,
-                Config.POSTGRES_DATABASE,
-                Config.POSTGRES_SCHEMA,
+                source_host,
+                source_database,
+                source_schema,
                 col.table_name,
                 col.column_name,
                 col.data_type,
@@ -226,7 +238,8 @@ def insert_profiles_pg(
 def insert_autoincrement_profiles_pg(
     profiles: list,
     application: str = "default",
-    environment: str = "development"
+    environment: str = "development",
+    database_type: str = "postgresql"
 ) -> bool:
     """
     Insert auto-increment profiling records into PostgreSQL.
@@ -235,6 +248,7 @@ def insert_autoincrement_profiles_pg(
         profiles: List of AutoIncrementProfile objects
         application: Application/service name
         environment: Environment name
+        database_type: Source database type ('postgresql' or 'mssql')
         
     Returns:
         bool: True if insert successful, False otherwise
@@ -247,14 +261,24 @@ def insert_autoincrement_profiles_pg(
         conn = get_postgres_metrics_connection()
         cursor = conn.cursor()
         
+        # Determine source database info based on database_type
+        if database_type == 'mssql':
+            source_host = Config.MSSQL_HOST
+            source_database = Config.MSSQL_DATABASE
+            source_schema = Config.MSSQL_SCHEMA
+        else:
+            source_host = Config.POSTGRES_HOST
+            source_database = Config.POSTGRES_DATABASE
+            source_schema = Config.POSTGRES_SCHEMA
+        
         data = []
         for profile in profiles:
             row = (
                 application,
                 environment,
-                Config.POSTGRES_HOST,
-                Config.POSTGRES_DATABASE,
-                Config.POSTGRES_SCHEMA,
+                source_host,
+                source_database,
+                source_schema,
                 profile.table_name,
                 profile.column_name,
                 profile.data_type,
