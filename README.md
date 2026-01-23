@@ -817,9 +817,11 @@ Two dashboards are automatically provisioned:
 | ------------------------------------ | ----------------------------------------------------------------------------------------- |
 | **Main Dashboard**                   | Single environment view with data profiles, column details, and auto-increment monitoring |
 | **Environment Comparison Dashboard** | Compare profiles between two environments side-by-side with difference highlighting       |
+| **Schema Comparison Dashboard** | Compare schema between two environments side-by-side with difference highlighting       |
 
 ![Grafana Environment Comparison](docs/images/grafana_environment_comparison_dashboard.png)
 
+![Grafana Schema Comparison](docs/images/grafana_schema_comparison_dashboard.png)
 ### PostgreSQL Metrics Support
 
 Grafana is pre-configured with both ClickHouse and PostgreSQL datasources:
