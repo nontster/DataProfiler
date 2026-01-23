@@ -376,3 +376,160 @@ def get_postgres_metrics_client():
         psycopg2.connection: PostgreSQL connection
     """
     return get_postgres_metrics_connection()
+
+
+
+
+# =============================================================================
+# Schema Profiling Functions
+# =============================================================================
+
+def init_schema_profiles_pg() -> bool:
+    """
+    Initialize PostgreSQL table for storing schema profiles.
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        conn = get_postgres_metrics_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS schema_profiles (
+                id SERIAL PRIMARY KEY,
+                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                -- Multi-tenancy
+                application VARCHAR(255) DEFAULT 'default',
+                environment VARCHAR(50) DEFAULT 'development',
+                database_host VARCHAR(255) DEFAULT '',
+                database_name VARCHAR(255) DEFAULT '',
+                schema_name VARCHAR(100) DEFAULT 'public',
+                table_name VARCHAR(255) NOT NULL,
+                
+                -- Column info
+                column_name VARCHAR(255) NOT NULL,
+                column_position INTEGER,
+                data_type VARCHAR(100),
+                is_nullable BOOLEAN DEFAULT FALSE,
+                column_default TEXT,
+                max_length INTEGER,
+                numeric_precision INTEGER,
+                numeric_scale INTEGER,
+                
+                -- Constraint info
+                is_primary_key BOOLEAN DEFAULT FALSE,
+                is_in_index BOOLEAN DEFAULT FALSE,
+                index_names TEXT DEFAULT '',
+                is_foreign_key BOOLEAN DEFAULT FALSE,
+                fk_references VARCHAR(255) DEFAULT ''
+            )
+        """)
+        
+        # Create indexes for faster queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_schema_profiles_app_env
+            ON schema_profiles (application, environment, table_name)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_schema_profiles_scan
+            ON schema_profiles (table_name, scan_time)
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info("✅ PostgreSQL table 'schema_profiles' is ready")
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"❌ Schema profiles table initialization failed: {e}")
+        return False
+
+
+def insert_schema_profiles_pg(
+    schema,
+    application: str = "default",
+    environment: str = "development"
+) -> bool:
+    """
+    Insert schema profile into PostgreSQL.
+    
+    Args:
+        schema: TableSchema object
+        application: Application/service name
+        environment: Environment name
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    try:
+        conn = get_postgres_metrics_connection()
+        cursor = conn.cursor()
+        
+        # Build index lookup for each column
+        column_indexes = {}
+        for idx in schema.indexes:
+            for col in idx.columns:
+                if col not in column_indexes:
+                    column_indexes[col] = []
+                column_indexes[col].append(idx.name)
+        
+        # Build FK lookup
+        column_fks = {}
+        for fk in schema.foreign_keys:
+            for i, col in enumerate(fk.columns):
+                ref = f"{fk.referenced_table}({fk.referenced_columns[i]})"
+                column_fks[col] = ref
+        
+        # Insert each column
+        for position, (col_name, col) in enumerate(schema.columns.items(), 1):
+            is_pk = schema.primary_key and col_name in schema.primary_key
+            idx_names = column_indexes.get(col_name, [])
+            fk_ref = column_fks.get(col_name, '')
+            
+            cursor.execute("""
+                INSERT INTO schema_profiles (
+                    application, environment, database_host, database_name,
+                    schema_name, table_name, column_name, column_position,
+                    data_type, is_nullable, column_default, max_length,
+                    numeric_precision, numeric_scale, is_primary_key,
+                    is_in_index, index_names, is_foreign_key, fk_references
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+                )
+            """, (
+                application,
+                environment,
+                schema.database_host,
+                schema.database_name,
+                schema.schema_name,
+                schema.table_name,
+                col_name,
+                position,
+                col.data_type,
+                col.is_nullable,
+                col.default_value,
+                col.max_length,
+                col.numeric_precision,
+                col.numeric_scale,
+                is_pk,
+                bool(idx_names),
+                ','.join(idx_names),
+                bool(fk_ref),
+                fk_ref,
+            ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"✅ Inserted {len(schema.columns)} schema profiles [{application}/{environment}]")
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"❌ Failed to insert schema profiles into PostgreSQL: {e}")
+        return False

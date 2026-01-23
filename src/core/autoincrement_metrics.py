@@ -306,7 +306,8 @@ def profile_table_autoincrement(
     pg_historical_fetcher=None,
     application: str = 'default',
     environment: str = 'development',
-    lookback_days: int = DEFAULT_LOOKBACK_DAYS
+    lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+    schema: Optional[str] = None
 ) -> list[AutoIncrementProfile]:
     """
     Profile all auto-increment columns in a table.
@@ -319,6 +320,7 @@ def profile_table_autoincrement(
         application: Application name
         environment: Environment name
         lookback_days: Days of historical data to analyze
+        schema: Database schema
         
     Returns:
         List of AutoIncrementProfile for each auto-increment column
@@ -326,7 +328,13 @@ def profile_table_autoincrement(
     logger.info(f"Profiling auto-increment columns for table: {table_name}")
     
     # Get raw data from detector
-    raw_columns = detector.get_all_autoincrement_info(table_name)
+    # Note: detector.get_all_autoincrement_info needs to be updated to accept schema
+    try:
+        raw_columns = detector.get_all_autoincrement_info(table_name, schema=schema)
+    except TypeError:
+         # Fallback for detectors not yet updated
+        logger.warning("Detector does not support schema arg yet, trying without")
+        raw_columns = detector.get_all_autoincrement_info(table_name)
     
     if not raw_columns:
         logger.info(f"No auto-increment columns found in '{table_name}'")

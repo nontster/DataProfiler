@@ -74,6 +74,25 @@ DataProfiler includes **Auto-Increment Column Overflow Risk Analysis** to predic
 
 > **Note**: Supports both PostgreSQL SERIAL/BIGSERIAL/IDENTITY columns and MSSQL IDENTITY columns.
 
+## 🏗️ Schema Profiling & Comparison
+
+DataProfiler can profile table schemas (columns, data types, indexes, foreign keys) and store them for comparison between different environments (e.g., UAT vs Production).
+
+### Features
+
+- **Schema Snapshot**: Captures detailed schema metadata
+- **Comparison Dashboard**: Grafana dashboard to visualize differences
+- **Multi-Database Support**: Profile schemas from both PostgreSQL and MSSQL
+- **Strict Mode**: Compares defaults, nullability, and index structure
+
+### Comparison Metrics
+
+| Category        | Checks                                       |
+| --------------- | -------------------------------------------- |
+| **Columns**     | Existence, Data Types, Nullability, Defaults |
+| **Indexes**     | Primary Keys, Index Membership, Index Names  |
+| **Constraints** | Foreign Keys, Check Constraints              |
+
 ## 🛠️ Requirements
 
 - Python 3.10+
@@ -192,6 +211,9 @@ data_source my_mssql:
 # Profile 'users' table from PostgreSQL (default)
 python main.py users
 
+# Profile from specific schema (e.g., 'prod' or 'uat')
+python main.py users --schema prod
+
 # Profile from MSSQL
 python main.py users -d mssql
 
@@ -292,6 +314,18 @@ python main.py users -d mssql --auto-increment
 python main.py users --auto-increment --lookback-days 14
 ```
 
+### Schema Profiling
+
+```bash
+# Profile schema for User Service in Production
+python main.py users --profile-schema --app user-service --env production
+
+# Profile same table in UAT
+python main.py users --profile-schema --app user-service --env uat
+
+# Comparison is done via Grafana Dashboard
+```
+
 ### Complete Example: Profile MSSQL with PostgreSQL Metrics Backend
 
 ```bash
@@ -314,8 +348,9 @@ export PG_METRICS_PASSWORD='password123'
 python main.py users \
   -d mssql \
   --metrics-backend postgresql \
-  --app user� Dashboard-service \
+  --app user-service \
   --env production \
+  --schema prod \
   --auto-increment
 ```
 
@@ -359,8 +394,10 @@ DataProfiler/
 │       ├── dashboards/dashboard.yml
 │       └── datasources/datasource.yml
 │
-├── init-scripts/             # PostgreSQL & ClickHouse init scripts
-│   └── 01-sample-data.sql    # Sample data for testing
+├── init-scripts/             # Database initialization scripts
+│   ├── clickhouse/           # ClickHouse schema & test data
+│   ├── mssql/                # MSSQL init & data generation
+│   └── postgres/             # PostgreSQL init & data generation
 │
 ├── src/                      # Source code modules
 │   ├── __init__.py
@@ -437,8 +474,11 @@ scripts/run_profiler.sh --metrics-backend postgresql
 # Specify table name via CLI (ignores PROFILER_TABLE env var)
 scripts/run_profiler.sh users
 
+# Override schema (ignores PROFILER_SCHEMA env var)
+scripts/run_profiler.sh --schema uat
+
 # Combine CLI arguments
-scripts/run_profiler.sh users -d mssql --metrics-backend postgresql --auto-increment
+scripts/run_profiler.sh users -d mssql --metrics-backend postgresql --auto-increment --schema prod
 
 scripts/run_profiler.sh users --app user-service --env uat --database-type mssql --metrics-backend postgresql --auto-increment
 
@@ -478,21 +518,23 @@ Refer to the **[Configuration](#%EF%B8%8F-configuration)** section for the requi
 
 #### Profiler Options (Optional)
 
-| Variable                  | Default      | Description                                       |
-| ------------------------- | ------------ | ------------------------------------------------- |
-| `PROFILER_TABLE`          | `users`      | Table name to profile                             |
-| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv` |
-| `PROFILER_OUTPUT_FILE`    | -            | File path to save output                          |
-| `PROFILER_APP`            | `default`    | Application name                                  |
-| `PROFILER_ENV`            | `production` | Environment name                                  |
-| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`              |
-| `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`       |
-| `PROFILER_AUTO_INCREMENT` | `false`      | Enable auto-increment analysis                    |
-| `PROFILER_LOOKBACK_DAYS`  | `7`          | Days for growth rate calculation                  |
-| `PROFILER_NO_STORE`       | `false`      | Skip storing metrics                              |
-| `PROFILER_VERBOSE`        | `false`      | Enable verbose logging                            |
-| `PYTHON_PATH`             | `python3`    | Path to Python executable                         |
-| `PROFILER_HOME`           | (script dir) | Path to DataProfiler installation                 |
+| Variable                  | Default      | Description                                        |
+| ------------------------- | ------------ | -------------------------------------------------- |
+| `PROFILER_TABLE`          | `users`      | Table name to profile                              |
+| `PROFILER_SCHEMA`         | (default DB) | Schema name (e.g., `public`, `dbo`, `prod`, `uat`) |
+| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv`  |
+| `PROFILER_OUTPUT_FILE`    | -            | File path to save output                           |
+| `PROFILER_APP`            | `default`    | Application name                                   |
+| `PROFILER_ENV`            | `production` | Environment name                                   |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`               |
+| `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`        |
+| `PROFILER_AUTO_INCREMENT` | `false`      | Enable auto-increment analysis                     |
+| `PROFILER_PROFILE_SCHEMA` | `false`      | Enable schema profiling                            |
+| `PROFILER_LOOKBACK_DAYS`  | `7`          | Days for growth rate calculation                   |
+| `PROFILER_NO_STORE`       | `false`      | Skip storing metrics                               |
+| `PROFILER_VERBOSE`        | `false`      | Enable verbose logging                             |
+| `PYTHON_PATH`             | `python3`    | Path to Python executable                          |
+| `PROFILER_HOME`           | (script dir) | Path to DataProfiler installation                  |
 
 ### Exit Codes
 
@@ -674,14 +716,14 @@ Profile tables with application and environment context:
 # Activate virtual environment
 source venv/bin/activate
 
-# Profile 'users' table for UAT environment
-python main.py users --app user-service --env uat
+# Profile 'users' table for UAT environment (using 'uat' schema)
+python main.py users --app user-service --env uat --schema uat
 
-# Profile 'users' table for Production environment
-python main.py users --app user-service --env production
+# Profile 'users' table for Production environment (using 'prod' schema)
+python main.py users --app user-service --env production --schema prod
 
 # Profile with auto-increment overflow analysis
-python main.py users --app user-service --env production --auto-increment
+python main.py users --app user-service --env production --schema prod --auto-increment
 
 # Profile 'products' table with all options
 python main.py products --app user-service --env production --auto-increment

@@ -154,21 +154,36 @@ class PostgreSQLAutoIncrementDetector(AutoIncrementDetector):
             logger.error(f"Error getting sequence value for {sequence_name}: {e}")
             return None
     
-    def get_all_autoincrement_info(self, table_name: str) -> list[dict]:
+    def get_all_autoincrement_info(self, table_name: str, schema: str = None) -> list[dict]:
         """
         Get complete auto-increment information including current values.
         
         Args:
             table_name: Name of the table to analyze
+            schema: Optional schema override
             
         Returns:
             List of dicts with column info and current/max values
         """
-        columns = self.get_autoincrement_columns(table_name)
+        # Note: We need to update get_autoincrement_columns temporarily if schema provided
+        # Or better, update get_autoincrement_columns to accept schema.
+        # But get_autoincrement_columns relies on self.schema. 
+        # Let's create a temporary context or just pass schema if we update that method too.
+        # Since I cannot easily update get_autoincrement_columns in this single small edit without changing more code,
+        # I will hack specific logic here or update get_autoincrement_columns in a previous step.
+        # Actually, let's update get_autoincrement_columns first in a separate call if needed, 
+        # but here I can try to handle it.
+        
+        # Simpler approach: Create a temporary detector with the right schema if needed
+        detector = self
+        if schema and schema != self.schema:
+             detector = PostgreSQLAutoIncrementDetector(schema=schema)
+             
+        columns = detector.get_autoincrement_columns(table_name)
         
         result = []
         for col in columns:
-            current_value = self.get_current_value(col['sequence_name'])
+            current_value = detector.get_current_value(col['sequence_name'])
             data_type = col['data_type']
             max_value = POSTGRES_TYPE_MAX_VALUES.get(data_type, POSTGRES_TYPE_MAX_VALUES['bigint'])
             
@@ -294,21 +309,27 @@ class MSSQLAutoIncrementDetector(AutoIncrementDetector):
             logger.error(f"Error getting IDENTITY value for {sequence_name}: {e}")
             return None
     
-    def get_all_autoincrement_info(self, table_name: str) -> list[dict]:
+    def get_all_autoincrement_info(self, table_name: str, schema: str = None) -> list[dict]:
         """
         Get complete IDENTITY column information including current values.
         
         Args:
             table_name: Name of the table to analyze
+            schema: Optional schema override
             
         Returns:
             List of dicts with column info and current/max values
         """
-        columns = self.get_autoincrement_columns(table_name)
+        # Handle schema override by creating a temporary detector instance if needed
+        detector = self
+        if schema and schema != self.schema:
+             detector = MSSQLAutoIncrementDetector(schema=schema)
+             
+        columns = detector.get_autoincrement_columns(table_name)
         
         result = []
         for col in columns:
-            current_value = self.get_current_value(col['sequence_name'])
+            current_value = detector.get_current_value(col['sequence_name'])
             data_type = col['data_type']
             max_value = MSSQL_TYPE_MAX_VALUES.get(data_type, MSSQL_TYPE_MAX_VALUES['bigint'])
             

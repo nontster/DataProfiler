@@ -1,0 +1,950 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "# Schema Comparison Dashboard\nCompare table schema between two environments - Columns, Types, Indexes, Foreign Keys",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.0.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 50,
+      "panels": [],
+      "title": "📊 Schema Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 4
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT column_name) as columns\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Columns in ${env1}",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 4
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT column_name) as columns\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Columns in ${env2}",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 4
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_cols AS (\n  SELECT column_name, data_type, is_nullable, column_default\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n),\nenv2_cols AS (\n  SELECT column_name, data_type, is_nullable, column_default\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n)\nSELECT COUNT(*) as differences\nFROM (\n  -- Columns only in env1\n  SELECT e1.column_name FROM env1_cols e1\n  LEFT JOIN env2_cols e2 ON e1.column_name = e2.column_name\n  WHERE e2.column_name IS NULL\n  UNION ALL\n  -- Columns only in env2\n  SELECT e2.column_name FROM env2_cols e2\n  LEFT JOIN env1_cols e1 ON e2.column_name = e1.column_name\n  WHERE e1.column_name IS NULL\n  UNION ALL\n  -- Type mismatches\n  SELECT e1.column_name FROM env1_cols e1\n  JOIN env2_cols e2 ON e1.column_name = e2.column_name\n  WHERE e1.data_type != e2.data_type\n     OR e1.is_nullable != e2.is_nullable\n) diffs",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Differences",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 4
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env1}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_primary_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env2}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_primary_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "B"
+        }
+      ],
+      "title": "Primary Key Columns",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 4
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env1}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_in_index = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env2}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_in_index = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "B"
+        }
+      ],
+      "title": "Indexed Columns",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 4
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env1}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_foreign_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env2}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_foreign_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
+          "refId": "B"
+        }
+      ],
+      "title": "Foreign Key Columns",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 51,
+      "panels": [],
+      "title": "🔍 Column Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "❌ Missing in Env1": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "❌ Missing in Env2": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "⚠️ Type Mismatch": {
+                        "color": "yellow",
+                        "index": 3
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "column_name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 180
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": ["count"],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_cols AS (\n  SELECT column_name, column_position, data_type, is_nullable, column_default,\n         is_primary_key, is_in_index, index_names, is_foreign_key, fk_references\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n),\nenv2_cols AS (\n  SELECT column_name, column_position, data_type, is_nullable, column_default,\n         is_primary_key, is_in_index, index_names, is_foreign_key, fk_references\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n)\nSELECT \n  COALESCE(e1.column_name, e2.column_name) as column_name,\n  CASE\n    WHEN e1.column_name IS NULL THEN '❌ Missing in ${env1}'\n    WHEN e2.column_name IS NULL THEN '❌ Missing in ${env2}'\n    WHEN e1.data_type != e2.data_type OR e1.is_nullable != e2.is_nullable THEN '⚠️ Type Mismatch'\n    ELSE '✅ Match'\n  END as status,\n  e1.data_type as \"${env1} Type\",\n  e2.data_type as \"${env2} Type\",\n  CASE WHEN e1.is_nullable THEN 'YES' ELSE 'NO' END as \"${env1} Nullable\",\n  CASE WHEN e2.is_nullable THEN 'YES' ELSE 'NO' END as \"${env2} Nullable\",\n  CASE WHEN e1.is_primary_key THEN '🔑' ELSE '' END as \"${env1} PK\",\n  CASE WHEN e2.is_primary_key THEN '🔑' ELSE '' END as \"${env2} PK\",\n  CASE WHEN e1.is_in_index THEN '📇' ELSE '' END as \"${env1} Indexed\",\n  CASE WHEN e2.is_in_index THEN '📇' ELSE '' END as \"${env2} Indexed\"\nFROM env1_cols e1\nFULL OUTER JOIN env2_cols e2 ON e1.column_name = e2.column_name\nORDER BY COALESCE(e1.column_position, e2.column_position)",
+          "refId": "A"
+        }
+      ],
+      "title": "Column-by-Column Comparison: ${table_name}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 52,
+      "panels": [],
+      "title": "📋 Schema Details",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "is_primary_key"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "false": {
+                        "index": 1,
+                        "text": ""
+                      },
+                      "true": {
+                        "index": 0,
+                        "text": "🔑"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "is_nullable"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "false": {
+                        "index": 1,
+                        "text": "NOT NULL"
+                      },
+                      "true": {
+                        "index": 0,
+                        "text": "NULL"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 22
+      },
+      "id": 20,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": ["count"],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  column_name,\n  data_type,\n  is_nullable,\n  is_primary_key,\n  index_names,\n  fk_references\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )\nORDER BY column_position",
+          "refId": "A"
+        }
+      ],
+      "title": "Schema: ${env1}",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "is_primary_key"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "false": {
+                        "index": 1,
+                        "text": ""
+                      },
+                      "true": {
+                        "index": 0,
+                        "text": "🔑"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "is_nullable"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "false": {
+                        "index": 1,
+                        "text": "NOT NULL"
+                      },
+                      "true": {
+                        "index": 0,
+                        "text": "NULL"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 22
+      },
+      "id": 21,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": ["count"],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  column_name,\n  data_type,\n  is_nullable,\n  is_primary_key,\n  index_names,\n  fk_references\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )\nORDER BY column_position",
+          "refId": "A"
+        }
+      ],
+      "title": "Schema: ${env2}",
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "tags": ["schema", "comparison", "postgresql"],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "user-service",
+          "value": "user-service"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
+        },
+        "definition": "SELECT DISTINCT application FROM schema_profiles ORDER BY application",
+        "includeAll": false,
+        "label": "Application",
+        "name": "application",
+        "options": [],
+        "query": "SELECT DISTINCT application FROM schema_profiles ORDER BY application",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "uat",
+          "value": "uat"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
+        },
+        "definition": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 1",
+        "name": "env1",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "production",
+          "value": "production"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
+        },
+        "definition": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 2",
+        "name": "env2",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "users",
+          "value": "users"
+        },
+        "datasource": {
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
+        },
+        "definition": "SELECT DISTINCT table_name FROM schema_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "includeAll": false,
+        "label": "Table",
+        "name": "table_name",
+        "options": [],
+        "query": "SELECT DISTINCT table_name FROM schema_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Schema Comparison Dashboard",
+  "uid": "schema-comparison-dashboard",
+  "version": 1
+}

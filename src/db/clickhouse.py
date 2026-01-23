@@ -298,3 +298,144 @@ def insert_autoincrement_profiles(
     except ClickHouseError as e:
         logger.error(f"❌ Failed to insert auto-increment data into ClickHouse: {e}")
         return False
+
+
+
+
+# =============================================================================
+# Schema Profiling Functions
+# =============================================================================
+
+def init_schema_profiles_clickhouse() -> bool:
+    """
+    Initialize ClickHouse table for storing schema profiles.
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        client = get_clickhouse_client()
+        
+        client.command("""
+            CREATE TABLE IF NOT EXISTS schema_profiles (
+                -- Metadata
+                scan_time DateTime DEFAULT now(),
+                
+                -- Multi-tenancy
+                application String DEFAULT 'default',
+                environment LowCardinality(String) DEFAULT 'development',
+                database_host String DEFAULT '',
+                database_name String DEFAULT '',
+                schema_name String DEFAULT 'public',
+                table_name String,
+                
+                -- Column info
+                column_name String,
+                column_position Int32,
+                data_type String,
+                is_nullable UInt8 DEFAULT 0,
+                column_default Nullable(String),
+                max_length Nullable(Int32),
+                numeric_precision Nullable(Int32),
+                numeric_scale Nullable(Int32),
+                
+                -- Constraint info
+                is_primary_key UInt8 DEFAULT 0,
+                is_in_index UInt8 DEFAULT 0,
+                index_names String DEFAULT '',
+                is_foreign_key UInt8 DEFAULT 0,
+                fk_references String DEFAULT ''
+                
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(scan_time)
+            ORDER BY (application, environment, table_name, scan_time, column_name)
+        """)
+        
+        logger.info("✅ ClickHouse table 'schema_profiles' is ready")
+        return True
+    except (ClickHouseError, DatabaseConnectionError) as e:
+        logger.error(f"❌ Schema profiles table initialization failed: {e}")
+        return False
+
+
+def insert_schema_profiles(
+    schema,
+    application: str = "default",
+    environment: str = "development"
+) -> bool:
+    """
+    Insert schema profile into ClickHouse.
+    
+    Args:
+        schema: TableSchema object
+        application: Application/service name
+        environment: Environment name
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    try:
+        client = get_clickhouse_client()
+        
+        # Build index lookup for each column
+        column_indexes = {}
+        for idx in schema.indexes:
+            for col in idx.columns:
+                if col not in column_indexes:
+                    column_indexes[col] = []
+                column_indexes[col].append(idx.name)
+        
+        # Build FK lookup
+        column_fks = {}
+        for fk in schema.foreign_keys:
+            for i, col in enumerate(fk.columns):
+                ref = f"{fk.referenced_table}({fk.referenced_columns[i]})"
+                column_fks[col] = ref
+        
+        data = []
+        for position, (col_name, col) in enumerate(schema.columns.items(), 1):
+            is_pk = schema.primary_key and col_name in schema.primary_key
+            idx_names = column_indexes.get(col_name, [])
+            fk_ref = column_fks.get(col_name, '')
+            
+            row = [
+                application,
+                environment,
+                schema.database_host,
+                schema.database_name,
+                schema.schema_name,
+                schema.table_name,
+                col_name,
+                position,
+                col.data_type,
+                1 if col.is_nullable else 0,
+                col.default_value,
+                col.max_length,
+                col.numeric_precision,
+                col.numeric_scale,
+                1 if is_pk else 0,
+                1 if idx_names else 0,
+                ','.join(idx_names),
+                1 if fk_ref else 0,
+                fk_ref,
+            ]
+            data.append(row)
+        
+        client.insert(
+            'schema_profiles',
+            data,
+            column_names=[
+                'application', 'environment', 'database_host', 'database_name',
+                'schema_name', 'table_name', 'column_name', 'column_position',
+                'data_type', 'is_nullable', 'column_default', 'max_length',
+                'numeric_precision', 'numeric_scale', 'is_primary_key',
+                'is_in_index', 'index_names', 'is_foreign_key', 'fk_references'
+            ]
+        )
+        
+        logger.info(f"✅ Inserted {len(data)} schema profiles [{application}/{environment}]")
+        return True
+        
+    except ClickHouseError as e:
+        logger.error(f"❌ Failed to insert schema profiles into ClickHouse: {e}")
+        return False

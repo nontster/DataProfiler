@@ -491,13 +491,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_not_null"
+              "options": "${env1} Not Null"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1}"
-              },
               {
                 "id": "color",
                 "value": {
@@ -510,13 +506,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_not_null"
+              "options": "${env2} Not Null"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2}"
-              },
               {
                 "id": "color",
                 "value": {
@@ -565,7 +557,7 @@
             "uid": "dataprofiler-postgres"
           },
           "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.not_null_proportion as env1_not_null, e2.not_null_proportion as env2_not_null FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.not_null_proportion as \"${env1} Not Null\", e2.not_null_proportion as \"${env2} Not Null\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
           "refId": "A"
         }
       ],
@@ -635,13 +627,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_distinct"
+              "options": "${env1} Distinct"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1}"
-              },
               {
                 "id": "color",
                 "value": {
@@ -654,13 +642,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_distinct"
+              "options": "${env2} Distinct"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2}"
-              },
               {
                 "id": "color",
                 "value": {
@@ -709,7 +693,7 @@
             "uid": "dataprofiler-postgres"
           },
           "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.distinct_proportion as env1_distinct, e2.distinct_proportion as env2_distinct FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.distinct_proportion as \"${env1} Distinct\", e2.distinct_proportion as \"${env2} Distinct\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
           "refId": "A"
         }
       ],
@@ -764,13 +748,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_not_null"
+              "options": "${env1} Not Null"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1} Not Null"
-              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -780,13 +760,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_not_null"
+              "options": "${env2} Not Null"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2} Not Null"
-              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -796,13 +772,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_distinct"
+              "options": "${env1} Distinct"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1} Distinct"
-              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -812,13 +784,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_distinct"
+              "options": "${env2} Distinct"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2} Distinct"
-              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -930,50 +898,30 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_min"
+              "options": "${env1} Min"
             },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1} Min"
-              }
-            ]
+            "properties": []
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_min"
+              "options": "${env2} Min"
             },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2} Min"
-              }
-            ]
+            "properties": []
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_max"
+              "options": "${env1} Max"
             },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1} Max"
-              }
-            ]
+            "properties": []
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_max"
+              "options": "${env2} Max"
             },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2} Max"
-              }
-            ]
+            "properties": []
           }
         ]
       },
@@ -1002,7 +950,7 @@
             "uid": "dataprofiler-postgres"
           },
           "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.not_null_proportion as env1_not_null, e2.not_null_proportion as env2_not_null, (e2.not_null_proportion - e1.not_null_proportion) as not_null_diff, e1.distinct_proportion as env1_distinct, e2.distinct_proportion as env2_distinct, (e2.distinct_proportion - e1.distinct_proportion) as distinct_diff, e1.min_value as env1_min, e2.min_value as env2_min, e1.max_value as env1_max, e2.max_value as env2_max FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.not_null_proportion as \"${env1} Not Null\", e2.not_null_proportion as \"${env2} Not Null\", (e2.not_null_proportion - e1.not_null_proportion) as not_null_diff, e1.distinct_proportion as \"${env1} Distinct\", e2.distinct_proportion as \"${env2} Distinct\", (e2.distinct_proportion - e1.distinct_proportion) as distinct_diff, e1.min_value as \"${env1} Min\", e2.min_value as \"${env2} Min\", e1.max_value as \"${env1} Max\", e2.max_value as \"${env2} Max\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
           "refId": "A"
         }
       ],
@@ -1382,13 +1330,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_usage"
+              "options": "${env1} Usage %"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1} Usage %"
-              },
               {
                 "id": "unit",
                 "value": "percent"
@@ -1402,13 +1346,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_usage"
+              "options": "${env2} Usage %"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2} Usage %"
-              },
               {
                 "id": "unit",
                 "value": "percent"
@@ -1422,13 +1362,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env1_days"
+              "options": "${env1} Days Until Full"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env1} Days Until Full"
-              },
               {
                 "id": "unit",
                 "value": "d"
@@ -1438,13 +1374,9 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "env2_days"
+              "options": "${env2} Days Until Full"
             },
             "properties": [
-              {
-                "id": "displayName",
-                "value": "${env2} Days Until Full"
-              },
               {
                 "id": "unit",
                 "value": "d"
@@ -1478,7 +1410,7 @@
             "uid": "dataprofiler-postgres"
           },
           "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.current_value as env1_current, e2.current_value as env2_current, e1.usage_percentage as env1_usage, e2.usage_percentage as env2_usage, e1.days_until_full as env1_days, e2.days_until_full as env2_days, e1.alert_status as env1_status, e2.alert_status as env2_status FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY COALESCE(e1.usage_percentage, e2.usage_percentage) DESC NULLS LAST",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.current_value as \"${env1} Current\", e2.current_value as \"${env2} Current\", e1.usage_percentage as \"${env1} Usage %\", e2.usage_percentage as \"${env2} Usage %\", e1.days_until_full as \"${env1} Days Until Full\", e2.days_until_full as \"${env2} Days Until Full\", e1.alert_status as \"${env1} Status\", e2.alert_status as \"${env2} Status\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY COALESCE(e1.usage_percentage, e2.usage_percentage) DESC NULLS LAST",
           "refId": "A"
         }
       ],

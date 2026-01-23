@@ -223,3 +223,5 @@ def format_profile(
         raise ValueError(f"Unknown format type: {format_type}. Valid options: {list(formatters.keys())}")
     
     return formatter(profile)
+
+

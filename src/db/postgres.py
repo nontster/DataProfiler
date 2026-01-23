@@ -40,12 +40,13 @@ def get_postgres_connection():
         raise DatabaseConnectionError(f"PostgreSQL connection failed: {e}")
 
 
-def table_exists(table_name: str) -> bool:
+def table_exists(table_name: str, schema: Optional[str] = None) -> bool:
     """
     Check if a table exists in the PostgreSQL database.
     
     Args:
         table_name: Name of the table to check
+        schema: Optional schema name (defaults to Config.POSTGRES_SCHEMA)
         
     Returns:
         bool: True if table exists, False otherwise
@@ -54,13 +55,15 @@ def table_exists(table_name: str) -> bool:
         conn = get_postgres_connection()
         cur = conn.cursor()
         
+        target_schema = schema or Config.POSTGRES_SCHEMA or 'public'
+        
         query = """
             SELECT EXISTS (
                 SELECT 1 FROM information_schema.tables 
                 WHERE table_name = %s AND table_schema = %s
             )
         """
-        cur.execute(query, (table_name, Config.POSTGRES_SCHEMA))
+        cur.execute(query, (table_name, target_schema))
         exists = cur.fetchone()[0]
         
         cur.close()
@@ -72,12 +75,13 @@ def table_exists(table_name: str) -> bool:
         return False
 
 
-def get_table_metadata(table_name: str) -> list[dict]:
+def get_table_metadata(table_name: str, schema: Optional[str] = None) -> list[dict]:
     """
     Retrieve column metadata for a given table.
     
     Args:
         table_name: Name of the table to get metadata for
+        schema: Optional schema name (defaults to Config.POSTGRES_SCHEMA)
         
     Returns:
         List of dictionaries with 'name' and 'type' keys
@@ -87,14 +91,17 @@ def get_table_metadata(table_name: str) -> list[dict]:
         DatabaseConnectionError: If connection fails
     """
     # Validate table exists first
-    if not table_exists(table_name):
+    if not table_exists(table_name, schema):
+        target_schema = schema or Config.POSTGRES_SCHEMA or 'public'
         raise TableNotFoundError(
-            f"Table '{table_name}' not found in schema '{Config.POSTGRES_SCHEMA}'"
+            f"Table '{table_name}' not found in schema '{target_schema}'"
         )
     
     try:
         conn = get_postgres_connection()
         cur = conn.cursor()
+        
+        target_schema = schema or Config.POSTGRES_SCHEMA or 'public'
         
         query = """
             SELECT column_name, data_type 
@@ -102,13 +109,13 @@ def get_table_metadata(table_name: str) -> list[dict]:
             WHERE table_name = %s AND table_schema = %s
             ORDER BY ordinal_position
         """
-        cur.execute(query, (table_name, Config.POSTGRES_SCHEMA))
+        cur.execute(query, (table_name, target_schema))
         columns = cur.fetchall()
         
         cur.close()
         conn.close()
         
-        logger.info(f"Found {len(columns)} columns in table '{table_name}'")
+        logger.info(f"Found {len(columns)} columns in table '{target_schema}.{table_name}'")
         return [{"name": col[0], "type": col[1]} for col in columns]
         
     except (OperationalError, ProgrammingError) as e:

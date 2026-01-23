@@ -77,34 +77,97 @@ def main():
     """)
     print("   ✅ testdb created")
     
-    print("\n📋 Creating users table...")
+    print("\n📦 Creating schemas...")
     run_sql("""
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'users')
+        IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'prod')
         BEGIN
-            CREATE TABLE dbo.users (
+            EXEC('CREATE SCHEMA prod')
+        END
+        
+        IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'uat')
+        BEGIN
+            EXEC('CREATE SCHEMA uat')
+        END
+    """, database='testdb')
+    print("   ✅ schemas 'prod' and 'uat' created")
+    
+    
+    print("\n📋 Creating prod.users (Production) table...")
+    run_sql("""
+        IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE t.name = 'users' AND s.name = 'prod')
+        BEGIN
+            CREATE TABLE prod.users (
                 id INT IDENTITY(1,1) PRIMARY KEY,
                 username NVARCHAR(100) NOT NULL,
-                email NVARCHAR(255) NOT NULL,
+                
+                -- Prod: NVARCHAR(100)
+                email NVARCHAR(100) NOT NULL,
+                
                 age INT,
                 salary DECIMAL(10,2),
                 is_active BIT DEFAULT 1,
                 created_at DATETIME2 DEFAULT GETDATE()
             );
             
-            INSERT INTO dbo.users (username, email, age, salary, is_active)
+            INSERT INTO prod.users (username, email, age, salary, is_active)
             VALUES 
                 ('alice', 'alice@example.com', 28, 75000.00, 1),
                 ('bob', 'bob@example.com', 35, 85000.50, 1),
                 ('charlie', 'charlie@example.com', 42, 95000.75, 1),
                 ('diana', 'diana@example.com', 31, 72000.25, 0),
                 ('eve', 'eve@example.com', 29, 68000.00, 1);
+            
+            -- Create simple index
+            CREATE INDEX idx_users_username ON prod.users(username);
+            
+            -- Create composite index
+            CREATE INDEX idx_users_age_salary ON prod.users(age, salary);
+            
+            -- Create unique index
+            CREATE UNIQUE INDEX idx_users_email ON prod.users(email);
         END
     """, database='testdb')
-    print("   ✅ users created with 5 records")
-    
-    print("\n📋 Creating products table...")
+    print("   ✅ prod.users created with 5 records")
+
+    print("\n📋 Creating uat.users (UAT) table...")
     run_sql("""
-        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'products')
+        IF NOT EXISTS (SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE t.name = 'users' AND s.name = 'uat')
+        BEGIN
+            CREATE TABLE uat.users (
+                id INT IDENTITY(1,1) PRIMARY KEY,
+                username NVARCHAR(100) NOT NULL,
+                
+                -- Drift: NVARCHAR(150)
+                email NVARCHAR(150) NOT NULL,
+                
+                -- Drift: NOT NULL
+                age INT NOT NULL,
+                
+                -- Drift: DECIMAL(12,2)
+                salary DECIMAL(12,2),
+                
+                is_active BIT DEFAULT 1,
+                created_at DATETIME2 DEFAULT GETDATE(),
+                
+                -- Drift: Extra column
+                middle_name NVARCHAR(50)
+            );
+            
+            -- Insert data (copy from Prod)
+            INSERT INTO uat.users (username, email, age, salary, is_active)
+            SELECT username, email, age, salary, is_active FROM prod.users;
+            
+            -- UAT Indexes
+            -- Drift: Missing username index
+            CREATE INDEX idx_users_age_salary ON uat.users(age, salary);
+            CREATE UNIQUE INDEX idx_users_email ON uat.users(email);
+        END
+    """, database='testdb')
+    print("   ✅ uat.users created with 5 records")
+    
+    print("\n📋 Creating products table (dbo)...")
+    run_sql("""
+        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'products' AND schema_id = SCHEMA_ID('dbo'))
         BEGIN
             CREATE TABLE dbo.products (
                 product_id BIGINT IDENTITY(1,1) PRIMARY KEY,
@@ -127,7 +190,8 @@ def main():
     print("✅ MSSQL initialization completed successfully!")
     print("=" * 50)
     print("\nYou can now run:")
-    print("  python main.py users -d mssql")
+    print("  python main.py users -d mssql --schema prod")
+    print("  python main.py users -d mssql --schema uat")
     print("  python main.py products -d mssql --auto-increment")
 
 

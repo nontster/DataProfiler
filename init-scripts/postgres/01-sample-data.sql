@@ -1,8 +1,14 @@
 -- Sample data for testing DataProfiler
 -- This script runs automatically when PostgreSQL container starts
 
--- Create users table
-CREATE TABLE IF NOT EXISTS users (
+-- Create schemas
+CREATE SCHEMA IF NOT EXISTS prod;
+CREATE SCHEMA IF NOT EXISTS uat;
+
+-- ==========================================
+-- 1. Production Environment (Golden Schema)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS prod.users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
@@ -12,8 +18,43 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Insert sample data (100+ records)
-INSERT INTO users (username, email, age, salary, is_active) VALUES
+-- Production Indexes
+CREATE INDEX IF NOT EXISTS idx_users_username ON prod.users(username);
+CREATE INDEX IF NOT EXISTS idx_users_age_salary ON prod.users(age, salary);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON prod.users(email);
+
+
+-- ==========================================
+-- 2. UAT Environment (Simulated Drift)
+-- ==========================================
+CREATE TABLE IF NOT EXISTS uat.users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) NOT NULL,
+    
+    -- Drift: different length
+    email VARCHAR(150),
+    
+    -- Drift: NOT NULL in UAT (vs nullable in Prod)
+    age INTEGER,
+    
+    -- Drift: different precision
+    salary NUMERIC(12, 2),
+    
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    -- Drift: Extra column in UAT
+    middle_name VARCHAR(50)
+);
+
+-- UAT Indexes 
+-- Drift: Missing index on username
+CREATE INDEX IF NOT EXISTS idx_users_age_salary ON uat.users(age, salary);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON uat.users(email);
+
+
+-- Insert sample data into PROD
+INSERT INTO prod.users (username, email, age, salary, is_active) VALUES
     ('john_doe', 'john@example.com', 28, 55000.00, true),
     ('jane_smith', 'jane@example.com', 34, 72000.00, true),
     ('bob_wilson', 'bob@example.com', 45, 85000.00, true),
@@ -120,8 +161,14 @@ INSERT INTO users (username, email, age, salary, is_active) VALUES
     ('hugh_jackman', 'hugh@example.com', 52, 145000.00, true),
     ('ian_mckellen', 'ian@example.com', 81, 125000.00, true);
 
--- Create products table for additional testing
-CREATE TABLE IF NOT EXISTS products (
+-- ==========================================
+-- 3. Populate UAT Data (Copy from Prod)
+-- ==========================================
+INSERT INTO uat.users (username, email, age, salary, is_active)
+SELECT username, email, age, salary, is_active FROM prod.users;
+
+-- Create products table for additional testing (Public schema)
+CREATE TABLE IF NOT EXISTS public.products (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     category VARCHAR(50),
@@ -131,7 +178,7 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- Insert sample products (100+ records)
-INSERT INTO products (name, category, price, stock_quantity, is_available) VALUES
+INSERT INTO public.products (name, category, price, stock_quantity, is_available) VALUES
     ('Laptop Pro', 'Electronics', 1299.99, 50, true),
     ('Wireless Mouse', 'Electronics', 29.99, 200, true),
     ('Office Chair', 'Furniture', 249.99, 30, true),
@@ -244,6 +291,8 @@ INSERT INTO products (name, category, price, stock_quantity, is_available) VALUE
     ('Conference Table', 'Furniture', 799.99, 8, true);
 
 -- Verify data
-SELECT 'users' as table_name, COUNT(*) as row_count FROM users
+SELECT 'prod.users' as table_name, COUNT(*) as row_count FROM prod.users
 UNION ALL
-SELECT 'products' as table_name, COUNT(*) as row_count FROM products;
+SELECT 'uat.users' as table_name, COUNT(*) as row_count FROM uat.users
+UNION ALL
+SELECT 'public.products' as table_name, COUNT(*) as row_count FROM public.products;

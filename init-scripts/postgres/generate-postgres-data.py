@@ -3,12 +3,12 @@
 Generate test data in PostgreSQL database.
 
 Usage:
-    python init-scripts/postgres/generate-postgres-data.py [--users N] [--products N]
+    python init-scripts/postgres/generate-postgres-data.py [--users N] [--products N] [--schema SCHEMA]
 
 Examples:
-    python init-scripts/postgres/generate-postgres-data.py              # Add 100 users and 50 products
-    python init-scripts/postgres/generate-postgres-data.py --users 500  # Add 500 users only
-    python init-scripts/postgres/generate-postgres-data.py --products 200  # Add 200 products only
+    python init-scripts/postgres/generate-postgres-data.py              # Add to prod.users
+    python init-scripts/postgres/generate-postgres-data.py --schema uat # Add to uat.users
+    python init-scripts/postgres/generate-postgres-data.py --users 500  # Add 500 users
 """
 
 import argparse
@@ -52,11 +52,11 @@ def get_connection():
         sys.exit(1)
 
 
-def get_max_id(conn, table, id_column='id'):
+def get_max_id(conn, table, schema='public', id_column='id'):
     """Get the current max ID from a table."""
     with conn.cursor() as cursor:
         try:
-            cursor.execute(f"SELECT COALESCE(MAX({id_column}), 0) FROM {table}")
+            cursor.execute(f"SELECT COALESCE(MAX({id_column}), 0) FROM {schema}.{table}")
             result = cursor.fetchone()
             return result[0] if result else 0
         except psycopg2.Error:
@@ -64,19 +64,20 @@ def get_max_id(conn, table, id_column='id'):
             return 0
 
 
-def generate_users(conn, count):
+def generate_users(conn, count, table_name='users', schema='prod'):
     """Generate test users."""
-    print(f"\n👤 Generating {count} users in users...")
+    full_table_name = f"{schema}.{table_name}"
+    print(f"\n👤 Generating {count} users in {full_table_name}...")
     
     with conn.cursor() as cursor:
         # Check if table exists
-        cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')")
+        cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s AND table_schema = %s)", (table_name, schema))
         if not cursor.fetchone()[0]:
-            print("❌ Table 'users' does not exist. Please run init scripts first.")
+            print(f"❌ Table '{full_table_name}' does not exist. Please run init scripts first.")
             return
 
         # Get starting point
-        start_id = get_max_id(conn, 'users') + 1
+        start_id = get_max_id(conn, table_name, schema) + 1
         
         # Build batch insert
         values = []
@@ -96,29 +97,32 @@ def generate_users(conn, count):
         for i in range(0, len(values), batch_size):
             batch = values[i:i+batch_size]
             sql = f"""
-                INSERT INTO users (username, email, age, salary, is_active)
+                INSERT INTO {full_table_name} (username, email, age, salary, is_active)
                 VALUES {','.join(batch)}
             """
             cursor.execute(sql)
             inserted += len(batch)
             print(f"   Inserted {inserted}/{count} users...")
         
-    print(f"   ✅ Added {count} new users (IDs {start_id} to {start_id + count - 1})")
+    print(f"   ✅ Added {count} new users to {full_table_name} (IDs {start_id} to {start_id + count - 1})")
 
 
 def generate_products(conn, count):
     """Generate test products."""
-    print(f"\n📦 Generating {count} products in products...")
+    # Products are in public schema
+    schema = 'public'
+    table = 'products'
+    print(f"\n📦 Generating {count} products in {schema}.{table}...")
     
     with conn.cursor() as cursor:
         # Check if table exists
-        cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'products')")
+        cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s AND table_schema = %s)", (table, schema))
         if not cursor.fetchone()[0]:
-            print("❌ Table 'products' does not exist. Please run init scripts first.")
+            print(f"❌ Table '{table}' does not exist. Please run init scripts first.")
             return
 
         # Get starting point
-        start_id = get_max_id(conn, 'products', 'id') + 1  # Using 'id' for products based on 01-sample-data.sql
+        start_id = get_max_id(conn, table, schema, 'id') + 1 
         
         categories = ['Electronics', 'Accessories', 'Clothing', 'Home', 'Sports', 'Books', 'Toys']
         
@@ -141,7 +145,7 @@ def generate_products(conn, count):
         for i in range(0, len(values), batch_size):
             batch = values[i:i+batch_size]
             sql = f"""
-                INSERT INTO products (name, category, price, stock_quantity, is_available)
+                INSERT INTO {schema}.{table} (name, category, price, stock_quantity, is_available)
                 VALUES {','.join(batch)}
             """
             cursor.execute(sql)
@@ -156,25 +160,21 @@ def show_stats(conn):
     with conn.cursor() as cursor:
         print("\n📊 Current table statistics:")
         
-        # Users
-        try:
-            cursor.execute("SELECT COUNT(*), MAX(id), MIN(id) FROM users")
-            row = cursor.fetchone()
-            if row and row[0]:
-                print(f"   users: {row[0]:,} records (ID range: {row[2]} - {row[1]})")
-        except psycopg2.Error:
-            print("   users: Table not found")
-            conn.rollback() # Reset transaction state
+        targets = [('prod', 'users'), ('uat', 'users'), ('public', 'products')]
         
-        # Products
-        try:
-            cursor.execute("SELECT COUNT(*), MAX(id), MIN(id) FROM products")
-            row = cursor.fetchone()
-            if row and row[0]:
-                print(f"   products: {row[0]:,} records (ID range: {row[2]} - {row[1]})")
-        except psycopg2.Error:
-            print("   products: Table not found")
-            conn.rollback()
+        for schema, table in targets:
+            try:
+                # Basic check if table exists to avoid errors in output
+                cursor.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = %s AND table_schema = %s)", (table, schema))
+                if cursor.fetchone()[0]:
+                     cursor.execute(f"SELECT COUNT(*), MAX(id), MIN(id) FROM {schema}.{table}")
+                     row = cursor.fetchone()
+                     if row and row[0]:
+                         print(f"   {schema}.{table}: {row[0]:,} records (ID range: {row[2]} - {row[1]})")
+                else:
+                    pass
+            except psycopg2.Error:
+                conn.rollback() # Reset transaction state
 
 
 def main():
@@ -183,14 +183,15 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python init-scripts/postgres/generate-postgres-data.py              # Add 100 users and 50 products
-  python init-scripts/postgres/generate-postgres-data.py --users 500  # Add 500 users only
-  python init-scripts/postgres/generate-postgres-data.py --products 200  # Add 200 products only
-  python init-scripts/postgres/generate-postgres-data.py --users 1000 --products 500  # Add both
+  python init-scripts/postgres/generate-postgres-data.py --schema prod        # Add to Prod
+  python init-scripts/postgres/generate-postgres-data.py --schema uat         # Add to UAT
+  python init-scripts/postgres/generate-postgres-data.py --users 500 --schema prod
         """
     )
     parser.add_argument('--users', type=int, default=100, help='Number of users to generate (default: 100)')
     parser.add_argument('--products', type=int, default=50, help='Number of products to generate (default: 50)')
+    parser.add_argument('--table', type=str, default='users', help='Target table name (default: users)')
+    parser.add_argument('--schema', type=str, default='prod', help='Target schema (default: prod)')
     parser.add_argument('--no-users', action='store_true', help='Skip generating users')
     parser.add_argument('--no-products', action='store_true', help='Skip generating products')
     parser.add_argument('--stats-only', action='store_true', help='Only show current statistics')
@@ -212,7 +213,7 @@ Examples:
         return
     
     if not args.no_users and args.users > 0:
-        generate_users(conn, args.users)
+        generate_users(conn, args.users, args.table, args.schema)
     
     if not args.no_products and args.products > 0:
         generate_products(conn, args.products)
@@ -223,8 +224,8 @@ Examples:
     print("\n" + "=" * 50)
     print("✅ Data generation completed!")
     print("=" * 50)
-    print("\nYou can now run profiler to see growth rate:")
-    print("  python main.py users --auto-increment")
+    print("\nYou can now run profiler:")
+    print(f"  python main.py {args.table} --schema {args.schema} --auto-increment")
 
 
 if __name__ == '__main__':

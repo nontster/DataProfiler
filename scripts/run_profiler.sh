@@ -25,6 +25,7 @@
 #   PROFILER_DB_TYPE      - Database type: postgresql|mssql (default: postgresql)
 #   METRICS_BACKEND       - Metrics backend: clickhouse|postgresql (default: clickhouse)
 #   PROFILER_AUTO_INCREMENT - Enable auto-increment analysis: true|false (default: false)
+#   PROFILER_PROFILE_SCHEMA - Enable schema profiling: true|false (default: false)
 #   PROFILER_LOOKBACK_DAYS  - Days for growth rate calculation (default: 7)
 #   PROFILER_NO_STORE       - Skip storing to metrics backend: true|false (default: false)
 #   PROFILER_VERBOSE        - Enable verbose logging: true|false (default: false)
@@ -220,6 +221,7 @@ parse_cli_args() {
     CLI_TABLE=""
     CLI_APP=""
     CLI_ENV=""
+    CLI_SCHEMA=""
     CLI_AUTO_INCREMENT="false"
     CLI_LOOKBACK_DAYS=""
     
@@ -241,8 +243,16 @@ parse_cli_args() {
                 CLI_ENV="$2"
                 shift 2
                 ;;
+            --schema)
+                CLI_SCHEMA="$2"
+                shift 2
+                ;;
             --auto-increment)
                 CLI_AUTO_INCREMENT="true"
+                shift
+                ;;
+            --profile-schema)
+                CLI_PROFILE_SCHEMA="true"
                 shift
                 ;;
             --lookback-days)
@@ -290,8 +300,14 @@ parse_cli_args() {
     if [[ -n "$CLI_ENV" ]]; then
         PROFILER_ENV="$CLI_ENV"
     fi
+    if [[ -n "$CLI_SCHEMA" ]]; then
+        PROFILER_SCHEMA="$CLI_SCHEMA"
+    fi
     if [[ "$CLI_AUTO_INCREMENT" == "true" ]]; then
         PROFILER_AUTO_INCREMENT="true"
+    fi
+    if [[ "$CLI_PROFILE_SCHEMA" == "true" ]]; then
+        PROFILER_PROFILE_SCHEMA="true"
     fi
     if [[ -n "$CLI_LOOKBACK_DAYS" ]]; then
         PROFILER_LOOKBACK_DAYS="$CLI_LOOKBACK_DAYS"
@@ -339,9 +355,19 @@ build_command_args() {
         args+=("--metrics-backend" "${METRICS_BACKEND}")
     fi
     
+    # Schema name
+    if [[ -n "${PROFILER_SCHEMA}" ]]; then
+        args+=("--schema" "${PROFILER_SCHEMA}")
+    fi
+    
     # Auto-increment analysis
     if [[ "${PROFILER_AUTO_INCREMENT}" == "true" ]]; then
         args+=("--auto-increment")
+    fi
+    
+    # Schema profiling
+    if [[ "${PROFILER_PROFILE_SCHEMA}" == "true" ]]; then
+        args+=("--profile-schema")
     fi
     
     # Lookback days

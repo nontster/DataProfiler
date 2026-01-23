@@ -39,13 +39,14 @@ def get_connection(database_type: DatabaseType):
         raise ValueError(f"Unsupported database type: {database_type}")
 
 
-def get_table_metadata(table_name: str, database_type: DatabaseType) -> list[dict]:
+def get_table_metadata(table_name: str, database_type: DatabaseType, schema: str = None) -> list[dict]:
     """
     Get table metadata for the specified database type.
     
     Args:
         table_name: Name of the table
         database_type: Type of database
+        schema: Optional schema name
         
     Returns:
         List of column metadata dictionaries
@@ -53,9 +54,9 @@ def get_table_metadata(table_name: str, database_type: DatabaseType) -> list[dic
     db_type = database_type.lower()
     
     if db_type in ('postgresql', 'postgres'):
-        return pg_get_table_metadata(table_name)
+        return pg_get_table_metadata(table_name, schema=schema)
     elif db_type in ('mssql', 'sqlserver'):
-        return mssql_get_table_metadata(table_name)
+        return mssql_get_table_metadata(table_name, schema=schema)
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
 

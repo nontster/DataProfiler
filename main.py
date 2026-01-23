@@ -127,6 +127,19 @@ Examples:
         help='Backend for storing metrics (default: from METRICS_BACKEND env var or clickhouse)'
     )
 
+    parser.add_argument(
+        '--schema',
+        default=None,
+        help='Database schema (default: public for PG, dbo for MSSQL)'
+    )
+
+    # Schema profiling argument
+    parser.add_argument(
+        '--profile-schema',
+        action='store_true',
+        help='Profile table schema and store in metrics database (for Grafana comparison)'
+    )
+
     return parser.parse_args()
 
 
@@ -140,7 +153,8 @@ def run_profiler(
     include_auto_increment: bool = False,
     lookback_days: int = 7,
     database_type: str = 'postgresql',
-    metrics_backend: Optional[str] = None
+    metrics_backend: Optional[str] = None,
+    schema: Optional[str] = None
 ) -> Optional[int]:
     """
     Run the data profiler for a specific table.
@@ -156,6 +170,7 @@ def run_profiler(
         lookback_days: Days of historical data for growth rate calculation
         database_type: Database type (postgresql or mssql)
         metrics_backend: Backend for storing metrics (clickhouse or postgresql)
+        schema: Database schema
         
     Returns:
         Number of column profiles generated, or None if failed
@@ -164,7 +179,8 @@ def run_profiler(
     
     # Determine metrics backend
     backend = metrics_backend or Config.METRICS_BACKEND
-    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}] (database: {db_type}, metrics: {backend})")
+    schema_info = f"schema: {schema}" if schema else "default schema"
+    logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}] (database: {db_type}, {schema_info}, metrics: {backend})")
     
     # Step 1: Initialize metrics backend (if storing)
     if store_metrics:
@@ -184,13 +200,21 @@ def run_profiler(
     # Step 2: Get table metadata
     try:
         logger.info(f"Discovering schema for '{table_name}'...")
-        columns = get_table_metadata(table_name, db_type)
+        # Note: get_table_metadata needs to be updated to accept schema if not already
+        columns = get_table_metadata(table_name, db_type, schema=schema)
     except TableNotFoundError as e:
         logger.error(f"❌ {e}")
         return None
     except DatabaseConnectionError as e:
         logger.error(f"❌ Database error: {e}")
         return None
+    except TypeError as e:
+        # Fallback if get_table_metadata doesn't support schema yet
+        if "unexpected keyword argument 'schema'" in str(e):
+             logger.warning("get_table_metadata does not support schema arg yet, trying without")
+             columns = get_table_metadata(table_name, db_type)
+        else:
+            raise e
     
     if not columns:
         logger.warning(f"No columns found in table '{table_name}'")
@@ -200,7 +224,8 @@ def run_profiler(
     
     # Step 3: Calculate metrics for all columns
     try:
-        table_profile = profile_table(table_name, columns, db_type)
+        # Note: profile_table might need schema if it queries data directly
+        table_profile = profile_table(table_name, columns, db_type, schema=schema)
     except Exception as e:
         logger.error(f"❌ Profiling failed: {e}")
         return None
@@ -243,26 +268,16 @@ def run_autoincrement_profiler(
     environment: str = 'development',
     lookback_days: int = 7,
     database_type: str = 'postgresql',
-    metrics_backend: Optional[str] = None
+    metrics_backend: Optional[str] = None,
+    schema: Optional[str] = None
 ) -> Optional[int]:
     """
     Run auto-increment overflow analysis for a table.
-    
-    Args:
-        table_name: Name of the table to analyze
-        store_metrics: Whether to store results in metrics backend
-        application: Application name
-        environment: Environment name
-        lookback_days: Days of historical data for growth rate
-        database_type: Database type (postgresql or mssql)
-        metrics_backend: Backend for storing metrics (clickhouse or postgresql)
-        
-    Returns:
-        Number of auto-increment columns profiled, or None if failed
     """
     db_type = normalize_database_type(database_type)
     backend = metrics_backend or Config.METRICS_BACKEND
-    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}' (database: {db_type}, metrics: {backend})...")
+    schema_info = f"schema: {schema}" if schema else "default schema"
+    logger.info(f"\n🔍 Auto-increment analysis for '{table_name}' (database: {db_type}, {schema_info}, metrics: {backend})...")
     
     try:
         # Get detector for the specified database type
@@ -281,6 +296,7 @@ def run_autoincrement_profiler(
                 pg_historical_fetcher = fetch_historical_data_pg
         
         # Profile auto-increment columns
+        # Note: profile_table_autoincrement needs schema support
         profiles = profile_table_autoincrement(
             table_name=table_name,
             detector=detector,
@@ -289,6 +305,7 @@ def run_autoincrement_profiler(
             application=application,
             environment=environment,
             lookback_days=lookback_days,
+            schema=schema
         )
         
         if not profiles:
@@ -330,6 +347,76 @@ def run_autoincrement_profiler(
         return None
 
 
+def run_schema_profiler(
+    table_name: str,
+    application: str = 'default',
+    environment: str = 'development',
+    database_type: str = 'postgresql',
+    metrics_backend: Optional[str] = None,
+    schema: Optional[str] = None
+) -> Optional[int]:
+    """
+    Profile table schema and store in metrics database.
+    
+    Args:
+        table_name: Name of the table to profile
+        application: Application name
+        environment: Environment name
+        database_type: Database type (postgresql, mssql)
+        metrics_backend: Backend for storing metrics
+        schema: Database schema
+        
+    Returns:
+        Number of columns profiled, or None on error
+    """
+    from src.db.schema_extractor import get_schema_extractor
+    
+    schema_info = f"schema: {schema}" if schema else "default schema"
+    logger.info(f"Profiling schema for '{table_name}' [{application}/{environment}] ({schema_info})")
+    
+    try:
+        # Get database connection
+        if database_type == 'postgresql':
+            from src.db.postgres import get_postgres_connection
+            conn = get_postgres_connection()
+        else:
+            from src.db.mssql import get_mssql_connection
+            conn = get_mssql_connection()
+        
+        # Extract schema
+        extractor = get_schema_extractor(database_type, conn)
+        # Pass schema explicitly
+        table_schema = extractor.extract_table_schema(table_name, schema_name=schema)
+        conn.close()
+        
+        # Store in metrics database
+        backend = metrics_backend or Config.METRICS_BACKEND
+        
+        if backend == 'postgresql':
+            from src.db.postgres_metrics import (
+                init_schema_profiles_pg,
+                insert_schema_profiles_pg
+            )
+            init_schema_profiles_pg()
+            insert_schema_profiles_pg(table_schema, application, environment)
+        else:
+            from src.db.clickhouse import (
+                init_schema_profiles_clickhouse,
+                insert_schema_profiles
+            )
+            init_schema_profiles_clickhouse()
+            insert_schema_profiles(table_schema, application, environment)
+        
+        logger.info(f"✅ Schema profile stored: {len(table_schema.columns)} columns")
+        return len(table_schema.columns)
+        
+    except Exception as e:
+        logger.error(f"Schema profiling failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
 def main():
     """Main entry point for the DataProfiler."""
     args = parse_args()
@@ -344,7 +431,24 @@ def main():
     # Determine metrics backend
     metrics_backend = args.metrics_backend or Config.METRICS_BACKEND
     
-    # Run the profiler
+    # Handle schema profiling mode
+    if args.profile_schema:
+        result = run_schema_profiler(
+            table_name=args.table,
+            application=args.app,
+            environment=args.env,
+            database_type=args.database_type,
+            metrics_backend=metrics_backend,
+            schema=args.schema
+        )
+        
+        if result is None:
+            logger.error("Schema profiling failed")
+            sys.exit(1)
+        
+        logger.info(f"Schema profiling completed: {result} columns")
+            
+    # Run the profiler (normal mode)
     result = run_profiler(
         table_name=args.table,
         output_format=args.format,
@@ -355,7 +459,8 @@ def main():
         include_auto_increment=args.auto_increment,
         lookback_days=args.lookback_days,
         database_type=args.database_type,
-        metrics_backend=metrics_backend
+        metrics_backend=metrics_backend,
+        schema=args.schema
     )
     
     # Run auto-increment analysis if requested
@@ -367,7 +472,8 @@ def main():
             environment=args.env,
             lookback_days=args.lookback_days,
             database_type=args.database_type,
-            metrics_backend=metrics_backend
+            metrics_backend=metrics_backend,
+            schema=args.schema
         )
         if ai_result is None:
             logger.warning("Auto-increment analysis had issues")

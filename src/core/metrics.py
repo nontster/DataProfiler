@@ -75,15 +75,15 @@ MSSQL_MINMAX_TYPES = MSSQL_NUMERIC_TYPES + [
 ]
 
 
-def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql') -> int:
+def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', schema: Optional[str] = None) -> int:
     """Get total row count for a table."""
     conn = get_connection(database_type)
     cur = conn.cursor()
     
-    schema = get_schema(database_type)
+    target_schema = schema or get_schema(database_type) or ('public' if database_type == 'postgresql' else 'dbo')
     oq, cq = get_quote_char(database_type)
     
-    query = f'SELECT COUNT(*) FROM {oq}{schema}{cq}.{oq}{table_name}{cq}'
+    query = f'SELECT COUNT(*) FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}'
     cur.execute(query)
     count = cur.fetchone()[0]
     
@@ -129,7 +129,8 @@ def calculate_column_metrics(
     column_name: str,
     data_type: str,
     row_count: int,
-    database_type: DatabaseType = 'postgresql'
+    database_type: DatabaseType = 'postgresql',
+    schema: Optional[str] = None
 ) -> ColumnProfile:
     """
     Calculate comprehensive metrics for a single column.
@@ -140,6 +141,7 @@ def calculate_column_metrics(
         data_type: Database data type
         row_count: Total rows in table
         database_type: Type of database (postgresql or mssql)
+        schema: Database schema
         
     Returns:
         ColumnProfile with all calculated metrics
@@ -147,7 +149,7 @@ def calculate_column_metrics(
     conn = get_connection(database_type)
     cur = conn.cursor()
     
-    schema = get_schema(database_type)
+    target_schema = schema or get_schema(database_type) or ('public' if database_type == 'postgresql' else 'dbo')
     oq, cq = get_quote_char(database_type)
     db_type = database_type.lower()
     
@@ -160,7 +162,7 @@ def calculate_column_metrics(
         SELECT 
             COUNT({oq}{column_name}{cq}) as not_null_count,
             COUNT(DISTINCT {oq}{column_name}{cq}) as distinct_count
-        FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+        FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
     '''
     
     cur.execute(base_query)
@@ -184,14 +186,14 @@ def calculate_column_metrics(
                     SELECT 
                         MIN({oq}{column_name}{cq})::text,
                         MAX({oq}{column_name}{cq})::text
-                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
             else:  # MSSQL
                 minmax_query = f'''
                     SELECT 
                         CAST(MIN({oq}{column_name}{cq}) AS NVARCHAR(MAX)),
                         CAST(MAX({oq}{column_name}{cq}) AS NVARCHAR(MAX))
-                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
             cur.execute(minmax_query)
             minmax_result = cur.fetchone()
@@ -217,7 +219,7 @@ def calculate_column_metrics(
                         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {oq}{column_name}{cq})::float8,
                         STDDEV_POP({oq}{column_name}{cq})::float8,
                         STDDEV_SAMP({oq}{column_name}{cq})::float8
-                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
             else:  # MSSQL - use PERCENTILE_CONT with OVER clause
                 numeric_query = f'''
@@ -226,7 +228,7 @@ def calculate_column_metrics(
                         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {oq}{column_name}{cq}) OVER (),
                         STDEVP({oq}{column_name}{cq}),
                         STDEV({oq}{column_name}{cq})
-                    FROM {oq}{schema}{cq}.{oq}{table_name}{cq}
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
             cur.execute(numeric_query)
             numeric_result = cur.fetchone()
@@ -261,7 +263,8 @@ def calculate_column_metrics(
 def profile_table(
     table_name: str, 
     columns: list[dict],
-    database_type: DatabaseType = 'postgresql'
+    database_type: DatabaseType = 'postgresql',
+    schema: Optional[str] = None
 ) -> TableProfile:
     """
     Profile all columns in a table.
@@ -270,6 +273,7 @@ def profile_table(
         table_name: Name of the table to profile
         columns: List of column dicts with 'name' and 'type' keys
         database_type: Type of database (postgresql or mssql)
+        schema: Database schema
         
     Returns:
         TableProfile with all column profiles
@@ -277,7 +281,7 @@ def profile_table(
     logger.info(f"Calculating metrics for {len(columns)} columns...")
     
     # Get row count once for the whole table
-    row_count = get_row_count(table_name, database_type)
+    row_count = get_row_count(table_name, database_type, schema=schema)
     logger.info(f"Table '{table_name}' has {row_count:,} rows")
     
     column_profiles = []
@@ -294,7 +298,8 @@ def profile_table(
                 column_name=col_name,
                 data_type=col_type,
                 row_count=row_count,
-                database_type=database_type
+                database_type=database_type,
+                schema=schema
             )
             column_profiles.append(profile)
         except Exception as e:
