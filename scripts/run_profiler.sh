@@ -11,6 +11,7 @@
 #   Database Connection:
 #     POSTGRES_HOST, POSTGRES_PORT, POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_PASSWORD
 #     MSSQL_HOST, MSSQL_PORT, MSSQL_DATABASE, MSSQL_USER, MSSQL_PASSWORD (if using MSSQL)
+#     MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD (if using MySQL)
 #   
 #   Metrics Backend (choose one):
 #     CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD
@@ -22,7 +23,7 @@
 #   PROFILER_OUTPUT_FILE  - File path to save output (optional)
 #   PROFILER_APP          - Application name (default: default)
 #   PROFILER_ENV          - Environment name (default: production)
-#   PROFILER_DB_TYPE      - Database type: postgresql|mssql (default: postgresql)
+#   PROFILER_DB_TYPE      - Database type: postgresql|mssql|mysql (default: postgresql)
 #   METRICS_BACKEND       - Metrics backend: clickhouse|postgresql (default: clickhouse)
 #   PROFILER_AUTO_INCREMENT - Enable auto-increment analysis: true|false (default: false)
 #   PROFILER_PROFILE_SCHEMA - Enable schema profiling: true|false (default: false)
@@ -127,8 +128,14 @@ validate_database_config() {
         validate_env_var "MSSQL_DATABASE" || ((errors++))
         validate_env_var "MSSQL_USER" || ((errors++))
         validate_env_var "MSSQL_PASSWORD" || ((errors++))
+    elif [[ "$db_type" == "mysql" ]]; then
+        validate_env_var "MYSQL_HOST" || ((errors++))
+        validate_env_var "MYSQL_PORT" || ((errors++))
+        validate_env_var "MYSQL_DATABASE" || ((errors++))
+        validate_env_var "MYSQL_USER" || ((errors++))
+        validate_env_var "MYSQL_PASSWORD" || ((errors++))
     else
-        log_error "Invalid database type: ${db_type}. Must be 'postgresql' or 'mssql'"
+        log_error "Invalid database type: ${db_type}. Must be 'postgresql', 'mssql', or 'mysql'"
         return 1
     fi
     

@@ -10,7 +10,7 @@
 
 DataProfiler ทำหน้าที่:
 
-1. **รองรับหลาย Database**: PostgreSQL และ Microsoft SQL Server (Azure SQL Edge)
+1. **รองรับหลาย Database**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), และ **MySQL**
 2. **ดึงข้อมูล Schema** อัตโนมัติจาก database ต้นทาง (information_schema)
 3. **คำนวณ Metrics** แบบ dbt-profiler style ด้วย SQL queries
 4. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
@@ -140,11 +140,13 @@ AUTO-INCREMENT OVERFLOW RISK ANALYSIS
 
 - Python 3.10+
 - PostgreSQL และ/หรือ Microsoft SQL Server (Azure SQL Edge สำหรับ ARM64/M1)
+- MySQL (v8.0+)
 - ClickHouse
 - Dependencies:
   - `psycopg2` - PostgreSQL adapter
   - `pymssql` - MSSQL adapter
   - `clickhouse-connect` - ClickHouse client
+  - `mysql-connector-python` - MySQL adapter
   - `soda-core-postgres` - Soda Core for PostgreSQL
   - `soda-core-sqlserver` - Soda Core for SQL Server
   - `jinja2` - Template engine
@@ -202,6 +204,13 @@ POSTGRES_DATABASE=postgres
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_actual_password
 POSTGRES_SCHEMA=public
+
+# MySQL Configuration
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_DATABASE=prod
+MYSQL_USER=user
+MYSQL_PASSWORD=password123
 
 # ClickHouse Configuration
 CLICKHOUSE_HOST=localhost
@@ -303,6 +312,7 @@ python main.py --help
 | ------------ | ------------------------ | -------------------------------------------------- |
 | `postgresql` | PostgreSQL (ค่าเริ่มต้น) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
 | `mssql`      | Microsoft SQL Server     | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
+| `mysql`      | MySQL                    | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, etc. |
 
 ```bash
 # Profile จาก PostgreSQL (ค่าเริ่มต้น)
@@ -516,7 +526,7 @@ Script จะใช้ **PostgreSQL** ในการเก็บ metrics
 | `PROFILER_OUTPUT_FILE`    | -            | File path สำหรับบันทึก output                     |
 | `PROFILER_APP`            | `default`    | ชื่อ Application                                  |
 | `PROFILER_ENV`            | `production` | ชื่อ Environment                                  |
-| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`              |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`, `mysql`     |
 | `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`       |
 | `PROFILER_AUTO_INCREMENT` | `false`      | เปิดใช้การวิเคราะห์ auto-increment                |
 | `PROFILER_PROFILE_SCHEMA` | `false`      | เปิดใช้งาน Schema Profiling                       |
@@ -651,12 +661,14 @@ docker-compose up -d --build
 | **ClickHouse** | localhost:8123        | HTTP Interface                       |
 | **PostgreSQL** | localhost:5432        | Source Database                      |
 | **MSSQL**      | localhost:1433        | Source Database (Azure SQL Edge)     |
+| **MySQL**      | localhost:3306        | Source Database                      |
 
 ### ข้อมูลการเข้าใช้งาน (Credentials)
 
 - **Grafana**: User: `admin`, Pass: `admin`
 - **PostgreSQL**: User: `postgres`, Pass: `password123`
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
+- **MySQL**: User: `user`, Pass: `password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
 
 ### การเริ่มใช้งาน MSSQL (Azure SQL Edge)
@@ -709,6 +721,10 @@ python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200
 
 # ดูสถิติปัจจุบัน
 python init-scripts/mssql/generate-mssql-data.py --stats-only
+
+# สำหรับ MySQL:
+# เพิ่ม 100 users ใน MySQL (ระบุ schema: prod, uat, หรือ public)
+python init-scripts/mysql/generate-mysql-data.py --schema prod --users 100
 ```
 
 #### รัน Profiler

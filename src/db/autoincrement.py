@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 
 from src.db.postgres import get_postgres_connection
 from src.db.mssql import get_mssql_connection
+from src.db.mysql import get_mysql_connection
 from src.config import Config
 from src.exceptions import DatabaseConnectionError
 
@@ -29,6 +30,17 @@ MSSQL_TYPE_MAX_VALUES = {
     'tinyint': 255,
     'smallint': 32767,
     'int': 2147483647,
+    'bigint': 9223372036854775807,
+}
+
+
+# Maximum values for MySQL integer types
+MYSQL_TYPE_MAX_VALUES = {
+    'tinyint': 127,
+    'smallint': 32767,
+    'mediumint': 8388607,
+    'int': 2147483647,
+    'integer': 2147483647,
     'bigint': 9223372036854775807,
 }
 
@@ -355,6 +367,127 @@ class MSSQLAutoIncrementDetector(AutoIncrementDetector):
         return result
 
 
+
+class MySQLAutoIncrementDetector(AutoIncrementDetector):
+    """MySQL implementation using information_schema."""
+    
+    def __init__(self, schema: str = None):
+        self.schema = schema or Config.MYSQL_DATABASE
+    
+    def get_autoincrement_columns(self, table_name: str) -> list[dict]:
+        try:
+            conn = get_mysql_connection()
+            cur = conn.cursor()
+            
+            # Find columns with auto_increment attribute
+            query = """
+                SELECT COLUMN_NAME, DATA_TYPE, COLUMN_TYPE
+                FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s 
+                  AND EXTRA LIKE '%auto_increment%'
+                ORDER BY ORDINAL_POSITION
+            """
+            
+            cur.execute(query, (self.schema, table_name))
+            rows = cur.fetchall()
+            
+            result = []
+            for row in rows:
+                col_name, data_type, col_type = row
+                
+                if isinstance(col_name, bytes):
+                    col_name = col_name.decode('utf-8')
+                if isinstance(data_type, bytes):
+                    data_type = data_type.decode('utf-8')
+                
+                # Use schema.table.column as identifier
+                sequence_name = f"{self.schema}.{table_name}.{col_name}"
+                
+                result.append({
+                    'column_name': col_name,
+                    'data_type': data_type.lower(),
+                    'sequence_name': sequence_name,
+                })
+                logger.debug(f"Found MySQL auto-increment: {col_name}")
+            
+            cur.close()
+            conn.close()
+            
+            logger.info(f"Found {len(result)} auto-increment columns in '{table_name}'")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error discovering MySQL auto-increment: {e}")
+            raise DatabaseConnectionError(f"Failed to discover AI columns: {e}")
+
+    def get_current_value(self, sequence_name: str) -> Optional[int]:
+        """
+        Get current value from information_schema.TABLES (AUTO_INCREMENT - 1).
+        """
+        try:
+            parts = sequence_name.split('.')
+            if len(parts) != 3:
+                return None
+            schema, table, col = parts
+            
+            conn = get_mysql_connection()
+            cur = conn.cursor()
+            
+            # AUTO_INCREMENT in TABLES view is the *next* value to be inserted
+            query = """
+                SELECT AUTO_INCREMENT
+                FROM information_schema.TABLES
+                WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+            """
+            cur.execute(query, (schema, table))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if row and row[0]:
+                # Next value - 1 is the current max
+                return int(row[0]) - 1
+            return 0
+        except Exception as e:
+            logger.error(f"Error getting MySQL AI value: {e}")
+            return None
+
+    def get_all_autoincrement_info(self, table_name: str, schema: str = None) -> list[dict]:
+        detector = self
+        if schema and schema != self.schema:
+             detector = MySQLAutoIncrementDetector(schema=schema)
+             
+        columns = detector.get_autoincrement_columns(table_name)
+        
+        result = []
+        for col in columns:
+            current_value = detector.get_current_value(col['sequence_name'])
+            data_type = col['data_type']
+            # Default to BigInt max if unknown
+            max_value = MYSQL_TYPE_MAX_VALUES.get(data_type, MYSQL_TYPE_MAX_VALUES['bigint'])
+            
+            if current_value is not None:
+                usage_percentage = (current_value / max_value) * 100
+                remaining = max_value - current_value
+            else:
+                usage_percentage = 0.0
+                remaining = max_value
+                current_value = 0
+            
+            result.append({
+                'table_name': table_name,
+                'column_name': col['column_name'],
+                'data_type': data_type,
+                'sequence_name': col['sequence_name'],
+                'current_value': current_value,
+                'max_type_value': max_value,
+                'usage_percentage': round(usage_percentage, 6),
+                'remaining_values': remaining,
+            })
+        
+        return result
+
+
 def get_autoincrement_detector(database_type: str = 'postgresql') -> AutoIncrementDetector:
     """
     Factory function to get the appropriate auto-increment detector.
@@ -373,6 +506,7 @@ def get_autoincrement_detector(database_type: str = 'postgresql') -> AutoIncreme
         'postgres': PostgreSQLAutoIncrementDetector,
         'mssql': MSSQLAutoIncrementDetector,
         'sqlserver': MSSQLAutoIncrementDetector,
+        'mysql': MySQLAutoIncrementDetector,
     }
     
     detector_class = detectors.get(database_type.lower())

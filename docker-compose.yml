@@ -36,13 +36,21 @@ services:
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-password123}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
     ports:
-      - "${CLICKHOUSE_PORT:-8123}:8123"  # HTTP interface
-      - "9000:9000"                       # Native interface
+      - "${CLICKHOUSE_PORT:-8123}:8123" # HTTP interface
+      - "9000:9000" # Native interface
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - clickhouse_logs:/var/log/clickhouse-server
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:8123/ping"]
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://127.0.0.1:8123/ping",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,11 +70,39 @@ services:
     volumes:
       - mssql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "echo 'SELECT 1' | /opt/mssql/bin/sqlservr --help > /dev/null 2>&1 || exit 0"]
+      test:
+        [
+          "CMD-SHELL",
+          "echo 'SELECT 1' | /opt/mssql/bin/sqlservr --help > /dev/null 2>&1 || exit 0",
+        ]
       interval: 30s
       timeout: 10s
       retries: 5
       start_period: 60s
+    restart: unless-stopped
+
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: dataprofiler-mysql
+    platform: linux/amd64 # For compatibility on M1/M2 Mac
+    networks:
+      - dataprofiler-net
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-password123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-public}
+      MYSQL_USER: ${MYSQL_USER:-user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-password123}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init-scripts/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   # Grafana Dashboard
@@ -162,4 +198,5 @@ volumes:
     driver: local
   mssql_data:
     driver: local
-
+  mysql_data:
+    driver: local

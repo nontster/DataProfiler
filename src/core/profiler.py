@@ -10,7 +10,6 @@ from jinja2 import Template
 from soda.scan import Scan
 
 from src.config import Config
-from src.db.postgres import get_table_metadata
 from src.db.clickhouse import init_clickhouse, insert_profiles
 from src.exceptions import TableNotFoundError, DatabaseConnectionError
 
@@ -102,17 +101,23 @@ def extract_profiling_results(scan_results: dict) -> list[dict]:
     return records
 
 
-def run_profiler(table_name: str) -> Optional[int]:
+def run_profiler(table_name: str, database_type: str = 'postgresql', schema: Optional[str] = None) -> Optional[int]:
     """
     Run the data profiler for a specific table.
     
     Args:
         table_name: Name of the table to profile
+        database_type: Type of database (postgresql, mssql, mysql)
+        schema: Optional schema/database name
         
     Returns:
         Number of column profiles saved, or None if failed
     """
-    logger.info(f"Starting profiler for table: '{table_name}'")
+    from src.db.connection_factory import get_table_metadata, normalize_database_type
+    
+    db_type = normalize_database_type(database_type)
+    schema_info = f"schema: {schema}" if schema else "default schema"
+    logger.info(f"Starting profiler for table: '{table_name}' ({db_type}, {schema_info})")
     
     # Step 1: Initialize ClickHouse
     if not init_clickhouse():
@@ -122,7 +127,7 @@ def run_profiler(table_name: str) -> Optional[int]:
     # Step 2: Get table metadata
     try:
         logger.info(f"Discovering schema for '{table_name}'...")
-        all_columns = get_table_metadata(table_name)
+        all_columns = get_table_metadata(table_name, db_type, schema=schema)
     except TableNotFoundError as e:
         logger.error(f"❌ {e}")
         return None
@@ -156,7 +161,19 @@ def run_profiler(table_name: str) -> Optional[int]:
     logger.info("Running Soda Core scan...")
     try:
         scan = Scan()
-        scan.set_data_source_name("my_postgres")
+        
+        # Select data source based on database type
+        if db_type in ('postgresql', 'postgres'):
+            data_source = "my_postgres"
+        elif db_type in ('mssql', 'sqlserver'):
+            data_source = "my_mssql"
+        elif db_type in ('mysql',):
+            data_source = "my_mysql"
+        else:
+            logger.error(f"Unsupported database type for profiling: {db_type}")
+            return None
+            
+        scan.set_data_source_name(data_source)
         scan.add_configuration_yaml_file(file_path="configuration.yml")
         scan.add_sodacl_yaml_str(yaml_content)
         scan.execute()

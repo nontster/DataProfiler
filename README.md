@@ -8,7 +8,7 @@ Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server*
 
 DataProfiler provides:
 
-1. **Multi-Database Support**: PostgreSQL and Microsoft SQL Server (Azure SQL Edge)
+1. **Multi-Database Support**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), and **MySQL**
 2. **Automatic Schema Discovery** from source databases (information_schema)
 3. **dbt-profiler Style Metrics** calculation via SQL queries
 4. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
@@ -95,11 +95,13 @@ DataProfiler can profile table schemas (columns, data types, indexes, foreign ke
 
 - Python 3.10+
 - PostgreSQL and/or Microsoft SQL Server (Azure SQL Edge for ARM64/M1)
+- MySQL (v8.0+)
 - ClickHouse
 - Dependencies:
   - `psycopg2` - PostgreSQL adapter
   - `pymssql` - MSSQL adapter
   - `clickhouse-connect` - ClickHouse client
+  - `mysql-connector-python` - MySQL adapter
   - `soda-core-postgres` - Soda Core for PostgreSQL
   - `soda-core-sqlserver` - Soda Core for SQL Server
   - `jinja2` - Template engine
@@ -155,6 +157,13 @@ POSTGRES_DATABASE=postgres
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_actual_password
 POSTGRES_SCHEMA=public
+
+# MySQL Configuration
+MYSQL_HOST=localhost
+MYSQL_PORT=3306
+MYSQL_DATABASE=prod
+MYSQL_USER=user
+MYSQL_PASSWORD=password123
 
 # ClickHouse Configuration
 CLICKHOUSE_HOST=localhost
@@ -268,6 +277,7 @@ Choose which source database to profile:
 | ------------ | -------------------- | -------------------------------------------------- |
 | `postgresql` | PostgreSQL (default) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
 | `mssql`      | Microsoft SQL Server | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
+| `mysql`      | MySQL                | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, etc. |
 
 ```bash
 # Profile from PostgreSQL (default)
@@ -524,7 +534,7 @@ Refer to the **[Configuration](#%EF%B8%8F-configuration)** section for the requi
 | `PROFILER_OUTPUT_FILE`    | -            | File path to save output                           |
 | `PROFILER_APP`            | `default`    | Application name                                   |
 | `PROFILER_ENV`            | `production` | Environment name                                   |
-| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`               |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`, `mysql`      |
 | `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`        |
 | `PROFILER_AUTO_INCREMENT` | `false`      | Enable auto-increment analysis                     |
 | `PROFILER_PROFILE_SCHEMA` | `false`      | Enable schema profiling                            |
@@ -644,12 +654,14 @@ The React dashboard will display which backend is active in the header.
 | **ClickHouse** | localhost:8123        | HTTP Interface                       |
 | **PostgreSQL** | localhost:5432        | Source Database                      |
 | **MSSQL**      | localhost:1433        | Source Database (Azure SQL Edge)     |
+| **MySQL**      | localhost:3306        | Source Database                      |
 
 ### Credentials
 
 - **Grafana**: User: `admin`, Pass: `admin` (or set via `GRAFANA_ADMIN_PASSWORD` in .env)
 - **PostgreSQL**: User: `postgres`, Pass: `password123`
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
+- **MySQL**: User: `user`, Pass: `password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
 
 ### Starting MSSQL (Azure SQL Edge)
@@ -704,6 +716,10 @@ python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200
 
 # Show current statistics only
 python init-scripts/mssql/generate-mssql-data.py --stats-only
+
+# For MySQL:
+# Add 100 new users to MySQL (specify schema: prod, uat, or public)
+python init-scripts/mysql/generate-mysql-data.py --schema prod --users 100
 ```
 
 #### 2. Run Data Profiler

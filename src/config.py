@@ -37,6 +37,13 @@ class Config:
     MSSQL_USER = os.getenv('MSSQL_USER', 'sa')
     MSSQL_PASSWORD = os.getenv('MSSQL_PASSWORD', '')
     MSSQL_SCHEMA = os.getenv('MSSQL_SCHEMA', 'dbo')
+
+    # MySQL Configuration
+    MYSQL_HOST = os.getenv('MYSQL_HOST', 'localhost')
+    MYSQL_PORT = int(os.getenv('MYSQL_PORT', 3306))
+    MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'prod')
+    MYSQL_USER = os.getenv('MYSQL_USER', 'user')
+    MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'password123')
     
     # Metrics Storage Configuration
     METRICS_BACKEND = os.getenv('METRICS_BACKEND', 'clickhouse')  # 'clickhouse' or 'postgresql'
@@ -94,5 +101,16 @@ class Config:
             'database': cls.MSSQL_DATABASE,
             'user': cls.MSSQL_USER,
             'password': cls.MSSQL_PASSWORD,
+        }
+
+    @classmethod
+    def get_mysql_config(cls) -> dict:
+        """Get MySQL configuration as dictionary."""
+        return {
+            'host': cls.MYSQL_HOST,
+            'port': cls.MYSQL_PORT,
+            'database': cls.MYSQL_DATABASE,
+            'user': cls.MYSQL_USER,
+            'password': cls.MYSQL_PASSWORD,
         }
 

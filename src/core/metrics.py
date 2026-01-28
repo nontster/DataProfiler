@@ -15,7 +15,7 @@ from src.config import Config
 logger = logging.getLogger(__name__)
 
 # Type alias for supported databases
-DatabaseType = Literal['postgresql', 'postgres', 'mssql', 'sqlserver']
+DatabaseType = Literal['postgresql', 'postgres', 'mssql', 'sqlserver', 'mysql']
 
 
 @dataclass
@@ -61,6 +61,13 @@ MSSQL_NUMERIC_TYPES = [
     'money', 'smallmoney'
 ]
 
+# MySQL numeric types
+MYSQL_NUMERIC_TYPES = [
+    'tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint',
+    'decimal', 'dec', 'float', 'double', 'double precision', 'real',
+    'bit', 'bool', 'boolean' # Treated as numeric (tinyint)
+]
+
 # PostgreSQL min/max supported types
 POSTGRES_MINMAX_TYPES = POSTGRES_NUMERIC_TYPES + [
     'date', 'timestamp', 'timestamp without time zone', 
@@ -72,6 +79,11 @@ POSTGRES_MINMAX_TYPES = POSTGRES_NUMERIC_TYPES + [
 MSSQL_MINMAX_TYPES = MSSQL_NUMERIC_TYPES + [
     'date', 'datetime', 'datetime2', 'datetimeoffset',
     'time', 'smalldatetime'
+]
+
+# MySQL min/max supported types
+MYSQL_MINMAX_TYPES = MYSQL_NUMERIC_TYPES + [
+    'date', 'datetime', 'timestamp', 'time', 'year'
 ]
 
 
@@ -101,6 +113,8 @@ def is_numeric_type(data_type: str, database_type: DatabaseType = 'postgresql') 
         numeric_types = POSTGRES_NUMERIC_TYPES
     elif db_type in ('mssql', 'sqlserver'):
         numeric_types = MSSQL_NUMERIC_TYPES
+    elif db_type in ('mysql',):
+        numeric_types = MYSQL_NUMERIC_TYPES
     else:
         numeric_types = POSTGRES_NUMERIC_TYPES
     
@@ -118,6 +132,8 @@ def is_minmax_supported(data_type: str, database_type: DatabaseType = 'postgresq
         supported_types = POSTGRES_MINMAX_TYPES
     elif db_type in ('mssql', 'sqlserver'):
         supported_types = MSSQL_MINMAX_TYPES
+    elif db_type in ('mysql',):
+        supported_types = MYSQL_MINMAX_TYPES
     else:
         supported_types = POSTGRES_MINMAX_TYPES
     
@@ -188,6 +204,13 @@ def calculate_column_metrics(
                         MAX({oq}{column_name}{cq})::text
                     FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
+            elif db_type in ('mysql',):
+                minmax_query = f'''
+                    SELECT 
+                        CAST(MIN({oq}{column_name}{cq}) AS CHAR),
+                        CAST(MAX({oq}{column_name}{cq}) AS CHAR)
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
+                '''
             else:  # MSSQL
                 minmax_query = f'''
                     SELECT 
@@ -202,6 +225,12 @@ def calculate_column_metrics(
         except Exception:
             min_value = None
             max_value = None
+            
+        # Fix for MySQL connector returning bytes for text columns
+        if isinstance(min_value, bytes):
+            min_value = min_value.decode('utf-8', errors='replace')
+        if isinstance(max_value, bytes):
+            max_value = max_value.decode('utf-8', errors='replace')
 
     
     # Numeric-only metrics
@@ -219,6 +248,16 @@ def calculate_column_metrics(
                         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY {oq}{column_name}{cq})::float8,
                         STDDEV_POP({oq}{column_name}{cq})::float8,
                         STDDEV_SAMP({oq}{column_name}{cq})::float8
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
+                '''
+            elif db_type in ('mysql',):
+                # MySQL doesn't fully support PERCENTILE_CONT/MEDIAN cleanly in one line
+                numeric_query = f'''
+                    SELECT 
+                        AVG({oq}{column_name}{cq}),
+                        NULL, -- Median not supported
+                        STDDEV_POP({oq}{column_name}{cq}),
+                        STDDEV_SAMP({oq}{column_name}{cq})
                     FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
             else:  # MSSQL - use PERCENTILE_CONT with OVER clause

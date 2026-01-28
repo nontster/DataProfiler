@@ -518,12 +518,269 @@ class MSSQLSchemaExtractor(SchemaExtractor):
         return constraints
 
 
+class MySQLSchemaExtractor(SchemaExtractor):
+    """Extract schema from MySQL databases."""
+    
+    def __init__(self, connection):
+        """
+        Initialize with a mysql-connector connection.
+        
+        Args:
+            connection: Active mysql-connector connection
+        """
+        self.connection = connection
+        self.host = Config.MYSQL_HOST
+        self.database = Config.MYSQL_DATABASE
+    
+    def extract_table_schema(
+        self,
+        table_name: str,
+        schema_name: Optional[str] = None
+    ) -> TableSchema:
+        """Extract complete schema for a MySQL table."""
+        # In MySQL, schema is synonymous with database
+        schema_name = schema_name or self.database or 'prod'
+        
+        schema = TableSchema(
+            table_name=table_name,
+            database_host=self.host,
+            database_name=schema_name, # In MySQL, database name is the schema
+            schema_name=schema_name,
+        )
+        
+        schema.columns = self._extract_columns(table_name, schema_name)
+        schema.primary_key = self._extract_primary_key(table_name, schema_name)
+        schema.indexes = self._extract_indexes(table_name, schema_name)
+        schema.foreign_keys = self._extract_foreign_keys(table_name, schema_name)
+        schema.check_constraints = self._extract_check_constraints(table_name, schema_name)
+        
+        logger.info(f"Extracted schema for {schema_name}.{table_name}: "
+                   f"{len(schema.columns)} columns, {len(schema.indexes)} indexes, "
+                   f"{len(schema.foreign_keys)} FKs")
+        
+        return schema
+    
+    def _extract_columns(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> dict[str, ColumnSchema]:
+        """Extract column definitions."""
+        query = """
+            SELECT 
+                COLUMN_NAME,
+                DATA_TYPE,
+                IS_NULLABLE,
+                COLUMN_DEFAULT,
+                CHARACTER_MAXIMUM_LENGTH,
+                NUMERIC_PRECISION,
+                NUMERIC_SCALE,
+                COLUMN_TYPE
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+            ORDER BY ORDINAL_POSITION
+        """
+        
+        columns = {}
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name))
+            for row in cursor.fetchall():
+                col_name, data_type, nullable, default, max_len, precision, scale, col_type = row
+                
+                # COLUMN_TYPE often contains "varchar(100)" or "enum(...)" which is more descriptive
+                full_type = col_type if col_type else data_type
+                
+                columns[col_name] = ColumnSchema(
+                    name=col_name,
+                    data_type=full_type,
+                    is_nullable=(nullable == 'YES'),
+                    default_value=str(default) if default is not None else None,
+                    max_length=max_len,
+                    numeric_precision=precision,
+                    numeric_scale=scale,
+                )
+        finally:
+            cursor.close()
+        
+        return columns
+    
+    def _extract_primary_key(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> Optional[tuple[str, ...]]:
+        """Extract primary key columns."""
+        query = """
+            SELECT kcu.COLUMN_NAME
+            FROM information_schema.TABLE_CONSTRAINTS tc
+            JOIN information_schema.KEY_COLUMN_USAGE kcu
+                ON tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+                AND tc.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+            WHERE tc.CONSTRAINT_TYPE = 'PRIMARY KEY'
+                AND tc.TABLE_SCHEMA = %s
+                AND tc.TABLE_NAME = %s
+            ORDER BY kcu.ORDINAL_POSITION
+        """
+        
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name))
+            columns = [row[0] for row in cursor.fetchall()]
+            return tuple(columns) if columns else None
+        finally:
+            cursor.close()
+    
+    def _extract_indexes(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> list[IndexSchema]:
+        """Extract index definitions (excluding primary key)."""
+        # MySQL information_schema.STATISTICS provides index info
+        query = """
+            SELECT 
+                INDEX_NAME,
+                COLUMN_NAME,
+                NON_UNIQUE,
+                INDEX_TYPE
+            FROM information_schema.STATISTICS
+            WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+            AND INDEX_NAME != 'PRIMARY'
+            ORDER BY INDEX_NAME, SEQ_IN_INDEX
+        """
+        
+        indexes_dict = {}
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name))
+            for row in cursor.fetchall():
+                idx_name, col_name, non_unique, idx_type = row
+                
+                if idx_name not in indexes_dict:
+                    indexes_dict[idx_name] = {
+                        'name': idx_name,
+                        'columns': [],
+                        'is_unique': not non_unique,
+                        'type': idx_type
+                    }
+                indexes_dict[idx_name]['columns'].append(col_name)
+        finally:
+            cursor.close()
+        
+        indexes = []
+        for name, info in indexes_dict.items():
+            indexes.append(IndexSchema(
+                name=name,
+                columns=tuple(info['columns']),
+                is_unique=info['is_unique'],
+                index_type=info['type']
+            ))
+            
+        return indexes
+    
+    def _extract_foreign_keys(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> list[ForeignKeySchema]:
+        """Extract foreign key definitions."""
+        query = """
+            SELECT 
+                kcu.CONSTRAINT_NAME,
+                kcu.COLUMN_NAME,
+                kcu.REFERENCED_TABLE_NAME,
+                kcu.REFERENCED_COLUMN_NAME,
+                rc.DELETE_RULE,
+                rc.UPDATE_RULE
+            FROM information_schema.KEY_COLUMN_USAGE kcu
+            JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+                ON kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+                AND kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA
+            WHERE kcu.TABLE_SCHEMA = %s AND kcu.TABLE_NAME = %s
+            AND kcu.REFERENCED_TABLE_NAME IS NOT NULL
+            ORDER BY kcu.CONSTRAINT_NAME, kcu.ORDINAL_POSITION
+        """
+        
+        fks_dict = {}
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name))
+            for row in cursor.fetchall():
+                fk_name, col_name, ref_table, ref_col, on_delete, on_update = row
+                
+                if fk_name not in fks_dict:
+                    fks_dict[fk_name] = {
+                        'name': fk_name,
+                        'columns': [],
+                        'referenced_table': ref_table,
+                        'referenced_columns': [],
+                        'on_delete': on_delete,
+                        'on_update': on_update
+                    }
+                fks_dict[fk_name]['columns'].append(col_name)
+                fks_dict[fk_name]['referenced_columns'].append(ref_col)
+        finally:
+            cursor.close()
+        
+        foreign_keys = []
+        for name, info in fks_dict.items():
+            foreign_keys.append(ForeignKeySchema(
+                name=name,
+                columns=tuple(info['columns']),
+                referenced_table=info['referenced_table'],
+                referenced_columns=tuple(info['referenced_columns']),
+                on_delete=info['on_delete'],
+                on_update=info['on_update']
+            ))
+            
+        return foreign_keys
+    
+    def _extract_check_constraints(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> list[CheckConstraintSchema]:
+        """Extract check constraint definitions."""
+        try:
+            # CHECK_CONSTRAINTS table exists in MySQL 8.0.16+
+            query = """
+                SELECT 
+                    cc.CONSTRAINT_NAME,
+                    cc.CHECK_CLAUSE
+                FROM information_schema.CHECK_CONSTRAINTS cc
+                JOIN information_schema.TABLE_CONSTRAINTS tc
+                    ON cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
+                    AND cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA
+                WHERE tc.TABLE_SCHEMA = %s 
+                  AND tc.TABLE_NAME = %s
+                  AND tc.CONSTRAINT_TYPE = 'CHECK'
+            """
+            
+            constraints = []
+            cursor = self.connection.cursor()
+            try:
+                cursor.execute(query, (schema_name, table_name))
+                for row in cursor.fetchall():
+                    name, expression = row
+                    constraints.append(CheckConstraintSchema(
+                        name=name,
+                        expression=expression,
+                    ))
+            finally:
+                cursor.close()
+            return constraints
+        except Exception:
+            # Fallback for older MySQL versions or permissions issues
+            return []
+
+
 def get_schema_extractor(database_type: str, connection) -> SchemaExtractor:
     """
     Factory function to get appropriate schema extractor.
     
     Args:
-        database_type: 'postgresql' or 'mssql'
+        database_type: 'postgresql', 'mssql', or 'mysql'
         connection: Database connection object
         
     Returns:
@@ -533,5 +790,7 @@ def get_schema_extractor(database_type: str, connection) -> SchemaExtractor:
         return PostgresSchemaExtractor(connection)
     elif database_type == 'mssql':
         return MSSQLSchemaExtractor(connection)
+    elif database_type == 'mysql':
+        return MySQLSchemaExtractor(connection)
     else:
         raise ValueError(f"Unsupported database type: {database_type}")

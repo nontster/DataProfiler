@@ -17,3 +17,11 @@ data_source my_mssql:
   database: ${MSSQL_DATABASE}
   schema: ${MSSQL_SCHEMA}
 
+data_source my_mysql:
+  type: mysql
+  host: ${MYSQL_HOST}
+  port: ${MYSQL_PORT}
+  username: ${MYSQL_USER}
+  password: ${MYSQL_PASSWORD}
+  database: ${MYSQL_DATABASE}
+

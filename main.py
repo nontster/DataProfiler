@@ -115,7 +115,7 @@ Examples:
 
     parser.add_argument(
         '-d', '--database-type',
-        choices=['postgresql', 'mssql'],
+        choices=['postgresql', 'mssql', 'mysql'],
         default='postgresql',
         help='Database type to profile (default: postgresql)'
     )
@@ -379,6 +379,9 @@ def run_schema_profiler(
         if database_type == 'postgresql':
             from src.db.postgres import get_postgres_connection
             conn = get_postgres_connection()
+        elif database_type == 'mysql':
+            from src.db.mysql import get_mysql_connection
+            conn = get_mysql_connection()
         else:
             from src.db.mssql import get_mssql_connection
             conn = get_mssql_connection()

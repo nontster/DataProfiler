@@ -8,6 +8,7 @@ from typing import Literal
 
 from src.db.postgres import get_postgres_connection, get_table_metadata as pg_get_table_metadata
 from src.db.mssql import get_mssql_connection, get_table_metadata as mssql_get_table_metadata
+from src.db.mysql import get_mysql_connection, get_table_metadata as mysql_get_table_metadata
 from src.config import Config
 
 logger = logging.getLogger(__name__)
@@ -35,6 +36,8 @@ def get_connection(database_type: DatabaseType):
         return get_postgres_connection()
     elif db_type in ('mssql', 'sqlserver'):
         return get_mssql_connection()
+    elif db_type in ('mysql',):
+        return get_mysql_connection()
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
 
@@ -57,6 +60,8 @@ def get_table_metadata(table_name: str, database_type: DatabaseType, schema: str
         return pg_get_table_metadata(table_name, schema=schema)
     elif db_type in ('mssql', 'sqlserver'):
         return mssql_get_table_metadata(table_name, schema=schema)
+    elif db_type in ('mysql',):
+        return mysql_get_table_metadata(table_name, schema=schema)
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
 
@@ -77,6 +82,8 @@ def get_schema(database_type: DatabaseType) -> str:
         return Config.POSTGRES_SCHEMA
     elif db_type in ('mssql', 'sqlserver'):
         return Config.MSSQL_SCHEMA
+    elif db_type in ('mysql',):
+        return Config.MYSQL_DATABASE
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
 
@@ -97,6 +104,8 @@ def get_quote_char(database_type: DatabaseType) -> tuple[str, str]:
         return ('"', '"')
     elif db_type in ('mssql', 'sqlserver'):
         return ('[', ']')
+    elif db_type in ('mysql',):
+        return ('`', '`')
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
 
@@ -117,5 +126,7 @@ def normalize_database_type(database_type: str) -> str:
         return 'postgresql'
     elif db_type in ('mssql', 'sqlserver'):
         return 'mssql'
+    elif db_type in ('mysql',):
+        return 'mysql'
     else:
         raise ValueError(f"Unsupported database type: {database_type}")
