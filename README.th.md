@@ -259,6 +259,9 @@ python main.py users --schema prod
 # Profile จาก MSSQL
 python main.py users -d mssql
 
+# Profile จาก MySQL
+python main.py users -d mysql
+
 # Profile with Application & Environment context
 python main.py users -d mssql --app user-service --env uat --auto-increment --metrics-backend postgresql
 python main.py users -d mssql --app user-service --env production --auto-increment --metrics-backend postgresql
