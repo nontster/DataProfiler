@@ -532,6 +532,12 @@ class MySQLSchemaExtractor(SchemaExtractor):
         self.host = Config.MYSQL_HOST
         self.database = Config.MYSQL_DATABASE
     
+    def _decode(self, val):
+        """Decode bytes to string if needed."""
+        if isinstance(val, bytes):
+            return val.decode('utf-8')
+        return val
+    
     def extract_table_schema(
         self,
         table_name: str,
@@ -588,6 +594,11 @@ class MySQLSchemaExtractor(SchemaExtractor):
             for row in cursor.fetchall():
                 col_name, data_type, nullable, default, max_len, precision, scale, col_type = row
                 
+                col_name = self._decode(col_name)
+                data_type = self._decode(data_type)
+                default = self._decode(default)
+                col_type = self._decode(col_type)
+                
                 # COLUMN_TYPE often contains "varchar(100)" or "enum(...)" which is more descriptive
                 full_type = col_type if col_type else data_type
                 
@@ -626,7 +637,7 @@ class MySQLSchemaExtractor(SchemaExtractor):
         cursor = self.connection.cursor()
         try:
             cursor.execute(query, (schema_name, table_name))
-            columns = [row[0] for row in cursor.fetchall()]
+            columns = [self._decode(row[0]) for row in cursor.fetchall()]
             return tuple(columns) if columns else None
         finally:
             cursor.close()
@@ -656,6 +667,10 @@ class MySQLSchemaExtractor(SchemaExtractor):
             cursor.execute(query, (schema_name, table_name))
             for row in cursor.fetchall():
                 idx_name, col_name, non_unique, idx_type = row
+                
+                idx_name = self._decode(idx_name)
+                col_name = self._decode(col_name)
+                idx_type = self._decode(idx_type)
                 
                 if idx_name not in indexes_dict:
                     indexes_dict[idx_name] = {
@@ -708,6 +723,13 @@ class MySQLSchemaExtractor(SchemaExtractor):
             cursor.execute(query, (schema_name, table_name))
             for row in cursor.fetchall():
                 fk_name, col_name, ref_table, ref_col, on_delete, on_update = row
+                
+                fk_name = self._decode(fk_name)
+                col_name = self._decode(col_name)
+                ref_table = self._decode(ref_table)
+                ref_col = self._decode(ref_col)
+                on_delete = self._decode(on_delete)
+                on_update = self._decode(on_update)
                 
                 if fk_name not in fks_dict:
                     fks_dict[fk_name] = {
@@ -763,6 +785,8 @@ class MySQLSchemaExtractor(SchemaExtractor):
                 cursor.execute(query, (schema_name, table_name))
                 for row in cursor.fetchall():
                     name, expression = row
+                    name = self._decode(name)
+                    expression = self._decode(expression)
                     constraints.append(CheckConstraintSchema(
                         name=name,
                         expression=expression,
