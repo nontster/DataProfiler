@@ -481,6 +481,63 @@ pytest -v
 pytest --cov=src --cov-report=term-missing
 ```
 
+## 🔍 End-to-End Manual Testing
+
+To manually verify all functions (MSSQL, PostgreSQL) with a full workflow:
+
+### 1. Setup Environment
+
+```bash
+# Configure MSSQL Connection
+export MSSQL_HOST=localhost
+export MSSQL_PORT=1433
+export MSSQL_DATABASE=testdb
+export MSSQL_USER=sa
+export MSSQL_PASSWORD=YourStrong@Password123
+export MSSQL_SCHEMA=dbo
+
+# Initialize MSSQL Database
+python init-scripts/mssql/init-mssql.py
+```
+
+### 2. Generate Sample Data
+
+```bash
+# Generate Sample Data for UAT and Prod schemas
+python init-scripts/mssql/generate-mssql-data.py --schema uat
+python init-scripts/mssql/generate-mssql-data.py --schema prod
+```
+
+### 3. Run Profiler (Full Cycle)
+
+You can run the profiler using `main.py` directly:
+
+```bash
+# Profile MSSQL (UAT) -> Store in PostgreSQL
+python main.py -t users,products -d mssql --app user-service --env uat --schema uat --data-profile --auto-increment --profile-schema --metrics-backend postgresql
+
+# Profile MSSQL (Prod) -> Store in PostgreSQL
+python main.py -t users,products -d mssql --app user-service --env prod --schema prod --data-profile --auto-increment --profile-schema --metrics-backend postgresql
+```
+
+Or using the `scripts/run_profiler.sh` wrapper script:
+
+```bash
+# Profile MSSQL (UAT)
+scripts/run_profiler.sh -t users,products --data-profile --auto-increment --profile-schema --app user-service --env uat --schema uat --database-type mssql --metrics-backend postgresql
+
+# Profile MSSQL (Prod)
+scripts/run_profiler.sh -t users,products --data-profile --auto-increment --profile-schema --app user-service --env prod --schema prod --database-type mssql --metrics-backend postgresql
+```
+
+This workflow verifies:
+
+- MSSQL connection and data retrieval
+- Sample data generation scripts
+- Schema profiling capabilities
+- Auto-increment analysis
+- Storing metrics in PostgreSQL
+
 ## ⏰ Control-M Integration
 
 DataProfiler includes a wrapper script for running as a scheduled job in **Control-M** or similar job schedulers.

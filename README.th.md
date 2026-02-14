@@ -488,6 +488,63 @@ pytest -v
 pytest --cov=src --cov-report=term-missing
 ```
 
+## 🔍 การทดสอบแบบ End-to-End (Manual Testing)
+
+กระบวนการทดสอบเพื่อยืนยันการทำงานของระบบทั้งหมด (MSSQL, PostgreSQL):
+
+### 1. ตั้งค่า Environment
+
+```bash
+# กำหนดค่า MSSQL Connection
+export MSSQL_HOST=localhost
+export MSSQL_PORT=1433
+export MSSQL_DATABASE=testdb
+export MSSQL_USER=sa
+export MSSQL_PASSWORD=YourStrong@Password123
+export MSSQL_SCHEMA=dbo
+
+# Initialize MSSQL Database
+python init-scripts/mssql/init-mssql.py
+```
+
+### 2. สร้างข้อมูลจำลอง (Seed Data)
+
+```bash
+# สร้างข้อมูลจำลองสำหรับ UAT และ Prod schemas
+python init-scripts/mssql/generate-mssql-data.py --schema uat
+python init-scripts/mssql/generate-mssql-data.py --schema prod
+```
+
+### 3. รัน Profiler (Full Cycle)
+
+สามารถรันผ่าน `main.py` โดยตรง:
+
+```bash
+# Profile MSSQL (UAT) -> เก็บใน PostgreSQL
+python main.py -t users,products -d mssql --app user-service --env uat --schema uat --data-profile --auto-increment --profile-schema --metrics-backend postgresql
+
+# Profile MSSQL (Prod) -> เก็บใน PostgreSQL
+python main.py -t users,products -d mssql --app user-service --env prod --schema prod --data-profile --auto-increment --profile-schema --metrics-backend postgresql
+```
+
+หรือใช้ `scripts/run_profiler.sh` wrapper script:
+
+```bash
+# Profile MSSQL (UAT)
+scripts/run_profiler.sh -t users,products --data-profile --auto-increment --profile-schema --app user-service --env uat --schema uat --database-type mssql --metrics-backend postgresql
+
+# Profile MSSQL (Prod)
+scripts/run_profiler.sh -t users,products --data-profile --auto-increment --profile-schema --app user-service --env prod --schema prod --database-type mssql --metrics-backend postgresql
+```
+
+กระบวนการนี้จะตรวจสอบ:
+
+- การเชื่อมต่อและดึงข้อมูลจาก MSSQL
+- สคริปต์สร้างข้อมูลจำลอง (sample data generation)
+- การทำงานของ Schema Profiling
+- การวิเคราะห์ Auto-increment
+- การจัดเก็บ Metrics ลง PostgreSQL
+
 ## ⏰ Control-M Integration
 
 DataProfiler มี wrapper script สำหรับรันเป็น scheduled job บน **Control-M** หรือ job scheduler อื่นๆ
