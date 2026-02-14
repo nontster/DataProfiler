@@ -2,9 +2,11 @@
 Schema Extractor - Extract table schema metadata from databases.
 
 Supports PostgreSQL and MSSQL databases, extracting columns, indexes,
-primary keys, foreign keys, and check constraints.
+primary keys, foreign keys, check constraints, stored procedures, views,
+and triggers.
 """
 
+import hashlib
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -15,10 +17,20 @@ from src.core.schema_comparator import (
     IndexSchema,
     ForeignKeySchema,
     CheckConstraintSchema,
+    StoredProcedureSchema,
+    ViewSchema,
+    TriggerSchema,
 )
 from src.config import Config
 
 logger = logging.getLogger(__name__)
+
+
+def _md5_hash(text: str) -> str:
+    """Compute MD5 hash of text for definition drift detection."""
+    if not text:
+        return ''
+    return hashlib.md5(text.encode('utf-8')).hexdigest()
 
 
 class SchemaExtractor(ABC):
@@ -31,6 +43,30 @@ class SchemaExtractor(ABC):
         schema_name: Optional[str] = None
     ) -> TableSchema:
         """Extract complete schema for a table."""
+        pass
+    
+    @abstractmethod
+    def extract_stored_procedures(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[StoredProcedureSchema]:
+        """Extract stored procedures/functions from schema."""
+        pass
+    
+    @abstractmethod
+    def extract_views(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[ViewSchema]:
+        """Extract views from schema."""
+        pass
+    
+    @abstractmethod
+    def extract_triggers(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[TriggerSchema]:
+        """Extract triggers from schema."""
         pass
 
 
@@ -276,6 +312,187 @@ class PostgresSchemaExtractor(SchemaExtractor):
             cursor.close()
         
         return constraints
+    
+    def extract_stored_procedures(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[StoredProcedureSchema]:
+        """Extract stored procedures/functions from PostgreSQL."""
+        schema_name = schema_name or Config.POSTGRES_SCHEMA or 'public'
+        query = """
+            SELECT
+                p.proname AS name,
+                l.lanname AS language,
+                pg_catalog.pg_get_function_arguments(p.oid) AS parameter_list,
+                pg_catalog.pg_get_function_result(p.oid) AS return_type,
+                pg_catalog.pg_get_functiondef(p.oid) AS definition
+            FROM pg_catalog.pg_proc p
+            JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
+            JOIN pg_catalog.pg_language l ON l.oid = p.prolang
+            WHERE n.nspname = %s
+              AND p.prokind IN ('f', 'p')
+            ORDER BY p.proname
+        """
+        
+        procedures = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, language, params, return_type, definition = row
+                procedures.append(StoredProcedureSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    language=language or '',
+                    parameter_list=params or '',
+                    return_type=return_type or '',
+                    definition_hash=_md5_hash(definition or ''),
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract stored procedures: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(procedures)} stored procedures from {schema_name}")
+        return procedures
+    
+    def extract_views(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[ViewSchema]:
+        """Extract views from PostgreSQL (including materialized views)."""
+        schema_name = schema_name or Config.POSTGRES_SCHEMA or 'public'
+        
+        views = []
+        cursor = self.connection.cursor()
+        try:
+            # Regular views
+            cursor.execute("""
+                SELECT
+                    v.table_name,
+                    v.view_definition
+                FROM information_schema.views v
+                WHERE v.table_schema = %s
+                ORDER BY v.table_name
+            """, (schema_name,))
+            for row in cursor.fetchall():
+                name, definition = row
+                # Get view columns
+                cursor2 = self.connection.cursor()
+                try:
+                    cursor2.execute("""
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_schema = %s AND table_name = %s
+                        ORDER BY ordinal_position
+                    """, (schema_name, name))
+                    cols = ','.join(r[0] for r in cursor2.fetchall())
+                finally:
+                    cursor2.close()
+                
+                views.append(ViewSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    definition_hash=_md5_hash(definition or ''),
+                    is_materialized=False,
+                    columns=cols,
+                ))
+            
+            # Materialized views
+            cursor.execute("""
+                SELECT
+                    c.relname AS name,
+                    pg_catalog.pg_get_viewdef(c.oid, true) AS definition
+                FROM pg_catalog.pg_class c
+                JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                WHERE n.nspname = %s
+                  AND c.relkind = 'm'
+                ORDER BY c.relname
+            """, (schema_name,))
+            for row in cursor.fetchall():
+                name, definition = row
+                # Get materialized view columns
+                cursor2 = self.connection.cursor()
+                try:
+                    cursor2.execute("""
+                        SELECT a.attname
+                        FROM pg_catalog.pg_attribute a
+                        JOIN pg_catalog.pg_class c ON c.oid = a.attrelid
+                        JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+                        WHERE n.nspname = %s AND c.relname = %s
+                          AND a.attnum > 0 AND NOT a.attisdropped
+                        ORDER BY a.attnum
+                    """, (schema_name, name))
+                    cols = ','.join(r[0] for r in cursor2.fetchall())
+                finally:
+                    cursor2.close()
+                
+                views.append(ViewSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    definition_hash=_md5_hash(definition or ''),
+                    is_materialized=True,
+                    columns=cols,
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract views: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(views)} views from {schema_name}")
+        return views
+    
+    def extract_triggers(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[TriggerSchema]:
+        """Extract triggers from PostgreSQL."""
+        schema_name = schema_name or Config.POSTGRES_SCHEMA or 'public'
+        query = """
+            SELECT
+                t.trigger_name,
+                t.event_object_table,
+                t.event_manipulation,
+                t.action_timing,
+                t.action_statement
+            FROM information_schema.triggers t
+            WHERE t.trigger_schema = %s
+            ORDER BY t.trigger_name, t.event_manipulation
+        """
+        
+        # Aggregate multiple events for same trigger
+        trigger_map = {}
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, table, event, timing, statement = row
+                if name not in trigger_map:
+                    trigger_map[name] = {
+                        'table': table,
+                        'events': [],
+                        'timing': timing,
+                        'statement': statement,
+                    }
+                trigger_map[name]['events'].append(event)
+        except Exception as e:
+            logger.warning(f"Could not extract triggers: {e}")
+        finally:
+            cursor.close()
+        
+        triggers = []
+        for name, info in trigger_map.items():
+            triggers.append(TriggerSchema(
+                name=name,
+                schema_name=schema_name,
+                table_name=info['table'],
+                event=','.join(info['events']),
+                timing=info['timing'],
+                definition_hash=_md5_hash(info['statement'] or ''),
+            ))
+        
+        logger.info(f"Extracted {len(triggers)} triggers from {schema_name}")
+        return triggers
 
 
 class MSSQLSchemaExtractor(SchemaExtractor):
@@ -516,6 +733,141 @@ class MSSQLSchemaExtractor(SchemaExtractor):
             cursor.close()
         
         return constraints
+    
+    def extract_stored_procedures(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[StoredProcedureSchema]:
+        """Extract stored procedures from MSSQL."""
+        schema_name = schema_name or Config.MSSQL_SCHEMA or 'dbo'
+        query = """
+            SELECT
+                p.name,
+                ISNULL(m.definition, '') AS definition
+            FROM sys.procedures p
+            JOIN sys.schemas s ON p.schema_id = s.schema_id
+            LEFT JOIN sys.sql_modules m ON p.object_id = m.object_id
+            WHERE s.name = %s
+            ORDER BY p.name
+        """
+        
+        procedures = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, definition = row
+                procedures.append(StoredProcedureSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    language='tsql',
+                    parameter_list='',
+                    return_type='',
+                    definition_hash=_md5_hash(definition or ''),
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract stored procedures: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(procedures)} stored procedures from {schema_name}")
+        return procedures
+    
+    def extract_views(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[ViewSchema]:
+        """Extract views from MSSQL."""
+        schema_name = schema_name or Config.MSSQL_SCHEMA or 'dbo'
+        query = """
+            SELECT
+                v.name,
+                ISNULL(m.definition, '') AS definition,
+                STRING_AGG(c.name, ',') WITHIN GROUP (ORDER BY c.column_id) AS columns
+            FROM sys.views v
+            JOIN sys.schemas s ON v.schema_id = s.schema_id
+            LEFT JOIN sys.sql_modules m ON v.object_id = m.object_id
+            LEFT JOIN sys.columns c ON v.object_id = c.object_id
+            WHERE s.name = %s
+            GROUP BY v.name, m.definition
+            ORDER BY v.name
+        """
+        
+        views = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, definition, columns = row
+                views.append(ViewSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    definition_hash=_md5_hash(definition or ''),
+                    is_materialized=False,
+                    columns=columns or '',
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract views: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(views)} views from {schema_name}")
+        return views
+    
+    def extract_triggers(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[TriggerSchema]:
+        """Extract triggers from MSSQL."""
+        schema_name = schema_name or Config.MSSQL_SCHEMA or 'dbo'
+        query = """
+            SELECT
+                tr.name AS trigger_name,
+                OBJECT_NAME(tr.parent_id) AS table_name,
+                te.type_desc AS event,
+                CASE WHEN tr.is_instead_of_trigger = 1 THEN 'INSTEAD OF' ELSE 'AFTER' END AS timing,
+                ISNULL(m.definition, '') AS definition
+            FROM sys.triggers tr
+            JOIN sys.trigger_events te ON tr.object_id = te.object_id
+            LEFT JOIN sys.sql_modules m ON tr.object_id = m.object_id
+            JOIN sys.tables t ON tr.parent_id = t.object_id
+            JOIN sys.schemas s ON t.schema_id = s.schema_id
+            WHERE s.name = %s
+            ORDER BY tr.name
+        """
+        
+        trigger_map = {}
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, table, event, timing, definition = row
+                if name not in trigger_map:
+                    trigger_map[name] = {
+                        'table': table,
+                        'events': [],
+                        'timing': timing,
+                        'definition': definition,
+                    }
+                trigger_map[name]['events'].append(event)
+        except Exception as e:
+            logger.warning(f"Could not extract triggers: {e}")
+        finally:
+            cursor.close()
+        
+        triggers = []
+        for name, info in trigger_map.items():
+            triggers.append(TriggerSchema(
+                name=name,
+                schema_name=schema_name,
+                table_name=info['table'],
+                event=','.join(info['events']),
+                timing=info['timing'],
+                definition_hash=_md5_hash(info['definition'] or ''),
+            ))
+        
+        logger.info(f"Extracted {len(triggers)} triggers from {schema_name}")
+        return triggers
 
 
 class MySQLSchemaExtractor(SchemaExtractor):
@@ -797,6 +1149,149 @@ class MySQLSchemaExtractor(SchemaExtractor):
         except Exception:
             # Fallback for older MySQL versions or permissions issues
             return []
+    
+    def extract_stored_procedures(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[StoredProcedureSchema]:
+        """Extract stored procedures/functions from MySQL."""
+        schema_name = schema_name or self.database or 'prod'
+        query = """
+            SELECT
+                ROUTINE_NAME,
+                ROUTINE_TYPE,
+                DTD_IDENTIFIER,
+                ROUTINE_BODY,
+                ROUTINE_DEFINITION
+            FROM information_schema.ROUTINES
+            WHERE ROUTINE_SCHEMA = %s
+            ORDER BY ROUTINE_NAME
+        """
+        
+        procedures = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, rtype, return_type, body_lang, definition = row
+                name = self._decode(name)
+                return_type = self._decode(return_type) if return_type else ''
+                body_lang = self._decode(body_lang) if body_lang else ''
+                definition = self._decode(definition) if definition else ''
+                
+                procedures.append(StoredProcedureSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    language=body_lang,
+                    parameter_list='',
+                    return_type=return_type if rtype == 'FUNCTION' else '',
+                    definition_hash=_md5_hash(definition),
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract stored procedures: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(procedures)} stored procedures from {schema_name}")
+        return procedures
+    
+    def extract_views(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[ViewSchema]:
+        """Extract views from MySQL."""
+        schema_name = schema_name or self.database or 'prod'
+        query = """
+            SELECT
+                TABLE_NAME,
+                VIEW_DEFINITION
+            FROM information_schema.VIEWS
+            WHERE TABLE_SCHEMA = %s
+            ORDER BY TABLE_NAME
+        """
+        
+        views = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, definition = row
+                name = self._decode(name)
+                definition = self._decode(definition) if definition else ''
+                
+                # Get columns
+                cursor2 = self.connection.cursor()
+                try:
+                    cursor2.execute("""
+                        SELECT COLUMN_NAME
+                        FROM information_schema.COLUMNS
+                        WHERE TABLE_SCHEMA = %s AND TABLE_NAME = %s
+                        ORDER BY ORDINAL_POSITION
+                    """, (schema_name, name))
+                    cols = ','.join(self._decode(r[0]) for r in cursor2.fetchall())
+                finally:
+                    cursor2.close()
+                
+                views.append(ViewSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    definition_hash=_md5_hash(definition),
+                    is_materialized=False,
+                    columns=cols,
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract views: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(views)} views from {schema_name}")
+        return views
+    
+    def extract_triggers(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[TriggerSchema]:
+        """Extract triggers from MySQL."""
+        schema_name = schema_name or self.database or 'prod'
+        query = """
+            SELECT
+                TRIGGER_NAME,
+                EVENT_OBJECT_TABLE,
+                EVENT_MANIPULATION,
+                ACTION_TIMING,
+                ACTION_STATEMENT
+            FROM information_schema.TRIGGERS
+            WHERE TRIGGER_SCHEMA = %s
+            ORDER BY TRIGGER_NAME
+        """
+        
+        triggers = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, table, event, timing, statement = row
+                name = self._decode(name)
+                table = self._decode(table)
+                event = self._decode(event)
+                timing = self._decode(timing)
+                statement = self._decode(statement) if statement else ''
+                
+                triggers.append(TriggerSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    table_name=table,
+                    event=event,
+                    timing=timing,
+                    definition_hash=_md5_hash(statement),
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract triggers: {e}")
+        finally:
+            cursor.close()
+        
+        logger.info(f"Extracted {len(triggers)} triggers from {schema_name}")
+        return triggers
 
 
 def get_schema_extractor(database_type: str, connection) -> SchemaExtractor:

@@ -442,6 +442,142 @@ def insert_schema_profiles(
 
 
 # =============================================================================
+# Schema Objects Functions (Stored Procedures, Views, Triggers)
+# =============================================================================
+
+def init_schema_objects_clickhouse() -> bool:
+    """
+    Initialize ClickHouse table for storing schema objects
+    (stored procedures, views, triggers).
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        client = get_clickhouse_client()
+        
+        client.command("""
+            CREATE TABLE IF NOT EXISTS schema_objects (
+                -- Metadata
+                scan_time DateTime DEFAULT now(),
+                
+                -- Multi-tenancy
+                application String DEFAULT 'default',
+                environment LowCardinality(String) DEFAULT 'development',
+                database_host String DEFAULT '',
+                database_name String DEFAULT '',
+                schema_name String DEFAULT 'public',
+                
+                -- Object info
+                object_type LowCardinality(String),
+                object_name String,
+                parent_table String DEFAULT '',
+                language String DEFAULT '',
+                parameter_list String DEFAULT '',
+                return_type String DEFAULT '',
+                event String DEFAULT '',
+                timing String DEFAULT '',
+                is_materialized UInt8 DEFAULT 0,
+                columns String DEFAULT '',
+                definition_hash String DEFAULT ''
+                
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(scan_time)
+            ORDER BY (application, environment, schema_name, object_type, scan_time, object_name)
+        """)
+        
+        logger.info("✅ ClickHouse table 'schema_objects' is ready")
+        return True
+    except (ClickHouseError, DatabaseConnectionError) as e:
+        logger.error(f"❌ Schema objects table initialization failed: {e}")
+        return False
+
+
+def insert_schema_objects(
+    procedures: list,
+    views: list,
+    triggers: list,
+    database_host: str = '',
+    database_name: str = '',
+    schema_name: str = 'public',
+    application: str = "default",
+    environment: str = "development"
+) -> bool:
+    """
+    Insert schema objects (procedures, views, triggers) into ClickHouse.
+    
+    Args:
+        procedures: List of StoredProcedureSchema objects
+        views: List of ViewSchema objects
+        triggers: List of TriggerSchema objects
+        database_host: Source database host
+        database_name: Source database name
+        schema_name: Source schema name
+        application: Application/service name
+        environment: Environment name
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    try:
+        client = get_clickhouse_client()
+        data = []
+        
+        for proc in procedures:
+            data.append([
+                application, environment, database_host, database_name,
+                schema_name, 'PROCEDURE', proc.name, '',
+                proc.language, proc.parameter_list, proc.return_type,
+                '', '', 0, '', proc.definition_hash,
+            ])
+        
+        for view in views:
+            data.append([
+                application, environment, database_host, database_name,
+                schema_name, 'VIEW', view.name, '',
+                '', '', '', '', '',
+                1 if view.is_materialized else 0,
+                view.columns, view.definition_hash,
+            ])
+        
+        for trigger in triggers:
+            data.append([
+                application, environment, database_host, database_name,
+                schema_name, 'TRIGGER', trigger.name, trigger.table_name,
+                '', '', '', trigger.event, trigger.timing,
+                0, '', trigger.definition_hash,
+            ])
+        
+        if not data:
+            logger.info("No schema objects to insert")
+            return True
+        
+        client.insert(
+            'schema_objects',
+            data,
+            column_names=[
+                'application', 'environment', 'database_host', 'database_name',
+                'schema_name', 'object_type', 'object_name', 'parent_table',
+                'language', 'parameter_list', 'return_type',
+                'event', 'timing', 'is_materialized',
+                'columns', 'definition_hash'
+            ]
+        )
+        
+        total = len(procedures) + len(views) + len(triggers)
+        logger.info(
+            f"✅ Inserted {total} schema objects "
+            f"({len(procedures)} procedures, {len(views)} views, {len(triggers)} triggers) "
+            f"[{application}/{environment}]"
+        )
+        return True
+        
+    except ClickHouseError as e:
+        logger.error(f"❌ Failed to insert schema objects into ClickHouse: {e}")
+        return False
+
+
+# =============================================================================
 # Table Inventory Functions
 # =============================================================================
 

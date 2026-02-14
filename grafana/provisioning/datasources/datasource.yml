@@ -13,7 +13,7 @@ datasources:
       defaultDatabase: default
     secureJsonData:
       password: ${CLICKHOUSE_PASSWORD}
-    isDefault: true
+    isDefault: false
     editable: true
 
   - name: PostgreSQL-Metrics
@@ -32,6 +32,7 @@ datasources:
       timescaledb: false
     secureJsonData:
       password: ${POSTGRES_PASSWORD}
+    isDefault: true
     editable: true
     # Note: POSTGRES_HOST/PORT/DATABASE/USER/PASSWORD env vars in Grafana
     # are set to postgres-metrics service values in docker-compose.yml

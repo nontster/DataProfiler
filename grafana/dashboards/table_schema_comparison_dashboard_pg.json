@@ -22,6 +22,10 @@
   "links": [],
   "panels": [
     {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
       "gridPos": {
         "h": 3,
         "w": 24,
@@ -35,7 +39,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "# Schema Comparison Dashboard (ClickHouse)\nCompare table schema between two environments - Columns, Types, Indexes, Foreign Keys",
+        "content": "# Table Schema Comparison Dashboard (PostgreSQL)\nCompare table schema between two environments - Columns, Types, Indexes, Foreign Keys",
         "mode": "markdown"
       },
       "pluginVersion": "10.0.0",
@@ -58,8 +62,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -96,6 +100,7 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
@@ -103,11 +108,13 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(DISTINCT column_name) as columns FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT column_name) as columns\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "A"
         }
       ],
@@ -116,8 +123,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -154,6 +161,7 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
@@ -161,11 +169,13 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(DISTINCT column_name) as columns FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT column_name) as columns\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "A"
         }
       ],
@@ -174,8 +184,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -220,6 +230,7 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
@@ -227,11 +238,13 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "WITH env1_cols AS (SELECT column_name, data_type, is_nullable, column_default FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote})), env2_cols AS (SELECT column_name, data_type, is_nullable, column_default FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote})) SELECT count(*) as differences FROM (SELECT e1.column_name FROM env1_cols e1 LEFT JOIN env2_cols e2 ON e1.column_name = e2.column_name WHERE e2.column_name = '' UNION ALL SELECT e2.column_name FROM env2_cols e2 LEFT JOIN env1_cols e1 ON e2.column_name = e1.column_name WHERE e1.column_name = '' UNION ALL SELECT e1.column_name FROM env1_cols e1 JOIN env2_cols e2 ON e1.column_name = e2.column_name WHERE e1.data_type != e2.data_type OR e1.is_nullable != e2.is_nullable) diffs",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_cols AS (\n  SELECT column_name, data_type, is_nullable, column_default\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n),\nenv2_cols AS (\n  SELECT column_name, data_type, is_nullable, column_default\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n)\nSELECT COUNT(*) as differences\nFROM (\n  -- Columns only in env1\n  SELECT e1.column_name FROM env1_cols e1\n  LEFT JOIN env2_cols e2 ON e1.column_name = e2.column_name\n  WHERE e2.column_name IS NULL\n  UNION ALL\n  -- Columns only in env2\n  SELECT e2.column_name FROM env2_cols e2\n  LEFT JOIN env1_cols e1 ON e2.column_name = e1.column_name\n  WHERE e1.column_name IS NULL\n  UNION ALL\n  -- Type mismatches\n  SELECT e1.column_name FROM env1_cols e1\n  JOIN env2_cols e2 ON e1.column_name = e2.column_name\n  WHERE e1.data_type != e2.data_type\n     OR e1.is_nullable != e2.is_nullable\n) diffs",
           "refId": "A"
         }
       ],
@@ -240,8 +253,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -278,6 +291,7 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
@@ -285,20 +299,24 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(*) as \"${env1}\" FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND is_primary_key = 1 AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env1}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_primary_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(*) as \"${env2}\" FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND is_primary_key = 1 AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env2}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_primary_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "B"
         }
       ],
@@ -307,8 +325,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -345,6 +363,7 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
@@ -352,20 +371,24 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(*) as \"${env1}\" FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND is_in_index = 1 AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env1}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_in_index = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(*) as \"${env2}\" FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND is_in_index = 1 AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env2}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_in_index = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "B"
         }
       ],
@@ -374,8 +397,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -412,6 +435,7 @@
           "fields": "",
           "values": false
         },
+        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
@@ -419,20 +443,24 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(*) as \"${env1}\" FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND is_foreign_key = 1 AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env1}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_foreign_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "A"
         },
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT count(*) as \"${env2}\" FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND is_foreign_key = 1 AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote})",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as \"${env2}\"\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND is_foreign_key = true\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )",
           "refId": "B"
         }
       ],
@@ -454,8 +482,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -558,11 +586,13 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "WITH env1_cols AS (SELECT column_name, column_position, data_type, is_nullable, column_default, is_primary_key, is_in_index, index_names, is_foreign_key, fk_references FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote})), env2_cols AS (SELECT column_name, column_position, data_type, is_nullable, column_default, is_primary_key, is_in_index, index_names, is_foreign_key, fk_references FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote})) SELECT coalesce(e1.column_name, e2.column_name) as column_name, multiIf(e1.column_name = '', concat('❌ Missing in ', ${env1:singlequote}), e2.column_name = '', concat('❌ Missing in ', ${env2:singlequote}), e1.data_type != e2.data_type OR e1.is_nullable != e2.is_nullable, '⚠️ Type Mismatch', '✅ Match') as status, e1.data_type as \"${env1} Type\", e2.data_type as \"${env2} Type\", if(e1.is_nullable, 'YES', 'NO') as \"${env1} Nullable\", if(e2.is_nullable, 'YES', 'NO') as \"${env2} Nullable\", if(e1.is_primary_key, '🔑', '') as \"${env1} PK\", if(e2.is_primary_key, '🔑', '') as \"${env2} PK\", if(e1.is_in_index, '📇', '') as \"${env1} Indexed\", if(e2.is_in_index, '📇', '') as \"${env2} Indexed\" FROM env1_cols e1 FULL OUTER JOIN env2_cols e2 ON e1.column_name = e2.column_name ORDER BY coalesce(e1.column_position, e2.column_position)",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_cols AS (\n  SELECT column_name, column_position, data_type, is_nullable, column_default,\n         is_primary_key, is_in_index, index_names, is_foreign_key, fk_references\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n),\nenv2_cols AS (\n  SELECT column_name, column_position, data_type, is_nullable, column_default,\n         is_primary_key, is_in_index, index_names, is_foreign_key, fk_references\n  FROM schema_profiles\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND table_name = ${table_name:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_profiles\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n        AND table_name = ${table_name:singlequote}\n    )\n)\nSELECT \n  COALESCE(e1.column_name, e2.column_name) as column_name,\n  CASE\n    WHEN e1.column_name IS NULL THEN '❌ Missing in ${env1}'\n    WHEN e2.column_name IS NULL THEN '❌ Missing in ${env2}'\n    WHEN e1.data_type != e2.data_type OR e1.is_nullable != e2.is_nullable THEN '⚠️ Type Mismatch'\n    ELSE '✅ Match'\n  END as status,\n  e1.data_type as \"${env1} Type\",\n  e2.data_type as \"${env2} Type\",\n  CASE WHEN e1.is_nullable THEN 'YES' ELSE 'NO' END as \"${env1} Nullable\",\n  CASE WHEN e2.is_nullable THEN 'YES' ELSE 'NO' END as \"${env2} Nullable\",\n  CASE WHEN e1.is_primary_key THEN '🔑' ELSE '' END as \"${env1} PK\",\n  CASE WHEN e2.is_primary_key THEN '🔑' ELSE '' END as \"${env2} PK\",\n  CASE WHEN e1.is_in_index THEN '📇' ELSE '' END as \"${env1} Indexed\",\n  CASE WHEN e2.is_in_index THEN '📇' ELSE '' END as \"${env2} Indexed\"\nFROM env1_cols e1\nFULL OUTER JOIN env2_cols e2 ON e1.column_name = e2.column_name\nORDER BY COALESCE(e1.column_position, e2.column_position)",
           "refId": "A"
         }
       ],
@@ -584,8 +614,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -622,11 +652,11 @@
                 "value": [
                   {
                     "options": {
-                      "0": {
+                      "false": {
                         "index": 1,
                         "text": ""
                       },
-                      "1": {
+                      "true": {
                         "index": 0,
                         "text": "🔑"
                       }
@@ -648,11 +678,11 @@
                 "value": [
                   {
                     "options": {
-                      "0": {
+                      "false": {
                         "index": 1,
                         "text": "NOT NULL"
                       },
-                      "1": {
+                      "true": {
                         "index": 0,
                         "text": "NULL"
                       }
@@ -688,11 +718,13 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT column_name, data_type, is_nullable, is_primary_key, index_names, fk_references FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}) ORDER BY column_position",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  column_name,\n  data_type,\n  is_nullable,\n  is_primary_key,\n  index_names,\n  fk_references\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )\nORDER BY column_position",
           "refId": "A"
         }
       ],
@@ -701,8 +733,8 @@
     },
     {
       "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "dataprofiler-clickhouse"
+        "type": "postgres",
+        "uid": "dataprofiler-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -739,11 +771,11 @@
                 "value": [
                   {
                     "options": {
-                      "0": {
+                      "false": {
                         "index": 1,
                         "text": ""
                       },
-                      "1": {
+                      "true": {
                         "index": 0,
                         "text": "🔑"
                       }
@@ -765,11 +797,11 @@
                 "value": [
                   {
                     "options": {
-                      "0": {
+                      "false": {
                         "index": 1,
                         "text": "NOT NULL"
                       },
-                      "1": {
+                      "true": {
                         "index": 0,
                         "text": "NULL"
                       }
@@ -805,11 +837,13 @@
       "targets": [
         {
           "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "dataprofiler-clickhouse"
+            "type": "postgres",
+            "uid": "dataprofiler-postgres"
           },
-          "queryType": "sql",
-          "rawSql": "SELECT column_name, data_type, is_nullable, is_primary_key, index_names, fk_references FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}) ORDER BY column_position",
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  column_name,\n  data_type,\n  is_nullable,\n  is_primary_key,\n  index_names,\n  fk_references\nFROM schema_profiles\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND table_name = ${table_name:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_profiles\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n      AND table_name = ${table_name:singlequote}\n  )\nORDER BY column_position",
           "refId": "A"
         }
       ],
@@ -819,11 +853,7 @@
   ],
   "refresh": "",
   "schemaVersion": 38,
-  "tags": [
-    "schema",
-    "comparison",
-    "clickhouse"
-  ],
+  "tags": ["schema", "comparison", "postgresql"],
   "templating": {
     "list": [
       {
@@ -832,15 +862,15 @@
           "value": "user-service"
         },
         "datasource": {
-          "type": "grafana-clickhouse-datasource",
-          "uid": "dataprofiler-clickhouse"
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
         },
-        "definition": "SELECT DISTINCT application FROM \"default\".\"schema_profiles\" ORDER BY application",
+        "definition": "SELECT DISTINCT application FROM schema_profiles ORDER BY application",
         "includeAll": false,
         "label": "Application",
         "name": "application",
         "options": [],
-        "query": "SELECT DISTINCT application FROM \"default\".\"schema_profiles\" ORDER BY application",
+        "query": "SELECT DISTINCT application FROM schema_profiles ORDER BY application",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -852,15 +882,15 @@
           "value": "uat"
         },
         "datasource": {
-          "type": "grafana-clickhouse-datasource",
-          "uid": "dataprofiler-clickhouse"
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
         },
-        "definition": "SELECT DISTINCT environment FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "definition": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
         "includeAll": false,
         "label": "Environment 1",
         "name": "env1",
         "options": [],
-        "query": "SELECT DISTINCT environment FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "query": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -872,15 +902,15 @@
           "value": "production"
         },
         "datasource": {
-          "type": "grafana-clickhouse-datasource",
-          "uid": "dataprofiler-clickhouse"
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
         },
-        "definition": "SELECT DISTINCT environment FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "definition": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
         "includeAll": false,
         "label": "Environment 2",
         "name": "env2",
         "options": [],
-        "query": "SELECT DISTINCT environment FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "query": "SELECT DISTINCT environment FROM schema_profiles WHERE application = ${application:singlequote} ORDER BY environment",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -892,15 +922,15 @@
           "value": "users"
         },
         "datasource": {
-          "type": "grafana-clickhouse-datasource",
-          "uid": "dataprofiler-clickhouse"
+          "type": "postgres",
+          "uid": "dataprofiler-postgres"
         },
-        "definition": "SELECT DISTINCT table_name FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "definition": "SELECT DISTINCT table_name FROM schema_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
         "includeAll": false,
         "label": "Table",
         "name": "table_name",
         "options": [],
-        "query": "SELECT DISTINCT table_name FROM \"default\".\"schema_profiles\" WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "query": "SELECT DISTINCT table_name FROM schema_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
         "refresh": 1,
         "regex": "",
         "sort": 1,
@@ -914,7 +944,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Schema Comparison Dashboard (ClickHouse)",
-  "uid": "schema-comparison-dashboard-ch",
+  "title": "Table Schema Comparison Dashboard (PostgreSQL)",
+  "uid": "table-schema-comparison-dashboard-pg",
   "version": 1
 }

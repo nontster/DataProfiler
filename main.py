@@ -490,6 +490,119 @@ def run_schema_profiler(
                 pass
 
 
+def run_schema_objects_profiler(
+    application: str = 'default',
+    environment: str = 'development',
+    database_type: str = 'postgresql',
+    metrics_backend: Optional[str] = None,
+    schema: Optional[str] = None,
+    conn=None
+) -> Optional[int]:
+    """
+    Profile schema-level objects (stored procedures, views, triggers)
+    and store in metrics database. Called once per schema, not per table.
+    
+    Args:
+        application: Application name
+        environment: Environment name
+        database_type: Database type (postgresql, mssql, mysql)
+        metrics_backend: Backend for storing metrics
+        schema: Database schema
+        conn: Optional existing database connection
+        
+    Returns:
+        Total number of objects profiled, or None on error
+    """
+    from src.db.schema_extractor import get_schema_extractor
+    
+    schema_info = f"schema: {schema}" if schema else "default schema"
+    logger.info(f"Profiling schema objects [{application}/{environment}] ({schema_info})")
+    
+    own_connection = conn is None
+    try:
+        if own_connection:
+            conn = get_database_connection(database_type)
+        
+        extractor = get_schema_extractor(database_type, conn)
+        
+        # Extract schema-level objects
+        procedures = extractor.extract_stored_procedures(schema_name=schema)
+        views = extractor.extract_views(schema_name=schema)
+        triggers = extractor.extract_triggers(schema_name=schema)
+        
+        total = len(procedures) + len(views) + len(triggers)
+        logger.info(
+            f"Found {total} schema objects: "
+            f"{len(procedures)} procedures, {len(views)} views, {len(triggers)} triggers"
+        )
+        
+        if total == 0:
+            logger.info("No schema objects found — skipping storage")
+            return 0
+        
+        # Determine connection info for metadata
+        db_host = ''
+        db_name = ''
+        if database_type == 'postgresql':
+            db_host = Config.POSTGRES_HOST or ''
+            db_name = Config.POSTGRES_DATABASE or ''
+        elif database_type == 'mssql':
+            db_host = Config.MSSQL_HOST or ''
+            db_name = Config.MSSQL_DATABASE or ''
+        elif database_type == 'mysql':
+            db_host = Config.MYSQL_HOST or ''
+            db_name = Config.MYSQL_DATABASE or ''
+        
+        schema_name = schema or 'public'
+        
+        # Store in metrics backend
+        backend = metrics_backend or Config.METRICS_BACKEND
+        
+        if backend == 'postgresql':
+            from src.db.postgres_metrics import (
+                init_schema_objects_pg,
+                insert_schema_objects_pg
+            )
+            init_schema_objects_pg()
+            insert_schema_objects_pg(
+                procedures, views, triggers,
+                database_host=db_host,
+                database_name=db_name,
+                schema_name=schema_name,
+                application=application,
+                environment=environment,
+            )
+        else:
+            from src.db.clickhouse import (
+                init_schema_objects_clickhouse,
+                insert_schema_objects
+            )
+            init_schema_objects_clickhouse()
+            insert_schema_objects(
+                procedures, views, triggers,
+                database_host=db_host,
+                database_name=db_name,
+                schema_name=schema_name,
+                application=application,
+                environment=environment,
+            )
+        
+        logger.info(f"✅ Schema objects profile stored: {total} objects")
+        return total
+        
+    except Exception as e:
+        logger.error(f"Schema objects profiling failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+    finally:
+        if own_connection and conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 def main():
     """Main entry point for the DataProfiler."""
     args = parse_args()
@@ -569,6 +682,25 @@ def main():
                 )
         except Exception as e:
             logger.warning(f"Table inventory collection failed (non-fatal): {e}")
+        
+        # --- Schema Objects: auto-collect stored procedures, views, triggers ---
+        try:
+            obj_result = run_schema_objects_profiler(
+                application=args.app,
+                environment=args.env,
+                database_type=args.database_type,
+                metrics_backend=metrics_backend,
+                schema=args.schema,
+            )
+            
+            if obj_result is None:
+                logger.warning("Schema objects profiling failed (non-fatal)")
+            elif obj_result == 0:
+                logger.info("No schema objects found in this schema")
+            else:
+                logger.info(f"Schema objects profiling completed: {obj_result} objects")
+        except Exception as e:
+            logger.warning(f"Schema objects collection failed (non-fatal): {e}")
     
     # Open shared connection for schema profiling (reuse across tables)
     schema_conn = None

@@ -1,0 +1,628 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "fieldConfig": { "defaults": {}, "overrides": [] },
+      "gridPos": { "h": 3, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "options": {
+        "code": { "language": "plaintext", "showLineNumbers": false, "showMiniMap": false },
+        "content": "# Schema Objects Comparison Dashboard (ClickHouse)\nCompare stored procedures, views, and triggers between two environments — detect drift in definitions, missing objects, and extra objects",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.0.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 3 },
+      "id": 50,
+      "panels": [],
+      "title": "📊 Summary",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 4 },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT count(*) as objects FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote})",
+          "refId": "A"
+        }
+      ],
+      "title": "Objects in ${env1}",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 4 },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT count(*) as objects FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote})",
+          "refId": "A"
+        }
+      ],
+      "title": "Objects in ${env2}",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 4 },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "WITH env1_objs AS (SELECT object_type, object_name, definition_hash FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote})), env2_objs AS (SELECT object_type, object_name, definition_hash FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote})) SELECT count(*) as differences FROM (SELECT e1.object_name FROM env1_objs e1 LEFT JOIN env2_objs e2 ON e1.object_type = e2.object_type AND e1.object_name = e2.object_name WHERE e2.object_name = '' UNION ALL SELECT e2.object_name FROM env2_objs e2 LEFT JOIN env1_objs e1 ON e2.object_type = e1.object_type AND e2.object_name = e1.object_name WHERE e1.object_name = '' UNION ALL SELECT e1.object_name FROM env1_objs e1 JOIN env2_objs e2 ON e1.object_type = e2.object_type AND e1.object_name = e2.object_name WHERE e1.definition_hash != e2.definition_hash) diffs",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Differences",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 4 },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT countIf(environment = ${env1:singlequote}) as \"${env1}\", countIf(environment = ${env2:singlequote}) as \"${env2}\" FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND object_type = 'PROCEDURE' AND environment IN (${env1:singlequote}, ${env2:singlequote}) AND scan_time IN (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment IN (${env1:singlequote}, ${env2:singlequote}) GROUP BY environment)",
+          "refId": "A"
+        }
+      ],
+      "title": "Stored Procedures",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "yellow", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 4 },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT countIf(environment = ${env1:singlequote}) as \"${env1}\", countIf(environment = ${env2:singlequote}) as \"${env2}\" FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND object_type = 'VIEW' AND environment IN (${env1:singlequote}, ${env2:singlequote}) AND scan_time IN (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment IN (${env1:singlequote}, ${env2:singlequote}) GROUP BY environment)",
+          "refId": "A"
+        }
+      ],
+      "title": "Views",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 4 },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT countIf(environment = ${env1:singlequote}) as \"${env1}\", countIf(environment = ${env2:singlequote}) as \"${env2}\" FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND object_type = 'TRIGGER' AND environment IN (${env1:singlequote}, ${env2:singlequote}) AND scan_time IN (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment IN (${env1:singlequote}, ${env2:singlequote}) GROUP BY environment)",
+          "refId": "A"
+        }
+      ],
+      "title": "Triggers",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+      "id": 51,
+      "panels": [],
+      "title": "🔍 Object-by-Object Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": { "color": "green", "index": 0 },
+                      "⚠️ Definition Changed": { "color": "yellow", "index": 3 },
+                      "❌ Missing in Env1": { "color": "red", "index": 2 },
+                      "❌ Missing in Env2": { "color": "orange", "index": 1 }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "object_name" },
+            "properties": [{ "id": "custom.width", "value": 220 }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "object_type" },
+            "properties": [{ "id": "custom.width", "value": 120 }]
+          }
+        ]
+      },
+      "gridPos": { "h": 14, "w": 24, "x": 0, "y": 9 },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "enablePagination": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "WITH env1_objs AS (SELECT object_type, object_name, definition_hash, language, return_type, parameter_list FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote})), env2_objs AS (SELECT object_type, object_name, definition_hash, language, return_type, parameter_list FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote})) SELECT if(e1.object_type != '', e1.object_type, e2.object_type) as object_type, if(e1.object_name != '', e1.object_name, e2.object_name) as object_name, multiIf(e1.object_name = '', concat('❌ Missing in ', ${env1:singlequote}), e2.object_name = '', concat('❌ Missing in ', ${env2:singlequote}), e1.definition_hash != e2.definition_hash, '⚠️ Definition Changed', '✅ Match') as status, e1.definition_hash as \"${env1} Hash\", e2.definition_hash as \"${env2} Hash\", if(e1.language != '', e1.language, e2.language) as language, if(e1.return_type != '', e1.return_type, e2.return_type) as return_type, if(e1.parameter_list != '', e1.parameter_list, e2.parameter_list) as parameters FROM env1_objs e1 FULL OUTER JOIN env2_objs e2 ON e1.object_type = e2.object_type AND e1.object_name = e2.object_name ORDER BY object_type, object_name",
+          "refId": "A"
+        }
+      ],
+      "title": "All Schema Objects Comparison: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "id": 52,
+      "panels": [],
+      "title": "⚙️ Stored Procedures Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": { "color": "green", "index": 0 },
+                      "⚠️ Definition Changed": { "color": "yellow", "index": 3 },
+                      "❌ Only in Env1": { "color": "orange", "index": 1 },
+                      "❌ Only in Env2": { "color": "red", "index": 2 }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
+      "id": 20,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "enablePagination": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "WITH env1_procs AS (SELECT object_name, definition_hash, language, return_type, parameter_list FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND object_type = 'PROCEDURE' AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote})), env2_procs AS (SELECT object_name, definition_hash, language, return_type, parameter_list FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND object_type = 'PROCEDURE' AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote})) SELECT if(e1.object_name != '', e1.object_name, e2.object_name) as procedure_name, multiIf(e1.object_name = '', concat('❌ Only in ', ${env2:singlequote}), e2.object_name = '', concat('❌ Only in ', ${env1:singlequote}), e1.definition_hash != e2.definition_hash, '⚠️ Definition Changed', '✅ Match') as status, e1.language as \"${env1} Language\", e2.language as \"${env2} Language\", e1.return_type as \"${env1} Return Type\", e2.return_type as \"${env2} Return Type\", e1.parameter_list as \"${env1} Parameters\", e2.parameter_list as \"${env2} Parameters\", e1.definition_hash as \"${env1} Hash\", e2.definition_hash as \"${env2} Hash\" FROM env1_procs e1 FULL OUTER JOIN env2_procs e2 ON e1.object_name = e2.object_name ORDER BY procedure_name",
+          "refId": "A"
+        }
+      ],
+      "title": "Stored Procedures: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 34 },
+      "id": 53,
+      "panels": [],
+      "title": "👁️ Views Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": { "color": "green", "index": 0 },
+                      "⚠️ Definition Changed": { "color": "yellow", "index": 3 },
+                      "❌ Only in Env1": { "color": "orange", "index": 1 },
+                      "❌ Only in Env2": { "color": "red", "index": 2 }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 35 },
+      "id": 21,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "enablePagination": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "WITH env1_views AS (SELECT object_name, definition_hash, is_materialized, columns FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND object_type = 'VIEW' AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote})), env2_views AS (SELECT object_name, definition_hash, is_materialized, columns FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND object_type = 'VIEW' AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote})) SELECT if(e1.object_name != '', e1.object_name, e2.object_name) as view_name, multiIf(e1.object_name = '', concat('❌ Only in ', ${env2:singlequote}), e2.object_name = '', concat('❌ Only in ', ${env1:singlequote}), e1.definition_hash != e2.definition_hash, '⚠️ Definition Changed', '✅ Match') as status, if(e1.is_materialized, 'Yes', 'No') as \"${env1} Materialized\", if(e2.is_materialized, 'Yes', 'No') as \"${env2} Materialized\", e1.columns as \"${env1} Columns\", e2.columns as \"${env2} Columns\", e1.definition_hash as \"${env1} Hash\", e2.definition_hash as \"${env2} Hash\" FROM env1_views e1 FULL OUTER JOIN env2_views e2 ON e1.object_name = e2.object_name ORDER BY view_name",
+          "refId": "A"
+        }
+      ],
+      "title": "Views: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 45 },
+      "id": 54,
+      "panels": [],
+      "title": "⚡ Triggers Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "status" },
+            "properties": [
+              { "id": "custom.cellOptions", "value": { "type": "color-text" } },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": { "color": "green", "index": 0 },
+                      "⚠️ Definition Changed": { "color": "yellow", "index": 3 },
+                      "❌ Only in Env1": { "color": "orange", "index": 1 },
+                      "❌ Only in Env2": { "color": "red", "index": 2 }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 46 },
+      "id": 22,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "enablePagination": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "WITH env1_trigs AS (SELECT object_name, definition_hash, parent_table, event, timing FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND object_type = 'TRIGGER' AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote})), env2_trigs AS (SELECT object_name, definition_hash, parent_table, event, timing FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND object_type = 'TRIGGER' AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote})) SELECT if(e1.object_name != '', e1.object_name, e2.object_name) as trigger_name, multiIf(e1.object_name = '', concat('❌ Only in ', ${env2:singlequote}), e2.object_name = '', concat('❌ Only in ', ${env1:singlequote}), e1.definition_hash != e2.definition_hash, '⚠️ Definition Changed', '✅ Match') as status, e1.parent_table as \"${env1} Table\", e2.parent_table as \"${env2} Table\", e1.timing as \"${env1} Timing\", e2.timing as \"${env2} Timing\", e1.event as \"${env1} Event\", e2.event as \"${env2} Event\", e1.definition_hash as \"${env1} Hash\", e2.definition_hash as \"${env2} Hash\" FROM env1_trigs e1 FULL OUTER JOIN env2_trigs e2 ON e1.object_name = e2.object_name ORDER BY trigger_name",
+          "refId": "A"
+        }
+      ],
+      "title": "Triggers: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 56 },
+      "id": 55,
+      "panels": [],
+      "title": "📋 Object Details by Environment",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 57 },
+      "id": 30,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "enablePagination": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT object_type, object_name, language, return_type, parameter_list as parameters, event, timing, definition_hash FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote}) ORDER BY object_type, object_name",
+          "refId": "A"
+        }
+      ],
+      "title": "All Objects: ${env1}",
+      "type": "table"
+    },
+    {
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 57 },
+      "id": 31,
+      "options": {
+        "cellHeight": "sm",
+        "footer": { "countRows": true, "enablePagination": true, "fields": "", "reducer": ["count"], "show": true },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+          "queryType": "sql",
+          "rawSql": "SELECT object_type, object_name, language, return_type, parameter_list as parameters, event, timing, definition_hash FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND scan_time = (SELECT max(scan_time) FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote}) ORDER BY object_type, object_name",
+          "refId": "A"
+        }
+      ],
+      "title": "All Objects: ${env2}",
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "tags": ["schema-objects", "comparison", "clickhouse"],
+  "templating": {
+    "list": [
+      {
+        "current": { "text": "user-service", "value": "user-service" },
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+        "definition": "SELECT DISTINCT application FROM \"default\".\"schema_objects\" ORDER BY application",
+        "includeAll": false,
+        "label": "Application",
+        "name": "application",
+        "options": [],
+        "query": "SELECT DISTINCT application FROM \"default\".\"schema_objects\" ORDER BY application",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "text": "uat", "value": "uat" },
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+        "definition": "SELECT DISTINCT environment FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 1",
+        "name": "env1",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": { "text": "production", "value": "production" },
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "dataprofiler-clickhouse" },
+        "definition": "SELECT DISTINCT environment FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 2",
+        "name": "env2",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM \"default\".\"schema_objects\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Schema Objects Comparison Dashboard (ClickHouse)",
+  "uid": "schema-objects-comparison-ch",
+  "version": 1
+}

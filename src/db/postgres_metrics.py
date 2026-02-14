@@ -536,6 +536,161 @@ def insert_schema_profiles_pg(
 
 
 # =============================================================================
+# Schema Objects Functions (Stored Procedures, Views, Triggers)
+# =============================================================================
+
+def init_schema_objects_pg() -> bool:
+    """
+    Initialize PostgreSQL table for storing schema objects
+    (stored procedures, views, triggers).
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        conn = get_postgres_metrics_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS schema_objects (
+                id SERIAL PRIMARY KEY,
+                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                -- Multi-tenancy
+                application VARCHAR(255) DEFAULT 'default',
+                environment VARCHAR(50) DEFAULT 'development',
+                database_host VARCHAR(255) DEFAULT '',
+                database_name VARCHAR(255) DEFAULT '',
+                schema_name VARCHAR(100) DEFAULT 'public',
+                
+                -- Object info
+                object_type VARCHAR(20) NOT NULL,
+                object_name VARCHAR(255) NOT NULL,
+                parent_table VARCHAR(255) DEFAULT '',
+                language VARCHAR(50) DEFAULT '',
+                parameter_list TEXT DEFAULT '',
+                return_type VARCHAR(255) DEFAULT '',
+                event VARCHAR(100) DEFAULT '',
+                timing VARCHAR(50) DEFAULT '',
+                is_materialized BOOLEAN DEFAULT FALSE,
+                columns TEXT DEFAULT '',
+                definition_hash VARCHAR(32) DEFAULT ''
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_schema_objects_app_env
+            ON schema_objects (application, environment, schema_name, object_type)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_schema_objects_scan
+            ON schema_objects (schema_name, object_type, scan_time)
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info("✅ PostgreSQL table 'schema_objects' is ready")
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"❌ Schema objects table initialization failed: {e}")
+        return False
+
+
+def insert_schema_objects_pg(
+    procedures: list,
+    views: list,
+    triggers: list,
+    database_host: str = '',
+    database_name: str = '',
+    schema_name: str = 'public',
+    application: str = "default",
+    environment: str = "development"
+) -> bool:
+    """
+    Insert schema objects (procedures, views, triggers) into PostgreSQL.
+    
+    Args:
+        procedures: List of StoredProcedureSchema objects
+        views: List of ViewSchema objects
+        triggers: List of TriggerSchema objects
+        database_host: Source database host
+        database_name: Source database name
+        schema_name: Source schema name
+        application: Application/service name
+        environment: Environment name
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    try:
+        conn = get_postgres_metrics_connection()
+        cursor = conn.cursor()
+        
+        insert_sql = """
+            INSERT INTO schema_objects (
+                application, environment, database_host, database_name,
+                schema_name, object_type, object_name, parent_table,
+                language, parameter_list, return_type,
+                event, timing, is_materialized,
+                columns, definition_hash
+            ) VALUES (
+                %s, %s, %s, %s,
+                %s, %s, %s, %s,
+                %s, %s, %s,
+                %s, %s, %s,
+                %s, %s
+            )
+        """
+        
+        for proc in procedures:
+            cursor.execute(insert_sql, (
+                application, environment, database_host, database_name,
+                schema_name, 'PROCEDURE', proc.name, '',
+                proc.language, proc.parameter_list, proc.return_type,
+                '', '', False,
+                '', proc.definition_hash,
+            ))
+        
+        for view in views:
+            cursor.execute(insert_sql, (
+                application, environment, database_host, database_name,
+                schema_name, 'VIEW', view.name, '',
+                '', '', '',
+                '', '', view.is_materialized,
+                view.columns, view.definition_hash,
+            ))
+        
+        for trigger in triggers:
+            cursor.execute(insert_sql, (
+                application, environment, database_host, database_name,
+                schema_name, 'TRIGGER', trigger.name, trigger.table_name,
+                '', '', '',
+                trigger.event, trigger.timing, False,
+                '', trigger.definition_hash,
+            ))
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        total = len(procedures) + len(views) + len(triggers)
+        logger.info(
+            f"✅ Inserted {total} schema objects "
+            f"({len(procedures)} procedures, {len(views)} views, {len(triggers)} triggers) "
+            f"[{application}/{environment}]"
+        )
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"❌ Failed to insert schema objects into PostgreSQL: {e}")
+        return False
+
+
+# =============================================================================
 # Table Inventory Functions
 # =============================================================================
 

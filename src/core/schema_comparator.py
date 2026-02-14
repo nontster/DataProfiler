@@ -140,6 +140,67 @@ class CheckConstraintSchema:
 
 
 @dataclass
+class StoredProcedureSchema:
+    """Represents a stored procedure/function in the database."""
+    name: str
+    schema_name: str
+    language: str = ""
+    parameter_list: str = ""
+    return_type: str = ""
+    definition_hash: str = ""
+    
+    def to_dict(self) -> dict:
+        return {
+            'name': self.name,
+            'schema_name': self.schema_name,
+            'language': self.language,
+            'parameter_list': self.parameter_list,
+            'return_type': self.return_type,
+            'definition_hash': self.definition_hash,
+        }
+
+
+@dataclass
+class ViewSchema:
+    """Represents a database view."""
+    name: str
+    schema_name: str
+    definition_hash: str = ""
+    is_materialized: bool = False
+    columns: str = ""
+    
+    def to_dict(self) -> dict:
+        return {
+            'name': self.name,
+            'schema_name': self.schema_name,
+            'definition_hash': self.definition_hash,
+            'is_materialized': self.is_materialized,
+            'columns': self.columns,
+        }
+
+
+@dataclass
+class TriggerSchema:
+    """Represents a database trigger."""
+    name: str
+    schema_name: str
+    table_name: str
+    event: str = ""
+    timing: str = ""
+    definition_hash: str = ""
+    
+    def to_dict(self) -> dict:
+        return {
+            'name': self.name,
+            'schema_name': self.schema_name,
+            'table_name': self.table_name,
+            'event': self.event,
+            'timing': self.timing,
+            'definition_hash': self.definition_hash,
+        }
+
+
+@dataclass
 class TableSchema:
     """Complete table schema for comparison."""
     table_name: str
