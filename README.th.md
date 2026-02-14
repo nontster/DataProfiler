@@ -93,7 +93,21 @@ DataProfiler สามารถทำ Profile ข้อมูล Schema (Columns
 | --------------- | -------------------------------------------------- |
 | **Columns**     | การมีอยู่, Data Types, Nullability, Default Values |
 | **Indexes**     | Primary Keys, Index Membership, ชื่อ Index         |
+| **Columns**     | การมีอยู่, Data Types, Nullability, Default Values |
+| **Indexes**     | Primary Keys, Index Membership, ชื่อ Index         |
 | **Constraints** | Foreign Keys, Check Constraints                    |
+
+### Schema Objects Profiling
+
+นอกเหนือจาก Table Schemas แล้ว DataProfiler ยังเก็บ Metadata ของ Database Objects อื่นๆ อัตโนมัติ:
+
+- **Stored Procedures**
+- **Views**
+- **Triggers**
+
+ช่วยให้ตรวจจับการเพิ่ม, ลบ, หรือเปลี่ยนแปลง Objects ระหว่าง Environment ได้
+
+> **หมายเหตุ:** Schema object profiling จะทำงานอัตโนมัติเมื่อเปิดใช้งาน Metrics Storage (ค่าเริ่มต้น) โดยไม่ต้องระบุ `--profile-schema`
 
 ### การใช้งาน
 
@@ -123,7 +137,19 @@ python main.py --table users --profile-schema --app user-service --env uat
 # Profile หลาย tables พร้อมกัน
 python main.py -t users,orders --profile-schema --app user-service --env production
 
-# ดูผลการเปรียบเทียบผ่าน Grafana Dashboard
+# ดูผลการเปรียบเทียบผ่าน Grafana Dashboard (Table Schema Comparison)
+```
+
+### Schema Objects Comparison
+
+Schema objects (Stored Procedures, Views, Triggers) จะถูก Profile อัตโนมัติเมื่อเชื่อมต่อ Database พร้อม Metrics Storage
+
+```bash
+# Profile schema objects (และ table inventory)
+python main.py --app user-service --env production --schema prod
+```
+
+ดูผลลัพธ์ได้ที่ **Schema Objects Comparison Dashboard**
 ```
 
 ### ตัวอย่าง Output

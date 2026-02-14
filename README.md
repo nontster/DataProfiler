@@ -91,7 +91,21 @@ DataProfiler can profile table schemas (columns, data types, indexes, foreign ke
 | --------------- | -------------------------------------------- |
 | **Columns**     | Existence, Data Types, Nullability, Defaults |
 | **Indexes**     | Primary Keys, Index Membership, Index Names  |
+| **Columns**     | Existence, Data Types, Nullability, Defaults |
+| **Indexes**     | Primary Keys, Index Membership, Index Names  |
 | **Constraints** | Foreign Keys, Check Constraints              |
+
+### Schema Objects Profiling
+
+In addition to table schemas, DataProfiler automatically collects metadata for other database objects:
+
+- **Stored Procedures**
+- **Views**
+- **Triggers**
+
+This allows you to detect added, removed, or modified objects between environments.
+
+> **Note:** Schema object profiling runs automatically when metrics storage is enabled (default), even without `--profile-schema`.
 
 ## 🛠️ Requirements
 
@@ -358,7 +372,19 @@ python main.py --table users --profile-schema --app user-service --env uat
 # Profile multiple table schemas
 python main.py -t users,orders --profile-schema --app user-service --env production
 
-# Comparison is done via Grafana Dashboard
+# Comparison is done via Grafana Dashboard (Table Schema Comparison)
+```
+
+### Schema Objects Comparison
+
+Schema objects (Stored Procedures, Views, Triggers) are profiled automatically when connecting to a database with metrics storage enabled.
+
+```bash
+# Profile schema objects (and table inventory)
+python main.py --app user-service --env production --schema prod
+```
+
+View the results in the **Schema Objects Comparison Dashboard**.
 ```
 
 ### Complete Example: Profile MSSQL with PostgreSQL Metrics Backend
