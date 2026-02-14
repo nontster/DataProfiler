@@ -46,7 +46,7 @@ class Config:
     MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'password123')
     
     # Metrics Storage Configuration
-    METRICS_BACKEND = os.getenv('METRICS_BACKEND', 'clickhouse')  # 'clickhouse' or 'postgresql'
+    METRICS_BACKEND = os.getenv('METRICS_BACKEND', 'postgresql')  # 'postgresql' or 'clickhouse'
     
     # PostgreSQL Metrics Configuration (defaults to same as source PostgreSQL)
     PG_METRICS_HOST = os.getenv('PG_METRICS_HOST', os.getenv('POSTGRES_HOST', 'localhost'))

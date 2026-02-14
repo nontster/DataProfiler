@@ -9,12 +9,14 @@ Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server*
 DataProfiler provides:
 
 1. **Multi-Database Support**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), and **MySQL**
-2. **Automatic Schema Discovery** from source databases (information_schema)
-3. **dbt-profiler Style Metrics** calculation via SQL queries
-4. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
-5. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
-6. **Web Dashboard** for data visualization (React + TailwindCSS)
-7. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
+2. **Table Inventory Collection**: Automatically discovers and records all tables per schema for drift detection
+3. **Automatic Schema Discovery** from source databases (information_schema)
+4. **dbt-profiler Style Metrics** calculation via SQL queries (opt-in with `--data-profile`)
+5. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
+6. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
+7. **Web Dashboard** for data visualization (React + TailwindCSS)
+8. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
+9. **High Performance**: Uses fast Catalog Statistics (O(1)) for row counts instead of full table scans
 
 ## 📊 Profiled Metrics
 
@@ -172,16 +174,16 @@ CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=your_actual_password
 
 # Metrics Backend Configuration
-# Options: 'clickhouse' (default) or 'postgresql'
-METRICS_BACKEND=clickhouse
+# Options: 'postgresql' (default) or 'clickhouse'
+METRICS_BACKEND=postgresql
 
-# PostgreSQL Metrics Configuration (optional, if using PostgreSQL for metrics)
-# Defaults to same as POSTGRES_* if not specified
-# PG_METRICS_HOST=localhost
-# PG_METRICS_PORT=5432
-# PG_METRICS_DATABASE=postgres
-# PG_METRICS_USER=postgres
-# PG_METRICS_PASSWORD=your_password
+# PostgreSQL Metrics Configuration (separate instance for storing profiling results)
+# When using docker-compose, this points to the postgres-metrics service (port 5433)
+PG_METRICS_HOST=localhost
+PG_METRICS_PORT=5433
+PG_METRICS_DATABASE=profiler_metrics
+PG_METRICS_USER=postgres
+PG_METRICS_PASSWORD=your_password
 ```
 
 > ⚠️ **Important:** The `.env` file is already git-ignored. No need to worry about committing credentials.
@@ -214,59 +216,76 @@ data_source my_mssql:
 
 ### Basic Usage
 
-```bash
-# Profile 'users' table from PostgreSQL (default)
-python main.py users
+By default (without feature flags), DataProfiler collects **table inventory** only — no `--table` needed:
 
-# Profile from specific schema (e.g., 'prod' or 'uat')
-python main.py users --schema prod
+```bash
+# Collect table inventory only (default behavior)
+python main.py -d mssql --schema prod --app order-svc --env production
+
+# Collect table inventory from PostgreSQL (default database)
+python main.py --app user-service --env uat --schema public
+```
+
+### Data Profiling (`--data-profile`)
+
+Use `--data-profile` to enable column-level statistics. Requires `--table`:
+
+```bash
+# Profile 'users' table from PostgreSQL
+python main.py --table users --data-profile
+
+# Profile multiple tables
+python main.py -t users,orders,products --data-profile
+
+# Profile from specific schema
+python main.py --table users --data-profile --schema prod
 
 # Profile from MSSQL
-python main.py users -d mssql
+python main.py --table users --data-profile -d mssql
 
 # Profile from MySQL
-python main.py users -d mysql
+python main.py --table users --data-profile -d mysql
 
 # Profile with Application & Environment context
-python main.py users -d mssql --app user-service --env uat --auto-increment --metrics-backend postgresql
-python main.py users -d mssql --app user-service --env production --auto-increment --metrics-backend postgresql
-
-# Profile a specific table
-python main.py products
+python main.py -t users,orders --data-profile -d mssql --app user-service --env uat --metrics-backend postgresql
 ```
 
 ### Output Formats
 
+Output formats apply when `--data-profile` is used:
+
 ```bash
 # Console table (default)
-python main.py users --format table
+python main.py --table users --data-profile --format table
 
 # Markdown (dbt-profiler style)
-python main.py users --format markdown
+python main.py --table users --data-profile --format markdown
 
 # JSON
-python main.py users --format json
+python main.py --table users --data-profile --format json
 
 # CSV
-python main.py users --format csv
+python main.py --table users --data-profile --format csv
 ```
 
 ### Save to File
 
 ```bash
-python main.py users --format markdown --output profiles/users.md
-python main.py users --format json --output profiles/users.json
-python main.py users --format csv --output profiles/users.csv
+python main.py --table users --data-profile --format markdown --output profiles/users.md
+python main.py --table users --data-profile --format json --output profiles/users.json
+python main.py -t users,orders --data-profile --format csv --output profiles/report.csv
 ```
+
+> **Note:** When profiling multiple tables with `--output`, results are **appended** to the same file.
 
 ### Additional Options
 
 ```bash
 # Skip storing to ClickHouse
-python main.py users --no-store
+python main.py --table users --no-store
 
 # Verbose logging
-python main.py users -v
+python main.py --table users -v
 
 # Show help
 python main.py --help
@@ -284,14 +303,14 @@ Choose which source database to profile:
 
 ```bash
 # Profile from PostgreSQL (default)
-python main.py users
+python main.py --table users --data-profile
 
 # Profile from MSSQL
-python main.py users -d mssql
-python main.py orders --database-type mssql
+python main.py --table users --data-profile -d mssql
+python main.py --table orders --data-profile --database-type mssql
 
 # MSSQL with auto-increment analysis
-python main.py users -d mssql --auto-increment
+python main.py --table users --data-profile -d mssql --auto-increment
 ```
 
 ### Metrics Backend Selection (`--metrics-backend`)
@@ -300,39 +319,44 @@ Choose where to store profiling results:
 
 | Option       | Description          | Required Environment Variables                         |
 | ------------ | -------------------- | ------------------------------------------------------ |
-| `clickhouse` | ClickHouse (default) | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`                   |
-| `postgresql` | PostgreSQL           | `PG_METRICS_*` or falls back to `POSTGRES_*` variables |
+| `postgresql` | PostgreSQL (default) | `PG_METRICS_*` or falls back to `POSTGRES_*` variables |
+| `clickhouse` | ClickHouse           | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`                   |
 
 ```bash
-# Use ClickHouse (default)
-python main.py users
+# Use PostgreSQL (default)
+python main.py --table users
 
-# Use PostgreSQL for metrics storage
-python main.py users --metrics-backend postgresql
+# Use ClickHouse for metrics storage
+python main.py --table users --metrics-backend clickhouse
 
 # Combine: Profile MSSQL, store in PostgreSQL
-python main.py orders -d mssql --metrics-backend postgresql
+python main.py --table orders -d mssql --metrics-backend postgresql
 ```
 
 ### Auto-Increment Analysis
 
+Requires `--data-profile`:
+
 ```bash
 # Include auto-increment overflow analysis
-python main.py users --auto-increment
-python main.py users -d mssql --auto-increment
+python main.py --table users --data-profile --auto-increment
+python main.py --table users --data-profile -d mssql --auto-increment
 
 # Custom lookback period for growth calculation
-python main.py users --auto-increment --lookback-days 14
+python main.py --table users --data-profile --auto-increment --lookback-days 14
 ```
 
 ### Schema Profiling
 
 ```bash
 # Profile schema for User Service in Production
-python main.py users --profile-schema --app user-service --env production
+python main.py --table users --profile-schema --app user-service --env production
 
 # Profile same table in UAT
-python main.py users --profile-schema --app user-service --env uat
+python main.py --table users --profile-schema --app user-service --env uat
+
+# Profile multiple table schemas
+python main.py -t users,orders --profile-schema --app user-service --env production
 
 # Comparison is done via Grafana Dashboard
 ```
@@ -350,13 +374,13 @@ export MSSQL_SCHEMA=dbo
 
 export METRICS_BACKEND=postgresql
 export PG_METRICS_HOST=localhost
-export PG_METRICS_PORT=5432
-export PG_METRICS_DATABASE=postgres
+export PG_METRICS_PORT=5433
+export PG_METRICS_DATABASE=profiler_metrics
 export PG_METRICS_USER=postgres
 export PG_METRICS_PASSWORD='password123'
 
 # Run profiler
-python main.py users \
+python main.py --table users \
   -d mssql \
   --metrics-backend postgresql \
   --app user-service \
@@ -435,7 +459,8 @@ DataProfiler/
 │   ├── test_config.py
 │   ├── test_connections.py
 │   ├── test_metadata.py
-│   └── test_profiler.py
+│   ├── test_profiler.py
+│   └── test_table_inventory.py
 │
 └── venv/                     # Python virtual environment (git ignored)
 ```
@@ -483,15 +508,19 @@ scripts/run_profiler.sh --database-type mssql
 scripts/run_profiler.sh --metrics-backend postgresql
 
 # Specify table name via CLI (ignores PROFILER_TABLE env var)
-scripts/run_profiler.sh users
+scripts/run_profiler.sh --table users
+
+# Specify multiple tables
+scripts/run_profiler.sh --table users,orders,products
+scripts/run_profiler.sh -t users,orders
 
 # Override schema (ignores PROFILER_SCHEMA env var)
 scripts/run_profiler.sh --schema uat
 
 # Combine CLI arguments
-scripts/run_profiler.sh users -d mssql --metrics-backend postgresql --auto-increment --schema prod
+scripts/run_profiler.sh --table users -d mssql --metrics-backend postgresql --data-profile --auto-increment --schema prod
 
-scripts/run_profiler.sh users --app user-service --env uat --database-type mssql --metrics-backend postgresql --auto-increment
+scripts/run_profiler.sh -t users,orders --data-profile --app user-service --env uat --database-type mssql --metrics-backend postgresql --auto-increment
 
 # Skip storing metrics
 scripts/run_profiler.sh --no-store
@@ -529,23 +558,24 @@ Refer to the **[Configuration](#%EF%B8%8F-configuration)** section for the requi
 
 #### Profiler Options (Optional)
 
-| Variable                  | Default      | Description                                        |
-| ------------------------- | ------------ | -------------------------------------------------- |
-| `PROFILER_TABLE`          | `users`      | Table name to profile                              |
-| `PROFILER_SCHEMA`         | (default DB) | Schema name (e.g., `public`, `dbo`, `prod`, `uat`) |
-| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv`  |
-| `PROFILER_OUTPUT_FILE`    | -            | File path to save output                           |
-| `PROFILER_APP`            | `default`    | Application name                                   |
-| `PROFILER_ENV`            | `production` | Environment name                                   |
-| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`, `mysql`      |
-| `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`        |
-| `PROFILER_AUTO_INCREMENT` | `false`      | Enable auto-increment analysis                     |
-| `PROFILER_PROFILE_SCHEMA` | `false`      | Enable schema profiling                            |
-| `PROFILER_LOOKBACK_DAYS`  | `7`          | Days for growth rate calculation                   |
-| `PROFILER_NO_STORE`       | `false`      | Skip storing metrics                               |
-| `PROFILER_VERBOSE`        | `false`      | Enable verbose logging                             |
-| `PYTHON_PATH`             | `python3`    | Path to Python executable                          |
-| `PROFILER_HOME`           | (script dir) | Path to DataProfiler installation                  |
+| Variable                  | Default      | Description                                                       |
+| ------------------------- | ------------ | ----------------------------------------------------------------- |
+| `PROFILER_TABLE`          | -            | Comma-separated table names (required with `--data-profile`)      |
+| `PROFILER_SCHEMA`         | (default DB) | Schema name (e.g., `public`, `dbo`, `prod`, `uat`)                |
+| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv`                 |
+| `PROFILER_OUTPUT_FILE`    | -            | File path to save output                                          |
+| `PROFILER_APP`            | `default`    | Application name                                                  |
+| `PROFILER_ENV`            | `production` | Environment name                                                  |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`, `mysql`                     |
+| `METRICS_BACKEND`         | `postgresql` | Metrics backend: `postgresql`, `clickhouse`                       |
+| `PROFILER_DATA_PROFILE`   | `false`      | Enable data profiling (column-level statistics)                   |
+| `PROFILER_AUTO_INCREMENT` | `false`      | Enable auto-increment analysis (requires `PROFILER_DATA_PROFILE`) |
+| `PROFILER_PROFILE_SCHEMA` | `false`      | Enable schema profiling                                           |
+| `PROFILER_LOOKBACK_DAYS`  | `7`          | Days for growth rate calculation                                  |
+| `PROFILER_NO_STORE`       | `false`      | Skip storing metrics                                              |
+| `PROFILER_VERBOSE`        | `false`      | Enable verbose logging                                            |
+| `PYTHON_PATH`             | `python3`    | Path to Python executable                                         |
+| `PROFILER_HOME`           | (script dir) | Path to DataProfiler installation                                 |
 
 ### Exit Codes
 
@@ -574,9 +604,10 @@ CLICKHOUSE_PORT=8123
 CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD='password123'
 
-PROFILER_TABLE=users
+PROFILER_TABLE=users,orders
 PROFILER_APP=user-service
 PROFILER_ENV=uat
+PROFILER_DATA_PROFILE=true
 PROFILER_AUTO_INCREMENT=true
 
 # Command:
@@ -598,16 +629,17 @@ MSSQL_SCHEMA=dbo
 # Metrics Storage (PostgreSQL)
 METRICS_BACKEND=postgresql
 PG_METRICS_HOST=localhost
-PG_METRICS_PORT=5432
-PG_METRICS_DATABASE=postgres
+PG_METRICS_PORT=5433
+PG_METRICS_DATABASE=profiler_metrics
 PG_METRICS_USER=postgres
 PG_METRICS_PASSWORD='password123'
 
 # Profiler Options
-PROFILER_TABLE=users
+PROFILER_TABLE=users,orders
 PROFILER_DB_TYPE=mssql
 PROFILER_APP=user-service
 PROFILER_ENV=uat
+PROFILER_DATA_PROFILE=true
 PROFILER_AUTO_INCREMENT=true
 
 # Command:
@@ -638,26 +670,29 @@ docker-compose up -d --build
 You can choose where to store profiling metrics:
 
 ```bash
-# Use ClickHouse (default)
+# Use PostgreSQL (default)
 docker-compose up -d
 
-# Use PostgreSQL for metrics storage
-METRICS_BACKEND=postgresql docker-compose up -d
+# Use ClickHouse for metrics storage
+METRICS_BACKEND=clickhouse docker-compose up -d
 ```
 
 The React dashboard will display which backend is active in the header.
 
 ### Services Overview
 
-| Service        | URL / Port            | Description                          |
-| -------------- | --------------------- | ------------------------------------ |
-| **Frontend**   | http://localhost:8080 | Main Data Profiler Dashboard (React) |
-| **Grafana**    | http://localhost:3000 | Advanced Visualization (Admin)       |
-| **Backend**    | Internal (5001)       | API Service (Flask)                  |
-| **ClickHouse** | localhost:8123        | HTTP Interface                       |
-| **PostgreSQL** | localhost:5432        | Source Database                      |
-| **MSSQL**      | localhost:1433        | Source Database (Azure SQL Edge)     |
-| **MySQL**      | localhost:3306        | Source Database                      |
+| Service                | URL / Port            | Description                          |
+| ---------------------- | --------------------- | ------------------------------------ |
+| **Frontend**           | http://localhost:8080 | Main Data Profiler Dashboard (React) |
+| **Grafana**            | http://localhost:3000 | Advanced Visualization (Admin)       |
+| **Backend**            | Internal (5001)       | API Service (Flask)                  |
+| **ClickHouse**         | localhost:8123        | HTTP Interface                       |
+| **PostgreSQL**         | localhost:5432        | Sample Source Database               |
+| **PostgreSQL-Metrics** | localhost:5433        | Metrics Storage Database             |
+| **MSSQL**              | localhost:1433        | Source Database (Azure SQL Edge)     |
+| **MySQL**              | localhost:3306        | Source Database                      |
+
+> **Note:** PostgreSQL is separated into two instances: the **sample database** (port 5432) for source data profiling, and the **metrics database** (port 5433) for storing profiling results. This prevents confusion between sample data and metrics data.
 
 ### Credentials
 
@@ -679,14 +714,21 @@ docker compose up -d mssql
 python init-scripts/mssql/init-mssql.py
 
 # Test profiler
-python main.py users -d mssql --no-store
+python main.py --table users -d mssql --no-store
 ```
 
 > **Note**: Azure SQL Edge doesn't run init scripts automatically like PostgreSQL. Use the Python script to create test databases.
 
 ### Sample Data & Testing
 
-Docker automatically creates sample data in PostgreSQL with **100+ records** for both `users` and `products` tables.
+Docker automatically initializes sample data with two distinct schemas: **`prod`** (Production) and **`uat`** (UAT) to simulate real-world scenarios.
+
+| Table          | Schema | Records | Description                                                      |
+| :------------- | :----- | :------ | :--------------------------------------------------------------- |
+| **`users`**    | `prod` | **99**  | Established user base active since 2023                          |
+| **`products`** | `prod` | **111** | Full product catalog (Electronics, Accessories, etc.)            |
+| **`users`**    | `uat`  | **80**  | New hires, different salary ranges, more NULLs (simulated drift) |
+| **`products`** | `uat`  | **90**  | New catalog items, missing categories (simulated drift)          |
 
 #### 1. Generate Additional Sample Data
 
@@ -695,27 +737,27 @@ To add more test data for auto-increment growth rate calculation:
 **For PostgreSQL:**
 
 ```bash
-# Add 100 new users to PostgreSQL
-python init-scripts/postgres/generate-postgres-data.py --users 100
+# Add 100 new users to PostgreSQL (Prod)
+python init-scripts/postgres/generate-postgres-data.py --users 100 --schema prod
 
-# Add 50 new products
-python init-scripts/postgres/generate-postgres-data.py --products 50 --no-users
+# Add 50 new products to UAT
+python init-scripts/postgres/generate-postgres-data.py --products 50 --schema uat --no-users
 
 # Add both with specific counts
-python init-scripts/postgres/generate-postgres-data.py --users 500 --products 200
+python init-scripts/postgres/generate-postgres-data.py --users 500 --products 200 --schema prod
 ```
 
 **For MSSQL:**
 
 ```bash
-# Add 100 new users to MSSQL
-python init-scripts/mssql/generate-mssql-data.py --users 100
+# Add 100 new users to MSSQL (Prod)
+python init-scripts/mssql/generate-mssql-data.py --users 100 --schema prod
 
-# Add 50 new products to MSSQL
-python init-scripts/mssql/generate-mssql-data.py --products 50 --no-users
+# Add 50 new products to MSSQL (UAT)
+python init-scripts/mssql/generate-mssql-data.py --products 50 --schema uat --no-users
 
 # Add both users and products
-python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200
+python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200 --schema prod
 
 # Show current statistics only
 python init-scripts/mssql/generate-mssql-data.py --stats-only
@@ -734,23 +776,20 @@ Profile tables with application and environment context:
 source venv/bin/activate
 
 # Profile 'users' table for UAT environment (using 'uat' schema)
-python main.py users --app user-service --env uat --schema uat
+python main.py --table users --data-profile --app user-service --env uat --schema uat
 
 # Profile 'users' table for Production environment (using 'prod' schema)
-python main.py users --app user-service --env production --schema prod
+python main.py --table users --data-profile --app user-service --env production --schema prod
 
-# Profile with auto-increment overflow analysis
-python main.py users --app user-service --env production --schema prod --auto-increment
-
-# Profile 'products' table with all options
-python main.py products --app user-service --env production --auto-increment
+# Profile multiple tables with auto-increment overflow analysis
+python main.py -t users,products --data-profile --app user-service --env production --schema prod --auto-increment
 ```
 
 #### 3. Using Docker (Alternative)
 
 ```bash
 # Run profiler inside backend container
-docker-compose exec backend python main.py users --app user-service --env production --auto-increment
+docker-compose exec backend python main.py --table users --data-profile --app user-service --env production --auto-increment
 ```
 
 #### 4. View Results
@@ -846,10 +885,16 @@ To capture schema data, run the profiler with `--profile-schema` flag:
 
 ```bash
 # Profile schema for UAT
-python main.py users --profile-schema --app user-service --env uat
+python main.py --table users --profile-schema --app user-service --env uat
 
 # Profile schema for Production
-python main.py users --profile-schema --app user-service --env production
+python main.py --table users --profile-schema --app user-service --env production
+
+# Profile multiple table schemas
+python main.py -t users,orders --profile-schema --app user-service --env production
+
+# Combine data profiling + schema profiling
+python main.py -t users --data-profile --profile-schema --app user-service --env production
 ```
 
 ## 📈 Grafana Dashboard (Alternative)
@@ -865,13 +910,14 @@ This project includes a **Grafana** instance connected to ClickHouse for advance
 
 ### Pre-Provisioned Dashboards
 
-Two dashboards are automatically provisioned:
+Four dashboards are automatically provisioned:
 
-| Dashboard                            | Description                                                                               |
-| ------------------------------------ | ----------------------------------------------------------------------------------------- |
-| **Main Dashboard**                   | Single environment view with data profiles, column details, and auto-increment monitoring |
-| **Environment Comparison Dashboard** | Compare profiles between two environments side-by-side with difference highlighting       |
-| **Schema Comparison Dashboard**      | Compare schema between two environments side-by-side with difference highlighting         |
+| Dashboard                                | Description                                                                               |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Main Dashboard**                       | Single environment view with data profiles, column details, and auto-increment monitoring |
+| **Environment Comparison Dashboard**     | Compare profiles between two environments side-by-side with difference highlighting       |
+| **Schema Comparison Dashboard**          | Compare schema between two environments side-by-side with difference highlighting         |
+| **Table Inventory Comparison Dashboard** | Compare table inventories between environments to detect table drift                      |
 
 ![Grafana Environment Comparison](docs/images/grafana_environment_comparison_dashboard.png)
 
@@ -890,6 +936,8 @@ Two versions of dashboards are provided:
 
 - **Environment Comparison Dashboard** - uses ClickHouse
 - **Environment Comparison Dashboard (PostgreSQL)** - uses PostgreSQL
+- **Table Inventory Comparison Dashboard** - uses ClickHouse
+- **Table Inventory Comparison Dashboard (PostgreSQL)** - uses PostgreSQL
 
 ### Setup
 
@@ -908,7 +956,7 @@ The Grafana service is included in `docker-compose.yml` and pre-configured with 
 
 3. Select a Dashboard:
    - Go to **Dashboards** menu
-   - Choose **Main Dashboard** or **Environment Comparison Dashboard**
+   - Choose **Main Dashboard**, **Environment Comparison Dashboard**, or **Table Inventory Comparison Dashboard**
    - Select Application, Environment(s), and Table from dropdowns
 
 ## 📝 License

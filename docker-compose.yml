@@ -3,7 +3,7 @@ networks:
     driver: bridge
 
 services:
-  # PostgreSQL Database
+  # PostgreSQL - Sample Database (source data to profile)
   postgres:
     image: postgres:16-alpine
     container_name: dataprofiler-postgres
@@ -20,6 +20,27 @@ services:
       - ./init-scripts/postgres:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # PostgreSQL - Metrics Database (stores profiling results)
+  postgres-metrics:
+    image: postgres:16-alpine
+    container_name: dataprofiler-postgres-metrics
+    networks:
+      - dataprofiler-net
+    environment:
+      POSTGRES_USER: ${PG_METRICS_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_METRICS_PASSWORD:-password123}
+      POSTGRES_DB: ${PG_METRICS_DATABASE:-profiler_metrics}
+    ports:
+      - "${PG_METRICS_PORT:-5433}:5432"
+    volumes:
+      - postgres_metrics_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_METRICS_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -116,11 +137,11 @@ services:
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
       - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-      - POSTGRES_HOST=postgres
+      - POSTGRES_HOST=postgres-metrics
       - POSTGRES_PORT=5432
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password123}
-      - POSTGRES_DATABASE=${POSTGRES_DATABASE:-postgres}
+      - POSTGRES_USER=${PG_METRICS_USER:-postgres}
+      - POSTGRES_PASSWORD=${PG_METRICS_PASSWORD:-password123}
+      - POSTGRES_DATABASE=${PG_METRICS_DATABASE:-profiler_metrics}
       - CLICKHOUSE_HOST=clickhouse
       - CLICKHOUSE_PORT=8123
       - CLICKHOUSE_USER=${CLICKHOUSE_USER:-default}
@@ -133,6 +154,8 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       clickhouse:
+        condition: service_healthy
+      postgres-metrics:
         condition: service_healthy
     restart: unless-stopped
 
@@ -160,15 +183,17 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
       POSTGRES_DATABASE: ${POSTGRES_DATABASE:-postgres}
       # PostgreSQL Metrics configuration (for storing metrics when METRICS_BACKEND=postgresql)
-      PG_METRICS_HOST: postgres
+      PG_METRICS_HOST: postgres-metrics
       PG_METRICS_PORT: 5432
-      PG_METRICS_USER: ${POSTGRES_USER:-postgres}
-      PG_METRICS_PASSWORD: ${POSTGRES_PASSWORD:-password123}
-      PG_METRICS_DATABASE: ${POSTGRES_DATABASE:-postgres}
+      PG_METRICS_USER: ${PG_METRICS_USER:-postgres}
+      PG_METRICS_PASSWORD: ${PG_METRICS_PASSWORD:-password123}
+      PG_METRICS_DATABASE: ${PG_METRICS_DATABASE:-profiler_metrics}
     depends_on:
       clickhouse:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      postgres-metrics:
         condition: service_healthy
     restart: unless-stopped
 
@@ -189,6 +214,8 @@ services:
 
 volumes:
   postgres_data:
+    driver: local
+  postgres_metrics_data:
     driver: local
   clickhouse_data:
     driver: local

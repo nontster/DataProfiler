@@ -120,3 +120,46 @@ def get_table_metadata(table_name: str, schema: Optional[str] = None) -> list[di
     except pymssql.Error as e:
         logger.error(f"Error fetching metadata for '{table_name}': {e}")
         raise DatabaseConnectionError(f"Failed to fetch metadata: {e}")
+
+
+def list_tables(schema: Optional[str] = None, conn=None) -> list[str]:
+    """
+    List all tables in an MSSQL schema.
+    
+    Args:
+        schema: Schema name (defaults to Config.MSSQL_SCHEMA or 'dbo')
+        conn: Optional existing connection (caller manages lifecycle)
+        
+    Returns:
+        Sorted list of table names
+        
+    Raises:
+        DatabaseConnectionError: If connection fails
+    """
+    own_conn = conn is None
+    try:
+        if own_conn:
+            conn = get_mssql_connection()
+        cur = conn.cursor()
+        
+        target_schema = schema or Config.MSSQL_SCHEMA or 'dbo'
+        
+        query = """
+            SELECT TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = %s AND TABLE_TYPE = 'BASE TABLE'
+            ORDER BY TABLE_NAME
+        """
+        cur.execute(query, (target_schema,))
+        tables = [row[0] for row in cur.fetchall()]
+        
+        cur.close()
+        if own_conn:
+            conn.close()
+        
+        logger.info(f"Found {len(tables)} tables in schema '{target_schema}'")
+        return tables
+        
+    except pymssql.Error as e:
+        logger.error(f"Error listing tables: {e}")
+        raise DatabaseConnectionError(f"Failed to list tables: {e}")

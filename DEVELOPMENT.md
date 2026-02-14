@@ -29,11 +29,11 @@ This document provides technical details for developers working on the DataProfi
 
 ### Data Flow
 
-1. **Input**: User runs `main.py` with table name and options
-2. **Discovery**: Fetch column metadata from source database
-3. **Calculation**: Compute metrics (distinct count, min/max, avg, etc.)
-4. **Storage**: Store results in ClickHouse or PostgreSQL
-5. **Output**: Format results as table/markdown/json/csv
+1. **Input**: User runs `main.py` with options (`--table` only required for `--data-profile` / `--profile-schema` / `--auto-increment`)
+2. **Table Inventory**: Discover all tables in the schema and store in `table_inventory` (always runs)
+3. **Data Profiling** (opt-in via `--data-profile`): Fetch column metadata, compute metrics, store and/or output
+4. **Auto-Increment** (opt-in via `--auto-increment`, requires `--data-profile`): Analyse overflow risk
+5. **Schema Profiling** (opt-in via `--profile-schema`): Store detailed schema metadata
 
 ---
 
@@ -86,6 +86,7 @@ columns = get_table_metadata('users', 'postgresql', schema='public')
 | `get_table_metadata(table, db_type, schema)` | Get column metadata |
 | `get_schema(db_type)` | Get configured schema name |
 | `get_quote_char(db_type)` | Get SQL identifier quotes (`"`, `[`, `` ` ``) |
+| `list_tables(db_type, schema)` | List all table names in a schema (for inventory) |
 
 ---
 
@@ -330,6 +331,17 @@ PYTHONPATH=. venv/bin/pytest tests/test_mysql_connection.py -v
 
 ## 🐳 Docker Development
 
+### Architecture
+
+The Docker Compose setup uses **two separate PostgreSQL instances** to prevent confusion:
+
+| Service            | Port | Database           | Purpose                                                                                   |
+| ------------------ | ---- | ------------------ | ----------------------------------------------------------------------------------------- |
+| `postgres`         | 5432 | `postgres`         | Sample source database (prod/uat/public schemas)                                          |
+| `postgres-metrics` | 5433 | `profiler_metrics` | Metrics storage (data_profiles, auto_increment_metrics, schema_profiles, table_inventory) |
+
+### Commands
+
 ```bash
 # Start all services
 docker-compose up -d --build
@@ -337,11 +349,20 @@ docker-compose up -d --build
 # View logs
 docker-compose logs -f backend
 
-# Run profiler in container
-docker-compose exec backend python ../main.py users --app test --env dev
+# Run profiler in container (inventory only)
+docker-compose exec backend python ../main.py --app test --env dev
+
+# Run profiler with data profiling
+docker-compose exec backend python ../main.py --table users --data-profile --app test --env dev
+
+# Profile multiple tables
+docker-compose exec backend python ../main.py -t users,products --data-profile --app test --env dev
 
 # Rebuild single service
 docker-compose build backend && docker-compose up -d backend
+
+# Reset all data (removes both DB volumes)
+docker-compose down -v
 ```
 
 ---

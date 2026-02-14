@@ -88,16 +88,69 @@ MYSQL_MINMAX_TYPES = MYSQL_NUMERIC_TYPES + [
 
 
 def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', schema: Optional[str] = None) -> int:
-    """Get total row count for a table."""
+    """Get approximate row count from catalog statistics (O(1), no table scan).
+    
+    Uses database-specific system catalogs for fast estimation:
+      - PostgreSQL: pg_class.reltuples (updated by ANALYZE/autovacuum)
+      - MySQL: information_schema.tables.TABLE_ROWS (estimate for InnoDB)
+      - MSSQL: sys.dm_db_partition_stats (maintained by engine, accurate)
+    
+    Falls back to SELECT COUNT(*) if catalog returns 0 (e.g. table never analyzed).
+    """
     conn = get_connection(database_type)
     cur = conn.cursor()
     
     target_schema = schema or get_schema(database_type) or ('public' if database_type == 'postgresql' else 'dbo')
-    oq, cq = get_quote_char(database_type)
+    db_type = database_type.lower()
+    count = 0
     
-    query = f'SELECT COUNT(*) FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}'
-    cur.execute(query)
-    count = cur.fetchone()[0]
+    try:
+        if db_type in ('postgresql', 'postgres'):
+            cur.execute("""
+                SELECT COALESCE(c.reltuples, 0)::bigint
+                FROM pg_class c
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE c.relname = %s AND n.nspname = %s
+            """, (table_name, target_schema))
+            result = cur.fetchone()
+            count = result[0] if result else 0
+        
+        elif db_type in ('mysql',):
+            cur.execute("""
+                SELECT COALESCE(TABLE_ROWS, 0)
+                FROM information_schema.tables
+                WHERE TABLE_NAME = %s AND TABLE_SCHEMA = %s
+            """, (table_name, target_schema))
+            result = cur.fetchone()
+            count = result[0] if result else 0
+        
+        elif db_type in ('mssql', 'sqlserver'):
+            cur.execute("""
+                SELECT COALESCE(SUM(p.row_count), 0)
+                FROM sys.dm_db_partition_stats p
+                JOIN sys.tables t ON t.object_id = p.object_id
+                JOIN sys.schemas s ON s.schema_id = t.schema_id
+                WHERE t.name = %s AND s.name = %s AND p.index_id IN (0, 1)
+            """, (table_name, target_schema))
+            result = cur.fetchone()
+            count = result[0] if result else 0
+    
+    except Exception as e:
+        logger.warning(f"Catalog row count query failed for '{target_schema}.{table_name}': {e}")
+        count = 0
+    
+    # Fallback: exact count if catalog returns 0 (e.g. freshly created, never analyzed)
+    if count <= 0:
+        logger.debug(f"Catalog returned 0 for '{target_schema}.{table_name}', falling back to SELECT COUNT(*)")
+        oq, cq = get_quote_char(database_type)
+        try:
+            cur.execute(f'SELECT COUNT(*) FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}')
+            count = cur.fetchone()[0]
+        except Exception as e:
+            logger.error(f"Fallback COUNT(*) also failed for '{target_schema}.{table_name}': {e}")
+            count = 0
+    else:
+        logger.debug(f"Row count for '{target_schema}.{table_name}' from catalog: {count:,} (approximate)")
     
     cur.close()
     conn.close()

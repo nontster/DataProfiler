@@ -12,15 +12,17 @@ import logging
 from typing import Optional
 
 from src.config import Config
-from src.db.connection_factory import get_table_metadata, normalize_database_type
+from src.db.connection_factory import get_table_metadata, normalize_database_type, list_tables
 from src.db.clickhouse import (
     init_clickhouse, insert_profiles,
     init_autoincrement_table, insert_autoincrement_profiles,
-    get_clickhouse_client
+    get_clickhouse_client,
+    init_table_inventory, insert_table_inventory
 )
 from src.db.postgres_metrics import (
     init_postgres_metrics, insert_profiles_pg,
-    insert_autoincrement_profiles_pg, fetch_historical_data_pg
+    insert_autoincrement_profiles_pg, fetch_historical_data_pg,
+    init_table_inventory_pg, insert_table_inventory_pg
 )
 from src.db.autoincrement import get_autoincrement_detector
 from src.core.metrics import profile_table
@@ -44,23 +46,29 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python main.py users                         # Profile 'users' table from PostgreSQL
-  python main.py users -d mssql                # Profile from SQL Server
-  python main.py users --format markdown       # Output as Markdown table
-  python main.py users --format json           # Output as JSON
-  python main.py users --format csv            # Output as CSV
-  python main.py users -o users.md             # Save to file
-  python main.py users --no-store              # Don't save to ClickHouse
-  python main.py users --auto-increment        # Include auto-increment overflow analysis
-  python main.py test_users -d mssql --auto-increment  # MSSQL with IDENTITY analysis
+  # Table inventory only (default — no --table needed)
+  python main.py -d mssql --schema prod --app order-svc --env production
+
+  # Data profiling (requires --table + --data-profile)
+  python main.py -t users --data-profile
+  python main.py -t users,orders --data-profile -d mssql --schema prod
+  python main.py -t users --data-profile --format json -o users.json
+
+  # Auto-increment analysis (requires --data-profile)
+  python main.py -t users --data-profile --auto-increment
+
+  # Schema profiling (requires --table)
+  python main.py -t users --profile-schema
+
+  # Combined
+  python main.py -t users --data-profile --profile-schema --auto-increment
         """
     )
     
     parser.add_argument(
-        'table',
-        nargs='?',
-        default='users',
-        help='Name of the table to profile (default: users)'
+        '-t', '--table',
+        default=None,
+        help='Comma-separated list of table names to profile (e.g., users,orders,products)'
     )
     
     parser.add_argument(
@@ -124,7 +132,7 @@ Examples:
         '--metrics-backend',
         choices=['clickhouse', 'postgresql'],
         default=None,
-        help='Backend for storing metrics (default: from METRICS_BACKEND env var or clickhouse)'
+        help='Backend for storing metrics (default: from METRICS_BACKEND env var or postgresql)'
     )
 
     parser.add_argument(
@@ -140,7 +148,59 @@ Examples:
         help='Profile table schema and store in metrics database (for Grafana comparison)'
     )
 
+    # Data profiling argument
+    parser.add_argument(
+        '--data-profile',
+        action='store_true',
+        help='Run data profiling (column-level statistics). Requires --table.'
+    )
+
     return parser.parse_args()
+
+
+def init_metrics_backend(
+    store_metrics: bool,
+    metrics_backend: str,
+    include_auto_increment: bool = False
+) -> bool:
+    """
+    Initialize metrics backend once before processing tables.
+    
+    Args:
+        store_metrics: Whether to store results in metrics backend
+        metrics_backend: Backend type ('clickhouse' or 'postgresql')
+        include_auto_increment: Whether auto-increment analysis is enabled
+        
+    Returns:
+        True if initialization successful (or not needed), False otherwise
+    """
+    if not store_metrics:
+        return True
+    
+    backend = metrics_backend or Config.METRICS_BACKEND
+    logger.info(f"Initializing metrics backend: {backend}")
+    
+    if backend == 'postgresql':
+        if not init_postgres_metrics():
+            logger.error("PostgreSQL metrics initialization failed")
+            return False
+        if not init_table_inventory_pg():
+            logger.error("Table inventory initialization failed")
+            return False
+    else:
+        if not init_clickhouse():
+            logger.error("ClickHouse initialization failed")
+            return False
+        if include_auto_increment:
+            if not init_autoincrement_table():
+                logger.error("Auto-increment table initialization failed")
+                return False
+        if not init_table_inventory():
+            logger.error("Table inventory initialization failed")
+            return False
+    
+    logger.info(f"✅ Metrics backend '{backend}' initialized successfully")
+    return True
 
 
 def run_profiler(
@@ -182,21 +242,6 @@ def run_profiler(
     schema_info = f"schema: {schema}" if schema else "default schema"
     logger.info(f"Starting profiler for table: '{table_name}' [{application}/{environment}] (database: {db_type}, {schema_info}, metrics: {backend})")
     
-    # Step 1: Initialize metrics backend (if storing)
-    if store_metrics:
-        if backend == 'postgresql':
-            if not init_postgres_metrics():
-                logger.error("Aborting: PostgreSQL metrics initialization failed")
-                return None
-        else:
-            if not init_clickhouse():
-                logger.error("Aborting: ClickHouse initialization failed")
-                return None
-            if include_auto_increment:
-                if not init_autoincrement_table():
-                    logger.error("Aborting: Auto-increment table initialization failed")
-                    return None
-    
     # Step 2: Get table metadata
     try:
         logger.info(f"Discovering schema for '{table_name}'...")
@@ -235,9 +280,10 @@ def run_profiler(
         formatted_output = format_profile(table_profile, output_format)
         
         if output_file:
-            with open(output_file, 'w', encoding='utf-8') as f:
+            with open(output_file, 'a', encoding='utf-8') as f:
                 f.write(formatted_output)
-            logger.info(f"✅ Profile saved to: {output_file}")
+                f.write('\n')  # Separator between tables
+            logger.info(f"✅ Profile appended to: {output_file}")
         else:
             print(formatted_output)
             
@@ -347,13 +393,36 @@ def run_autoincrement_profiler(
         return None
 
 
+def get_database_connection(database_type: str):
+    """
+    Get a database connection for the given database type.
+    Used for schema profiling with connection reuse.
+    
+    Args:
+        database_type: Database type (postgresql, mssql, mysql)
+        
+    Returns:
+        Database connection object
+    """
+    if database_type == 'postgresql':
+        from src.db.postgres import get_postgres_connection
+        return get_postgres_connection()
+    elif database_type == 'mysql':
+        from src.db.mysql import get_mysql_connection
+        return get_mysql_connection()
+    else:
+        from src.db.mssql import get_mssql_connection
+        return get_mssql_connection()
+
+
 def run_schema_profiler(
     table_name: str,
     application: str = 'default',
     environment: str = 'development',
     database_type: str = 'postgresql',
     metrics_backend: Optional[str] = None,
-    schema: Optional[str] = None
+    schema: Optional[str] = None,
+    conn=None
 ) -> Optional[int]:
     """
     Profile table schema and store in metrics database.
@@ -365,6 +434,7 @@ def run_schema_profiler(
         database_type: Database type (postgresql, mssql)
         metrics_backend: Backend for storing metrics
         schema: Database schema
+        conn: Optional existing database connection (for reuse across tables)
         
     Returns:
         Number of columns profiled, or None on error
@@ -374,23 +444,16 @@ def run_schema_profiler(
     schema_info = f"schema: {schema}" if schema else "default schema"
     logger.info(f"Profiling schema for '{table_name}' [{application}/{environment}] ({schema_info})")
     
+    own_connection = conn is None
     try:
-        # Get database connection
-        if database_type == 'postgresql':
-            from src.db.postgres import get_postgres_connection
-            conn = get_postgres_connection()
-        elif database_type == 'mysql':
-            from src.db.mysql import get_mysql_connection
-            conn = get_mysql_connection()
-        else:
-            from src.db.mssql import get_mssql_connection
-            conn = get_mssql_connection()
+        # Get or reuse database connection
+        if own_connection:
+            conn = get_database_connection(database_type)
         
         # Extract schema
         extractor = get_schema_extractor(database_type, conn)
         # Pass schema explicitly
         table_schema = extractor.extract_table_schema(table_name, schema_name=schema)
-        conn.close()
         
         # Store in metrics database
         backend = metrics_backend or Config.METRICS_BACKEND
@@ -418,11 +481,41 @@ def run_schema_profiler(
         import traceback
         traceback.print_exc()
         return None
+    finally:
+        # Only close if we created the connection
+        if own_connection and conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
 
 def main():
     """Main entry point for the DataProfiler."""
     args = parse_args()
+    
+    # --- Cross-parameter validation ---
+    needs_table = args.data_profile or args.profile_schema or args.auto_increment
+    
+    if needs_table and not args.table:
+        print("Error: --table/-t is required when using --data-profile, --profile-schema, or --auto-increment.", file=sys.stderr)
+        print("Usage: python main.py --table <table1>[,<table2>,...] --data-profile [options]", file=sys.stderr)
+        sys.exit(1)
+    
+    if args.auto_increment and not args.data_profile:
+        print("Error: --auto-increment requires --data-profile.", file=sys.stderr)
+        sys.exit(1)
+    
+    if (args.format != 'table' or args.output) and not args.data_profile:
+        logger.warning("--format/--output have no effect without --data-profile")
+    
+    if args.lookback_days != 7 and not args.auto_increment:
+        logger.warning("--lookback-days has no effect without --auto-increment")
+    
+    # Parse comma-separated table names (may be empty for inventory-only mode)
+    table_names = []
+    if args.table:
+        table_names = [t.strip() for t in args.table.split(',') if t.strip()]
     
     # Configure logging level
     if args.verbose:
@@ -434,61 +527,142 @@ def main():
     # Determine metrics backend
     metrics_backend = args.metrics_backend or Config.METRICS_BACKEND
     
-    # Handle schema profiling mode
-    if args.profile_schema:
-        result = run_schema_profiler(
-            table_name=args.table,
-            application=args.app,
-            environment=args.env,
-            database_type=args.database_type,
-            metrics_backend=metrics_backend,
-            schema=args.schema
-        )
-        
-        if result is None:
-            logger.error("Schema profiling failed")
-            sys.exit(1)
-        
-        logger.info(f"Schema profiling completed: {result} columns")
-            
-    # Run the profiler (normal mode)
-    result = run_profiler(
-        table_name=args.table,
-        output_format=args.format,
-        output_file=args.output,
-        store_metrics=not args.no_store,
-        application=args.app,
-        environment=args.env,
-        include_auto_increment=args.auto_increment,
-        lookback_days=args.lookback_days,
-        database_type=args.database_type,
-        metrics_backend=metrics_backend,
-        schema=args.schema
-    )
+    logger.info(f"Tables to process: {', '.join(table_names)} ({len(table_names)} table(s))")
     
-    # Run auto-increment analysis if requested
-    if args.auto_increment:
-        ai_result = run_autoincrement_profiler(
-            table_name=args.table,
-            store_metrics=not args.no_store,
-            application=args.app,
-            environment=args.env,
-            lookback_days=args.lookback_days,
-            database_type=args.database_type,
-            metrics_backend=metrics_backend,
-            schema=args.schema
-        )
-        if ai_result is None:
-            logger.warning("Auto-increment analysis had issues")
-    
-    if result is None:
-        logger.error("Profiling failed")
+    # Initialize metrics backend once before processing tables
+    store_metrics = not args.no_store
+    if not init_metrics_backend(store_metrics, metrics_backend, args.auto_increment):
+        logger.error("Failed to initialize metrics backend. Aborting.")
         sys.exit(1)
-    elif result == 0:
-        logger.warning("No profiles were generated")
-        sys.exit(0)
+    
+    # Clear output file before appending (if specified)
+    if args.output:
+        with open(args.output, 'w', encoding='utf-8') as f:
+            pass  # Truncate file
+        logger.info(f"Output file initialized: {args.output}")
+    
+    total_columns = 0
+    failed_tables = []
+    
+    # --- Table Inventory: auto-collect table list ---
+    if store_metrics:
+        try:
+            schema_for_inventory = args.schema
+            discovered_tables = list_tables(args.database_type, schema=schema_for_inventory)
+            logger.info(f"Discovered {len(discovered_tables)} tables in schema '{schema_for_inventory or 'default'}'")
+            
+            if metrics_backend == 'postgresql':
+                insert_table_inventory_pg(
+                    tables=discovered_tables,
+                    schema=schema_for_inventory or 'public',
+                    application=args.app,
+                    environment=args.env,
+                    database_type=args.database_type
+                )
+            else:
+                insert_table_inventory(
+                    tables=discovered_tables,
+                    schema=schema_for_inventory or 'public',
+                    application=args.app,
+                    environment=args.env,
+                    database_type=args.database_type
+                )
+        except Exception as e:
+            logger.warning(f"Table inventory collection failed (non-fatal): {e}")
+    
+    # Open shared connection for schema profiling (reuse across tables)
+    schema_conn = None
+    if args.profile_schema:
+        try:
+            schema_conn = get_database_connection(args.database_type)
+            logger.info(f"Database connection established for schema profiling")
+        except Exception as e:
+            logger.error(f"Failed to establish database connection for schema profiling: {e}")
+            sys.exit(1)
+    
+    try:
+        for table_name in table_names:
+            logger.info(f"\n{'='*60}")
+            logger.info(f"Processing table: {table_name}")
+            logger.info(f"{'='*60}")
+            
+            # Handle schema profiling mode
+            if args.profile_schema:
+                result = run_schema_profiler(
+                    table_name=table_name,
+                    application=args.app,
+                    environment=args.env,
+                    database_type=args.database_type,
+                    metrics_backend=metrics_backend,
+                    schema=args.schema,
+                    conn=schema_conn
+                )
+                
+                if result is None:
+                    logger.error(f"Schema profiling failed for table: {table_name}")
+                    failed_tables.append(table_name)
+                    continue
+                
+                logger.info(f"Schema profiling completed for '{table_name}': {result} columns")
+        
+            # Run data profiling (only if --data-profile flag is set)
+            if args.data_profile:
+                result = run_profiler(
+                    table_name=table_name,
+                    output_format=args.format,
+                    output_file=args.output,
+                    store_metrics=store_metrics,
+                    application=args.app,
+                    environment=args.env,
+                    include_auto_increment=args.auto_increment,
+                    lookback_days=args.lookback_days,
+                    database_type=args.database_type,
+                    metrics_backend=metrics_backend,
+                    schema=args.schema
+                )
+                
+                # Run auto-increment analysis if requested
+                if args.auto_increment:
+                    ai_result = run_autoincrement_profiler(
+                        table_name=table_name,
+                        store_metrics=store_metrics,
+                        application=args.app,
+                        environment=args.env,
+                        lookback_days=args.lookback_days,
+                        database_type=args.database_type,
+                        metrics_backend=metrics_backend,
+                        schema=args.schema
+                    )
+                    if ai_result is None:
+                        logger.warning(f"Auto-increment analysis had issues for table: {table_name}")
+                
+                if result is None:
+                    logger.error(f"Profiling failed for table: {table_name}")
+                    failed_tables.append(table_name)
+                elif result == 0:
+                    logger.warning(f"No profiles were generated for table: {table_name}")
+                else:
+                    total_columns += result
+                    logger.info(f"Profiling completed for '{table_name}': {result} columns profiled")
+    finally:
+        # Close shared schema profiling connection
+        if schema_conn:
+            try:
+                schema_conn.close()
+                logger.info("Schema profiling connection closed")
+            except Exception:
+                pass
+    
+    # Summary
+    logger.info(f"\n{'='*60}")
+    logger.info(f"SUMMARY: {len(table_names)} table(s) processed, {total_columns} total columns profiled")
+    if failed_tables:
+        logger.error(f"Failed tables: {', '.join(failed_tables)}")
+    logger.info(f"{'='*60}")
+    
+    if failed_tables:
+        sys.exit(1)
     else:
-        logger.info(f"Profiling completed: {result} columns profiled")
         sys.exit(0)
 
 

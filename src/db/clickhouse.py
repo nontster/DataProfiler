@@ -439,3 +439,111 @@ def insert_schema_profiles(
     except ClickHouseError as e:
         logger.error(f"❌ Failed to insert schema profiles into ClickHouse: {e}")
         return False
+
+
+# =============================================================================
+# Table Inventory Functions
+# =============================================================================
+
+def init_table_inventory() -> bool:
+    """
+    Initialize ClickHouse table for storing table inventory snapshots.
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        client = get_clickhouse_client()
+        
+        client.command("""
+            CREATE TABLE IF NOT EXISTS table_inventory (
+                -- Metadata
+                scan_time DateTime DEFAULT now(),
+                
+                -- Multi-tenancy
+                application String DEFAULT 'default',
+                environment LowCardinality(String) DEFAULT 'development',
+                database_host String DEFAULT '',
+                database_name String DEFAULT '',
+                schema_name String DEFAULT 'public',
+                
+                -- Table info
+                table_name String
+                
+            ) ENGINE = MergeTree()
+            PARTITION BY toYYYYMM(scan_time)
+            ORDER BY (application, environment, schema_name, scan_time, table_name)
+        """)
+        
+        logger.info("✅ ClickHouse table 'table_inventory' is ready")
+        return True
+    except (ClickHouseError, DatabaseConnectionError) as e:
+        logger.error(f"❌ Table inventory initialization failed: {e}")
+        return False
+
+
+def insert_table_inventory(
+    tables: list[str],
+    schema: str = "public",
+    application: str = "default",
+    environment: str = "development",
+    database_type: str = "postgresql"
+) -> bool:
+    """
+    Insert table inventory snapshot into ClickHouse.
+    
+    Args:
+        tables: List of table names discovered in the schema
+        schema: Schema name
+        application: Application/service name
+        environment: Environment name
+        database_type: Source database type
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    if not tables:
+        logger.warning("No tables to insert into inventory")
+        return True
+    
+    try:
+        client = get_clickhouse_client()
+        
+        # Determine source database info
+        if database_type in ('mssql', 'sqlserver'):
+            source_host = Config.MSSQL_HOST
+            source_database = Config.MSSQL_DATABASE
+        elif database_type in ('mysql',):
+            source_host = Config.MYSQL_HOST
+            source_database = Config.MYSQL_DATABASE
+        else:
+            source_host = Config.POSTGRES_HOST
+            source_database = Config.POSTGRES_DATABASE
+        
+        data = []
+        for table_name in tables:
+            row = [
+                application,
+                environment,
+                source_host,
+                source_database,
+                schema,
+                table_name,
+            ]
+            data.append(row)
+        
+        client.insert(
+            'table_inventory',
+            data,
+            column_names=[
+                'application', 'environment', 'database_host', 'database_name',
+                'schema_name', 'table_name'
+            ]
+        )
+        
+        logger.info(f"✅ Inserted {len(data)} tables into inventory [{application}/{environment}/{schema}]")
+        return True
+        
+    except ClickHouseError as e:
+        logger.error(f"❌ Failed to insert table inventory into ClickHouse: {e}")
+        return False

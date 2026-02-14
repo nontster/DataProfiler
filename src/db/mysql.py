@@ -141,3 +141,48 @@ def get_table_metadata(table_name: str, schema: Optional[str] = None) -> list[di
     except (Error, DatabaseConnectionError) as e:
         logger.error(f"Error fetching metadata for '{table_name}': {e}")
         raise DatabaseConnectionError(f"Failed to fetch metadata: {e}")
+
+
+def list_tables(schema: Optional[str] = None, conn=None) -> list[str]:
+    """
+    List all tables in a MySQL database (schema).
+    
+    Args:
+        schema: Database name (defaults to Config.MYSQL_DATABASE)
+        conn: Optional existing connection (caller manages lifecycle)
+        
+    Returns:
+        Sorted list of table names
+        
+    Raises:
+        DatabaseConnectionError: If connection fails
+    """
+    target_db = schema or Config.MYSQL_DATABASE
+    own_conn = conn is None
+    try:
+        if own_conn:
+            conn = get_mysql_connection(database=target_db)
+        cursor = conn.cursor()
+        
+        query = """
+            SELECT table_name 
+            FROM information_schema.tables 
+            WHERE table_schema = %s AND table_type = 'BASE TABLE'
+            ORDER BY table_name
+        """
+        cursor.execute(query, (target_db,))
+        tables = []
+        for row in cursor.fetchall():
+            name = row[0].decode('utf-8') if isinstance(row[0], bytes) else row[0]
+            tables.append(name)
+        
+        cursor.close()
+        if own_conn:
+            conn.close()
+        
+        logger.info(f"Found {len(tables)} tables in database '{target_db}'")
+        return tables
+        
+    except (Error, DatabaseConnectionError) as e:
+        logger.error(f"Error listing tables: {e}")
+        raise DatabaseConnectionError(f"Failed to list tables: {e}")

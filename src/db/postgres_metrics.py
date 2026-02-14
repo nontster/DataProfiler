@@ -533,3 +533,128 @@ def insert_schema_profiles_pg(
     except psycopg2.Error as e:
         logger.error(f"❌ Failed to insert schema profiles into PostgreSQL: {e}")
         return False
+
+
+# =============================================================================
+# Table Inventory Functions
+# =============================================================================
+
+def init_table_inventory_pg() -> bool:
+    """
+    Initialize PostgreSQL table for storing table inventory snapshots.
+    
+    Returns:
+        bool: True if initialization successful, False otherwise
+    """
+    try:
+        conn = get_postgres_metrics_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS table_inventory (
+                id SERIAL PRIMARY KEY,
+                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                -- Multi-tenancy
+                application VARCHAR(255) DEFAULT 'default',
+                environment VARCHAR(50) DEFAULT 'development',
+                database_host VARCHAR(255) DEFAULT '',
+                database_name VARCHAR(255) DEFAULT '',
+                schema_name VARCHAR(100) DEFAULT 'public',
+                
+                -- Table info
+                table_name VARCHAR(255) NOT NULL
+            )
+        """)
+        
+        # Indexes for Grafana drift queries
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_table_inventory_app_env
+            ON table_inventory (application, environment, schema_name)
+        """)
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_table_inventory_scan
+            ON table_inventory (schema_name, scan_time DESC)
+        """)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info("✅ PostgreSQL table 'table_inventory' is ready")
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"❌ Table inventory initialization failed: {e}")
+        return False
+
+
+def insert_table_inventory_pg(
+    tables: list[str],
+    schema: str = "public",
+    application: str = "default",
+    environment: str = "development",
+    database_type: str = "postgresql"
+) -> bool:
+    """
+    Insert table inventory snapshot into PostgreSQL.
+    
+    Args:
+        tables: List of table names discovered in the schema
+        schema: Schema name
+        application: Application/service name
+        environment: Environment name
+        database_type: Source database type
+        
+    Returns:
+        bool: True if insert successful, False otherwise
+    """
+    if not tables:
+        logger.warning("No tables to insert into inventory")
+        return True
+    
+    try:
+        conn = get_postgres_metrics_connection()
+        cursor = conn.cursor()
+        
+        # Determine source database info
+        if database_type in ('mssql', 'sqlserver'):
+            source_host = Config.MSSQL_HOST
+            source_database = Config.MSSQL_DATABASE
+        elif database_type in ('mysql',):
+            source_host = Config.MYSQL_HOST
+            source_database = Config.MYSQL_DATABASE
+        else:
+            source_host = Config.POSTGRES_HOST
+            source_database = Config.POSTGRES_DATABASE
+        
+        data = []
+        for table_name in tables:
+            row = (
+                application,
+                environment,
+                source_host,
+                source_database,
+                schema,
+                table_name,
+            )
+            data.append(row)
+        
+        insert_query = """
+            INSERT INTO table_inventory (
+                application, environment, database_host, database_name,
+                schema_name, table_name
+            ) VALUES %s
+        """
+        
+        execute_values(cursor, insert_query, data)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        
+        logger.info(f"✅ Inserted {len(data)} tables into inventory [{application}/{environment}/{schema}]")
+        return True
+        
+    except psycopg2.Error as e:
+        logger.error(f"❌ Failed to insert table inventory into PostgreSQL: {e}")
+        return False

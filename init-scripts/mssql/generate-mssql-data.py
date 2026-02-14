@@ -106,9 +106,8 @@ def generate_users(conn, count, table_name='users', schema='prod'):
     print(f"   ✅ Added {count} new users to {full_table_name} (IDs {start_id} to {start_id + count - 1})")
 
 
-def generate_products(conn, count):
+def generate_products(conn, count, schema='prod'):
     """Generate test products."""
-    schema = 'dbo'
     table = 'products'
     print(f"\n📦 Generating {count} products in {schema}.{table}...")
     
@@ -121,19 +120,34 @@ def generate_products(conn, count):
         return
     
     # Get starting point
-    start_id = get_max_id(conn, table, schema, 'product_id') + 1
+    start_id = get_max_id(conn, table, schema, 'id') + 1
     
-    categories = ['Electronics', 'Accessories', 'Clothing', 'Home', 'Sports', 'Books', 'Toys']
+    categories = ['Electronics', 'Accessories', 'Furniture', 'Appliances', 'Stationery']
+    is_uat = (schema == 'uat')
     
     # Build batch insert
     values = []
     for i in range(count):
         idx = start_id + i
         name = f'Product_{idx}'
-        price = round(random.uniform(10, 1000), 2)
-        quantity = random.randint(0, 500)
         category = random.choice(categories)
-        values.append(f"(N'{name}', {price}, {quantity}, N'{category}')")
+        price = round(random.uniform(10, 1000), 2)
+        stock_quantity = random.randint(0, 500)
+        is_available = 1 if random.random() > 0.15 else 0
+        
+        if is_uat:
+            # UAT has extra columns: sku, discount_percent
+            sku = f'{category[:4].upper()}-P{idx:04d}'
+            discount = f'{round(random.uniform(0, 20), 2)}' if random.random() > 0.5 else 'NULL'
+            values.append(f"(N'{name}', N'{category}', {price}, {stock_quantity}, {is_available}, N'{sku}', {discount})")
+        else:
+            values.append(f"(N'{name}', N'{category}', {price}, {stock_quantity}, {is_available})")
+    
+    # Determine columns for INSERT
+    if is_uat:
+        columns = 'name, category, price, stock_quantity, is_available, sku, discount_percent'
+    else:
+        columns = 'name, category, price, stock_quantity, is_available'
     
     # Insert in batches of 1000
     batch_size = 1000
@@ -142,7 +156,7 @@ def generate_products(conn, count):
     for i in range(0, len(values), batch_size):
         batch = values[i:i+batch_size]
         sql = f"""
-            INSERT INTO {schema}.{table} (name, price, quantity, category)
+            INSERT INTO {schema}.{table} ({columns})
             VALUES {','.join(batch)}
         """
         cursor.execute(sql)
@@ -157,13 +171,13 @@ def show_stats(conn):
     cursor = conn.cursor()
     print("\n📊 Current table statistics:")
     
-    targets = [('prod', 'users'), ('uat', 'users'), ('dbo', 'products')]
+    targets = [('prod', 'users'), ('uat', 'users'), ('prod', 'products'), ('uat', 'products')]
     
     for schema, table in targets:
         # Check if table exists
         cursor.execute(f"SELECT * FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.schema_id WHERE t.name = %s AND s.name = %s", (table, schema))
         if cursor.fetchone():
-            id_col = 'product_id' if 'product' in table else 'id'
+            id_col = 'id'
             try:
                 cursor.execute(f"SELECT COUNT(*), MAX({id_col}), MIN({id_col}) FROM {schema}.{table}")
                 row = cursor.fetchone()
@@ -212,7 +226,7 @@ Examples:
         generate_users(conn, args.users, args.table, args.schema)
     
     if not args.no_products and args.products > 0:
-        generate_products(conn, args.products)
+        generate_products(conn, args.products, args.schema)
     
     show_stats(conn)
     conn.close()

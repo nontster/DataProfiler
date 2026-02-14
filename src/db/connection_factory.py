@@ -6,9 +6,9 @@ Provides a unified interface for getting connections to different database types
 import logging
 from typing import Literal
 
-from src.db.postgres import get_postgres_connection, get_table_metadata as pg_get_table_metadata
-from src.db.mssql import get_mssql_connection, get_table_metadata as mssql_get_table_metadata
-from src.db.mysql import get_mysql_connection, get_table_metadata as mysql_get_table_metadata
+from src.db.postgres import get_postgres_connection, get_table_metadata as pg_get_table_metadata, list_tables as pg_list_tables
+from src.db.mssql import get_mssql_connection, get_table_metadata as mssql_get_table_metadata, list_tables as mssql_list_tables
+from src.db.mysql import get_mysql_connection, get_table_metadata as mysql_get_table_metadata, list_tables as mysql_list_tables
 from src.config import Config
 
 logger = logging.getLogger(__name__)
@@ -128,5 +128,29 @@ def normalize_database_type(database_type: str) -> str:
         return 'mssql'
     elif db_type in ('mysql',):
         return 'mysql'
+    else:
+        raise ValueError(f"Unsupported database type: {database_type}")
+
+
+def list_tables(database_type: str, schema: str = None, conn=None) -> list[str]:
+    """
+    List all tables in a schema for the specified database type.
+    
+    Args:
+        database_type: Type of database ('postgresql', 'mssql', 'mysql')
+        schema: Optional schema name
+        conn: Optional existing connection
+        
+    Returns:
+        Sorted list of table names
+    """
+    db_type = database_type.lower()
+    
+    if db_type in ('postgresql', 'postgres'):
+        return pg_list_tables(schema=schema, conn=conn)
+    elif db_type in ('mssql', 'sqlserver'):
+        return mssql_list_tables(schema=schema, conn=conn)
+    elif db_type in ('mysql',):
+        return mysql_list_tables(schema=schema, conn=conn)
     else:
         raise ValueError(f"Unsupported database type: {database_type}")

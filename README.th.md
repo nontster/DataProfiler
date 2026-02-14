@@ -10,13 +10,15 @@
 
 DataProfiler ทำหน้าที่:
 
-1. **รองรับหลาย Database**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), และ **MySQL**
-2. **ดึงข้อมูล Schema** อัตโนมัติจาก database ต้นทาง (information_schema)
-3. **คำนวณ Metrics** แบบ dbt-profiler style ด้วย SQL queries
-4. **จัดเก็บผลลัพธ์** ลง ClickHouse เพื่อการวิเคราะห์และติดตาม
-5. **Export ได้หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
-6. **Web Dashboard** สำหรับ visualize ข้อมูล (React + TailwindCSS)
-7. **วิเคราะห์ความเสี่ยง Auto-Increment Overflow** พร้อมทำนายการเติบโตด้วย Linear Regression
+1. **รองรับหลาย Database**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge) และ **MySQL**
+2. **เก็บ Table Inventory อัตโนมัติ**: ค้นหาและบันทึก table ทั้งหมดในแต่ละ schema สำหรับตรวจจับ drift
+3. **ค้นหา Schema อัตโนมัติ** จาก source databases (information_schema)
+4. **คำนวณ Metrics แบบ dbt-profiler** ผ่าน SQL queries (เปิดใช้ด้วย `--data-profile`)
+5. **เก็บผลลัพธ์ได้ยืดหยุ่น**: เลือกระหว่าง ClickHouse หรือ PostgreSQL
+6. **Export หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
+7. **Web Dashboard** สำหรับ data visualization (React + TailwindCSS)
+8. **วิเคราะห์ความเสี่ยง Auto-Increment Overflow** พร้อมทำนายการเติบโตด้วย Linear Regression
+9. **High Performance**: ใช้ Catalog Statistics (O(1)) ในการนับจำนวนแถวแทนการ scan ทั้ง table
 
 ## 📊 ข้อมูลที่ Profile
 
@@ -97,26 +99,29 @@ DataProfiler สามารถทำ Profile ข้อมูล Schema (Columns
 
 ```bash
 # PostgreSQL (ค่าเริ่มต้น)
-python main.py users --auto-increment
+python main.py --table users --auto-increment
 
 # MSSQL
-python main.py users -d mssql --auto-increment
+python main.py --table users -d mssql --auto-increment
 
 # กำหนดระยะเวลาย้อนหลัง (ค่าเริ่มต้น: 7 วัน)
-python main.py users --auto-increment --lookback-days 14
+python main.py --table users --auto-increment --lookback-days 14
 
 # พร้อมระบุ application และ environment
-python main.py users --app order-service --env production --auto-increment
+python main.py --table users --app order-service --env production --auto-increment
 ```
 
 ### Schema Profiling
 
 ```bash
 # Profile schema สำหรับ User Service ที่ Production
-python main.py users --profile-schema --app user-service --env production
+python main.py --table users --profile-schema --app user-service --env production
 
 # Profile table เดียวกันที่ UAT
-python main.py users --profile-schema --app user-service --env uat
+python main.py --table users --profile-schema --app user-service --env uat
+
+# Profile หลาย tables พร้อมกัน
+python main.py -t users,orders --profile-schema --app user-service --env production
 
 # ดูผลการเปรียบเทียบผ่าน Grafana Dashboard
 ```
@@ -217,6 +222,18 @@ CLICKHOUSE_HOST=localhost
 CLICKHOUSE_PORT=8123
 CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD=your_actual_password
+
+# Metrics Backend Configuration
+# Options: 'postgresql' (default) or 'clickhouse'
+METRICS_BACKEND=postgresql
+
+# PostgreSQL Metrics Configuration (instance แยกสำหรับเก็บผลลัพธ์ profiling)
+# เมื่อใช้ docker-compose จะชี้ไปที่ postgres-metrics service (port 5433)
+PG_METRICS_HOST=localhost
+PG_METRICS_PORT=5433
+PG_METRICS_DATABASE=profiler_metrics
+PG_METRICS_USER=postgres
+PG_METRICS_PASSWORD=your_password
 ```
 
 > ⚠️ **สำคัญ:** ไฟล์ `.env` ถูก ignore โดย git อยู่แล้ว ไม่ต้องกังวลเรื่อง commit credentials
@@ -249,59 +266,76 @@ data_source my_mssql:
 
 ### Basic Usage
 
-```bash
-# Profile 'users' table จาก PostgreSQL (ค่าเริ่มต้น)
-python main.py users
+โดยค่าเริ่มต้น (ไม่ต้องระบุ feature flags) DataProfiler จะเก็บ **table inventory** เท่านั้น — ไม่ต้องระบุ `--table`:
 
-# Profile จาก Schema ที่กำหนด (เช่น 'prod' หรือ 'uat')
-python main.py users --schema prod
+```bash
+# เก็บ table inventory อย่างเดียว (default behavior)
+python main.py -d mssql --schema prod --app order-svc --env production
+
+# เก็บ table inventory จาก PostgreSQL (ค่าเริ่มต้น)
+python main.py --app user-service --env uat --schema public
+```
+
+### Data Profiling (`--data-profile`)
+
+ใช้ `--data-profile` เพื่อเปิด column-level statistics ต้องระบุ `--table` ด้วย:
+
+```bash
+# Profile 'users' table จาก PostgreSQL
+python main.py --table users --data-profile
+
+# Profile หลาย tables พร้อมกัน
+python main.py -t users,orders,products --data-profile
+
+# Profile จาก Schema ที่กำหนด
+python main.py --table users --data-profile --schema prod
 
 # Profile จาก MSSQL
-python main.py users -d mssql
+python main.py --table users --data-profile -d mssql
 
 # Profile จาก MySQL
-python main.py users -d mysql
+python main.py --table users --data-profile -d mysql
 
 # Profile with Application & Environment context
-python main.py users -d mssql --app user-service --env uat --auto-increment --metrics-backend postgresql
-python main.py users -d mssql --app user-service --env production --auto-increment --metrics-backend postgresql
-
-# Profile a specific table
-python main.py products
+python main.py -t users,orders --data-profile -d mssql --app user-service --env uat --metrics-backend postgresql
 ```
 
 ### Output Formats
 
+Output formats ใช้ได้เมื่อระบุ `--data-profile`:
+
 ```bash
 # Console table (default)
-python main.py users --format table
+python main.py --table users --data-profile --format table
 
 # Markdown (dbt-profiler style)
-python main.py users --format markdown
+python main.py --table users --data-profile --format markdown
 
 # JSON
-python main.py users --format json
+python main.py --table users --data-profile --format json
 
 # CSV
-python main.py users --format csv
+python main.py --table users --data-profile --format csv
 ```
 
 ### Save to File
 
 ```bash
-python main.py users --format markdown --output profiles/users.md
-python main.py users --format json --output profiles/users.json
-python main.py users --format csv --output profiles/users.csv
+python main.py --table users --data-profile --format markdown --output profiles/users.md
+python main.py --table users --data-profile --format json --output profiles/users.json
+python main.py -t users,orders --data-profile --format csv --output profiles/report.csv
 ```
+
+> **หมายเหตุ:** เมื่อ profile หลาย tables ด้วย `--output` ผลลัพธ์จะถูก **append** ลงไฟล์เดียวกัน
 
 ### Options เพิ่มเติม
 
 ```bash
 # ไม่เก็บผลลัพธ์ลง Metrics Backend
-python main.py users --no-store
+python main.py --table users --no-store
 
 # Verbose logging
-python main.py users -v
+python main.py --table users -v
 
 # ดู help
 python main.py --help
@@ -319,14 +353,14 @@ python main.py --help
 
 ```bash
 # Profile จาก PostgreSQL (ค่าเริ่มต้น)
-python main.py users
+python main.py --table users --data-profile
 
 # Profile จาก MSSQL
-python main.py users -d mssql
-python main.py orders --database-type mssql
+python main.py --table users --data-profile -d mssql
+python main.py --table orders --data-profile --database-type mssql
 
 # MSSQL พร้อมวิเคราะห์ auto-increment
-python main.py users -d mssql --auto-increment
+python main.py --table users --data-profile -d mssql --auto-increment
 ```
 
 ### การเลือก Metrics Backend (`--metrics-backend`)
@@ -335,29 +369,31 @@ python main.py users -d mssql --auto-increment
 
 | Option       | รายละเอียด               | Environment Variables ที่ต้องการ          |
 | ------------ | ------------------------ | ----------------------------------------- |
-| `clickhouse` | ClickHouse (ค่าเริ่มต้น) | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`      |
-| `postgresql` | PostgreSQL               | `PG_METRICS_*` หรือใช้ค่าจาก `POSTGRES_*` |
+| `postgresql` | PostgreSQL (ค่าเริ่มต้น) | `PG_METRICS_*` หรือใช้ค่าจาก `POSTGRES_*` |
+| `clickhouse` | ClickHouse               | `CLICKHOUSE_HOST`, `CLICKHOUSE_PORT`      |
 
 ```bash
-# ใช้ ClickHouse (ค่าเริ่มต้น)
-python main.py users
+# ใช้ PostgreSQL (ค่าเริ่มต้น)
+python main.py --table users
 
-# ใช้ PostgreSQL เป็นที่เก็บ metrics
-python main.py users --metrics-backend postgresql
+# ใช้ ClickHouse เป็นที่เก็บ metrics
+python main.py --table users --metrics-backend clickhouse
 
 # รวมกัน: Profile จาก MSSQL, เก็บใน PostgreSQL
-python main.py orders -d mssql --metrics-backend postgresql
+python main.py --table orders -d mssql --metrics-backend postgresql
 ```
 
 ### การวิเคราะห์ Auto-Increment
 
+ต้องใช้คู่กับ `--data-profile`:
+
 ```bash
 # รวมการวิเคราะห์ auto-increment overflow
-python main.py users --auto-increment
-python main.py users -d mssql --auto-increment
+python main.py --table users --data-profile --auto-increment
+python main.py --table users --data-profile -d mssql --auto-increment
 
 # กำหนดระยะเวลาย้อนหลังสำหรับคำนวณ growth rate
-python main.py users --auto-increment --lookback-days 14
+python main.py --table users --data-profile --auto-increment --lookback-days 14
 ```
 
 ### ตัวอย่างแบบสมบูรณ์: Profile MSSQL พร้อมเก็บใน PostgreSQL
@@ -378,7 +414,8 @@ export PG_METRICS_USER=metrics_user
 export PG_METRICS_PASSWORD='your_password'
 
 # รัน profiler
-python main.py orders \
+python main.py --table orders \
+  --data-profile \
   -d mssql \
   --metrics-backend postgresql \
   --app sales-service \
@@ -428,7 +465,8 @@ DataProfiler/
 │   ├── test_config.py
 │   ├── test_connections.py
 │   ├── test_metadata.py
-│   └── test_profiler.py
+│   ├── test_profiler.py
+│   └── test_table_inventory.py
 └── venv/                  # Python virtual environment (git ignored)
 ```
 
@@ -477,13 +515,17 @@ scripts/run_profiler.sh --database-type mssql
 scripts/run_profiler.sh --metrics-backend postgresql
 
 # ระบุชื่อ table ผ่าน CLI (ไม่สนใจ PROFILER_TABLE env var)
-scripts/run_profiler.sh orders
+scripts/run_profiler.sh --table users
+
+# ระบุหลาย tables
+scripts/run_profiler.sh --table users,orders,products
+scripts/run_profiler.sh -t users,orders
 
 # Override schema (ไม่สนใจ PROFILER_SCHEMA env var)
 scripts/run_profiler.sh --schema uat
 
 # รวม CLI arguments หลายตัว
-scripts/run_profiler.sh orders -d mssql --metrics-backend postgresql --auto-increment --schema prod
+scripts/run_profiler.sh --table users -d mssql --metrics-backend postgresql --data-profile --auto-increment --schema prod
 
 # ไม่เก็บ metrics
 scripts/run_profiler.sh --no-store
@@ -521,23 +563,24 @@ Script จะใช้ **PostgreSQL** ในการเก็บ metrics
 
 #### Profiler Options (ไม่บังคับ)
 
-| Variable                  | ค่าเริ่มต้น  | คำอธิบาย                                          |
-| ------------------------- | ------------ | ------------------------------------------------- |
-| `PROFILER_TABLE`          | `users`      | ชื่อ table ที่จะ profile                          |
-| `PROFILER_SCHEMA`         | (default DB) | ชื่อ Schema (เช่น `public`, `dbo`, `prod`, `uat`) |
-| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv` |
-| `PROFILER_OUTPUT_FILE`    | -            | File path สำหรับบันทึก output                     |
-| `PROFILER_APP`            | `default`    | ชื่อ Application                                  |
-| `PROFILER_ENV`            | `production` | ชื่อ Environment                                  |
-| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`, `mysql`     |
-| `METRICS_BACKEND`         | `clickhouse` | Metrics backend: `clickhouse`, `postgresql`       |
-| `PROFILER_AUTO_INCREMENT` | `false`      | เปิดใช้การวิเคราะห์ auto-increment                |
-| `PROFILER_PROFILE_SCHEMA` | `false`      | เปิดใช้งาน Schema Profiling                       |
-| `PROFILER_LOOKBACK_DAYS`  | `7`          | จำนวนวันสำหรับคำนวณ growth rate                   |
-| `PROFILER_NO_STORE`       | `false`      | ไม่เก็บ metrics                                   |
-| `PROFILER_VERBOSE`        | `false`      | เปิด verbose logging                              |
-| `PYTHON_PATH`             | `python3`    | Path ไปยัง Python executable                      |
-| `PROFILER_HOME`           | (script dir) | Path ไปยัง DataProfiler installation              |
+| Variable                  | ค่าเริ่มต้น  | คำอธิบาย                                                                |
+| ------------------------- | ------------ | ----------------------------------------------------------------------- |
+| `PROFILER_TABLE`          | -            | ชื่อ table คั่นด้วยเครื่องหมายจุลภาค (จำเป็นเมื่อใช้ `--data-profile`)  |
+| `PROFILER_SCHEMA`         | (default DB) | ชื่อ Schema (เช่น `public`, `dbo`, `prod`, `uat`)                       |
+| `PROFILER_FORMAT`         | `table`      | Output format: `table`, `markdown`, `json`, `csv`                       |
+| `PROFILER_OUTPUT_FILE`    | -            | File path สำหรับบันทึก output                                           |
+| `PROFILER_APP`            | `default`    | ชื่อ Application                                                        |
+| `PROFILER_ENV`            | `production` | ชื่อ Environment                                                        |
+| `PROFILER_DB_TYPE`        | `postgresql` | Database type: `postgresql`, `mssql`, `mysql`                           |
+| `METRICS_BACKEND`         | `postgresql` | Metrics backend: `postgresql`, `clickhouse`                             |
+| `PROFILER_DATA_PROFILE`   | `false`      | เปิดใช้ data profiling (column-level statistics)                        |
+| `PROFILER_AUTO_INCREMENT` | `false`      | เปิดใช้การวิเคราะห์ auto-increment (ต้องใช้กับ `PROFILER_DATA_PROFILE`) |
+| `PROFILER_PROFILE_SCHEMA` | `false`      | เปิดใช้งาน Schema Profiling                                             |
+| `PROFILER_LOOKBACK_DAYS`  | `7`          | จำนวนวันสำหรับคำนวณ growth rate                                         |
+| `PROFILER_NO_STORE`       | `false`      | ไม่เก็บ metrics                                                         |
+| `PROFILER_VERBOSE`        | `false`      | เปิด verbose logging                                                    |
+| `PYTHON_PATH`             | `python3`    | Path ไปยัง Python executable                                            |
+| `PROFILER_HOME`           | (script dir) | Path ไปยัง DataProfiler installation                                    |
 
 ### Exit Codes
 
@@ -570,6 +613,7 @@ CLICKHOUSE_PASSWORD='your_secure_password'
 PROFILER_TABLE=users
 PROFILER_APP=order-service
 PROFILER_ENV=production
+PROFILER_DATA_PROFILE=true
 PROFILER_AUTO_INCREMENT=true
 
 # Command:
@@ -607,6 +651,7 @@ PROFILER_TABLE=orders
 PROFILER_DB_TYPE=mssql
 PROFILER_APP=sales-service
 PROFILER_ENV=production
+PROFILER_DATA_PROFILE=true
 PROFILER_AUTO_INCREMENT=true
 PROFILER_LOOKBACK_DAYS=14
 
@@ -654,17 +699,32 @@ flowchart LR
 docker-compose up -d --build
 ```
 
+### การเลือก Metrics Backend
+
+คุณสามารถเลือกที่เก็บผลลัพธ์การ profiling:
+
+```bash
+# ใช้ PostgreSQL (ค่าเริ่มต้น)
+docker-compose up -d
+
+# ใช้ ClickHouse เป็นที่เก็บ metrics
+METRICS_BACKEND=clickhouse docker-compose up -d
+```
+
 ### ภาพรวม Services
 
-| Service        | URL / Port            | รายละเอียด                           |
-| -------------- | --------------------- | ------------------------------------ |
-| **Frontend**   | http://localhost:8080 | Main Data Profiler Dashboard (React) |
-| **Grafana**    | http://localhost:3000 | Advanced Visualization (Admin)       |
-| **Backend**    | Internal (5001)       | API Service (Flask)                  |
-| **ClickHouse** | localhost:8123        | HTTP Interface                       |
-| **PostgreSQL** | localhost:5432        | Source Database                      |
-| **MSSQL**      | localhost:1433        | Source Database (Azure SQL Edge)     |
-| **MySQL**      | localhost:3306        | Source Database                      |
+| Service                | URL / Port            | รายละเอียด                           |
+| ---------------------- | --------------------- | ------------------------------------ |
+| **Frontend**           | http://localhost:8080 | Main Data Profiler Dashboard (React) |
+| **Grafana**            | http://localhost:3000 | Advanced Visualization (Admin)       |
+| **Backend**            | Internal (5001)       | API Service (Flask)                  |
+| **ClickHouse**         | localhost:8123        | HTTP Interface                       |
+| **PostgreSQL**         | localhost:5432        | Sample Source Database               |
+| **PostgreSQL-Metrics** | localhost:5433        | Metrics Storage Database             |
+| **MSSQL**              | localhost:1433        | Source Database (Azure SQL Edge)     |
+| **MySQL**              | localhost:3306        | Source Database                      |
+
+> **หมายเหตุ:** PostgreSQL แยกเป็น 2 instances: **sample database** (port 5432) สำหรับ source data profiling และ **metrics database** (port 5433) สำหรับเก็บผลลัพธ์ profiling เพื่อป้องกันความสับสนระหว่าง sample data และ metrics data
 
 ### ข้อมูลการเข้าใช้งาน (Credentials)
 
@@ -686,14 +746,21 @@ docker compose up -d mssql
 python init-scripts/mssql/init-mssql.py
 
 # ทดสอบ profiler
-python main.py users -d mssql --no-store
+python main.py --table users -d mssql --no-store
 ```
 
 > **หมายเหตุ**: Azure SQL Edge ไม่รัน init scripts อัตโนมัติเหมือน PostgreSQL ต้องใช้ Python script สร้าง database
 
 ### ข้อมูลตัวอย่าง & การทดสอบ
 
-Docker จะสร้างข้อมูลตัวอย่าง **100+ records** ใน PostgreSQL ให้อัตโนมัติ (ตาราง `users` และ `products`)
+Docker จะสร้างข้อมูลตัวอย่างแยกเป็น 2 Schemas: **`prod`** (Production) และ **`uat`** (UAT) เพื่อจำลองสถานการณ์จริง
+
+| Table          | Schema | Records | รายละเอียด                                                                  |
+| :------------- | :----- | :------ | :-------------------------------------------------------------------------- |
+| **`users`**    | `prod` | **99**  | ฐานข้อมูลลูกค้าเดิม (Active since 2023)                                     |
+| **`products`** | `prod` | **111** | แคตตาล็อกสินค้าครบถ้วน                                                      |
+| **`users`**    | `uat`  | **80**  | พนักงานใหม่, โครงสร้างเงินเดือนต่างกัน, มี NULL เยอะกว่า (จำลอง data drift) |
+| **`products`** | `uat`  | **90**  | สินค้าใหม่, บางหมวดหมู่หายไป (จำลอง data drift)                             |
 
 #### สร้างข้อมูลเพิ่มเติม
 
@@ -734,13 +801,13 @@ python init-scripts/mysql/generate-mysql-data.py --schema prod --users 100
 
 ```bash
 # รัน profiler ภายใน backend container (Production)
-docker-compose exec backend python ../main.py users --app order-service --env production --schema prod
+docker-compose exec backend python ../main.py --table users --app order-service --env production --schema prod
 
 # รัน profiler ภายใน backend container (UAT)
-docker-compose exec backend python ../main.py users --app order-service --env uat --schema uat
+docker-compose exec backend python ../main.py --table users --app order-service --env uat --schema uat
 
 # รันพร้อม auto-increment analysis
-docker-compose exec backend python ../main.py users --auto-increment --schema prod
+docker-compose exec backend python ../main.py -t users,products --auto-increment --schema prod
 ```
 
 ### การหยุดการทำงาน
@@ -869,17 +936,29 @@ Dashboard รองรับ **dual-environment schema comparison** สำหร
 
 ```bash
 # Profile schema สำหรับ UAT
-python main.py users --profile-schema --app user-service --env uat
+python main.py --table users --profile-schema --app user-service --env uat
 
 # Profile schema สำหรับ Production
-python main.py users --profile-schema --app user-service --env production
+python main.py --table users --profile-schema --app user-service --env production
+
+# Profile หลาย tables schemas
+python main.py -t users,orders --profile-schema --app user-service --env production
 ```
 
 ## 📈 Grafana Dashboard (ทางเลือกเสริม)
 
-โปรเจกต์นี้มาพร้อมกับ **Grafana** ที่เชื่อมต่อกับ ClickHouse ให้โดยอัตโนมัติ
+โปรเจกต์นี้มาพร้อมกับ **Grafana** ที่เชื่อมต่อกับ ClickHouse และ PostgreSQL ให้โดยอัตโนมัติ
 
 ![Grafana Dashboard](docs/images/grafana_dashboard.png)
+
+### Dashboard ที่มีให้
+
+| Dashboard                                | คำอธิบาย                                                       |
+| ---------------------------------------- | -------------------------------------------------------------- |
+| **Main Dashboard**                       | ดู data profiles, column details และ auto-increment monitoring |
+| **Environment Comparison Dashboard**     | เปรียบเทียบ data profiles ระหว่าง 2 environments               |
+| **Schema Comparison Dashboard**          | เปรียบเทียบ schema ระหว่าง 2 environments                      |
+| **Table Inventory Comparison Dashboard** | เปรียบเทียบ table inventories เพื่อตรวจจับ table drift         |
 
 ### ฟีเจอร์
 

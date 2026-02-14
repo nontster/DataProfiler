@@ -14,17 +14,18 @@
 #     MYSQL_HOST, MYSQL_PORT, MYSQL_DATABASE, MYSQL_USER, MYSQL_PASSWORD (if using MySQL)
 #   
 #   Metrics Backend (choose one):
-#     CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD
-#     PG_METRICS_HOST, PG_METRICS_PORT, etc. (if using PostgreSQL for metrics)
+#     PG_METRICS_HOST, PG_METRICS_PORT, etc. (primary choice, default)
+#     CLICKHOUSE_HOST, CLICKHOUSE_PORT, CLICKHOUSE_USER, CLICKHOUSE_PASSWORD (optional)
 #
 # Optional Environment Variables:
-#   PROFILER_TABLE        - Table name to profile (default: users)
+#   PROFILER_TABLE        - Comma-separated table names (required with --data-profile)
 #   PROFILER_FORMAT       - Output format: table|markdown|json|csv (default: table)
 #   PROFILER_OUTPUT_FILE  - File path to save output (optional)
 #   PROFILER_APP          - Application name (default: default)
 #   PROFILER_ENV          - Environment name (default: production)
 #   PROFILER_DB_TYPE      - Database type: postgresql|mssql|mysql (default: postgresql)
-#   METRICS_BACKEND       - Metrics backend: clickhouse|postgresql (default: clickhouse)
+#   METRICS_BACKEND       - Metrics backend: postgresql|clickhouse (default: postgresql)
+#   PROFILER_DATA_PROFILE   - Enable data profiling: true|false (default: false)
 #   PROFILER_AUTO_INCREMENT - Enable auto-increment analysis: true|false (default: false)
 #   PROFILER_PROFILE_SCHEMA - Enable schema profiling: true|false (default: false)
 #   PROFILER_LOOKBACK_DAYS  - Days for growth rate calculation (default: 7)
@@ -143,7 +144,7 @@ validate_database_config() {
 }
 
 validate_metrics_config() {
-    local backend="${METRICS_BACKEND:-clickhouse}"
+    local backend="${METRICS_BACKEND:-postgresql}"
     local db_type="${PROFILER_DB_TYPE:-postgresql}"
     local errors=0
     
@@ -230,10 +231,15 @@ parse_cli_args() {
     CLI_ENV=""
     CLI_SCHEMA=""
     CLI_AUTO_INCREMENT="false"
+    CLI_DATA_PROFILE="false"
     CLI_LOOKBACK_DAYS=""
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --table|-t)
+                CLI_TABLE="$2"
+                shift 2
+                ;;
             --metrics-backend|-m)
                 CLI_METRICS_BACKEND="$2"
                 shift 2
@@ -258,6 +264,10 @@ parse_cli_args() {
                 CLI_AUTO_INCREMENT="true"
                 shift
                 ;;
+            --data-profile)
+                CLI_DATA_PROFILE="true"
+                shift
+                ;;
             --profile-schema)
                 CLI_PROFILE_SCHEMA="true"
                 shift
@@ -279,10 +289,7 @@ parse_cli_args() {
                 fi
                 ;;
             *)
-                # Positional argument (table name)
-                if [[ -z "$CLI_TABLE" ]]; then
-                    CLI_TABLE="$1"
-                fi
+                # Unknown positional argument, skip
                 shift
                 ;;
         esac
@@ -313,6 +320,9 @@ parse_cli_args() {
     if [[ "$CLI_AUTO_INCREMENT" == "true" ]]; then
         PROFILER_AUTO_INCREMENT="true"
     fi
+    if [[ "$CLI_DATA_PROFILE" == "true" ]]; then
+        PROFILER_DATA_PROFILE="true"
+    fi
     if [[ "$CLI_PROFILE_SCHEMA" == "true" ]]; then
         PROFILER_PROFILE_SCHEMA="true"
     fi
@@ -328,9 +338,10 @@ parse_cli_args() {
 build_command_args() {
     local args=()
     
-    # Table name (positional argument)
-    local table_name="${PROFILER_TABLE:-users}"
-    args+=("${table_name}")
+    # Table name (required named argument)
+    if [[ -n "${PROFILER_TABLE}" ]]; then
+        args+=("--table" "${PROFILER_TABLE}")
+    fi
     
     # Output format
     if [[ -n "${PROFILER_FORMAT}" ]]; then
@@ -392,6 +403,11 @@ build_command_args() {
         args+=("--verbose")
     fi
     
+    # Data profiling
+    if [[ "${PROFILER_DATA_PROFILE}" == "true" ]]; then
+        args+=("--data-profile")
+    fi
+    
     echo "${args[@]}"
 }
 
@@ -429,7 +445,26 @@ main() {
     
     # Parse CLI arguments to override environment variables for validation
     parse_cli_args "$@"
-    log_info "Effective config - DB Type: ${PROFILER_DB_TYPE:-postgresql}, Metrics Backend: ${METRICS_BACKEND:-clickhouse}, Table: ${PROFILER_TABLE:-users}"
+    
+    # Validate table name is provided when needed
+    local needs_table="false"
+    if [[ "${PROFILER_DATA_PROFILE}" == "true" || "${PROFILER_PROFILE_SCHEMA}" == "true" || "${PROFILER_AUTO_INCREMENT}" == "true" ]]; then
+        needs_table="true"
+    fi
+    
+    if [[ "${needs_table}" == "true" && -z "${PROFILER_TABLE}" ]]; then
+        log_error "Table name is required when using --data-profile, --profile-schema, or --auto-increment"
+        log_error "Set PROFILER_TABLE environment variable or pass --table/-t argument"
+        exit 1
+    fi
+    
+    # Validate --auto-increment requires --data-profile
+    if [[ "${PROFILER_AUTO_INCREMENT}" == "true" && "${PROFILER_DATA_PROFILE}" != "true" ]]; then
+        log_error "--auto-increment requires --data-profile"
+        exit 1
+    fi
+    
+    log_info "Effective config - DB Type: ${PROFILER_DB_TYPE:-postgresql}, Metrics Backend: ${METRICS_BACKEND:-postgresql}, Table: ${PROFILER_TABLE:-'(inventory only)'}"
     
     # Step 1: Validate Python environment
     if ! validate_python_env; then

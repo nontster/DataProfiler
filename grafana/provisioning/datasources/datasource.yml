@@ -33,3 +33,5 @@ datasources:
     secureJsonData:
       password: ${POSTGRES_PASSWORD}
     editable: true
+    # Note: POSTGRES_HOST/PORT/DATABASE/USER/PASSWORD env vars in Grafana
+    # are set to postgres-metrics service values in docker-compose.yml
