@@ -52,3 +52,4 @@ Thumbs.db
 !.env.example
 secrets.yml
 secrets.yaml
+grafana/dashboards_exported/

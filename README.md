@@ -8,15 +8,19 @@ Automated **Data Profiling** tool for **PostgreSQL** and **Microsoft SQL Server*
 
 DataProfiler provides:
 
-1. **Multi-Database Support**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), and **MySQL**
-2. **Table Inventory Collection**: Automatically discovers and records all tables per schema for drift detection
-3. **Automatic Schema Discovery** from source databases (information_schema)
-4. **dbt-profiler Style Metrics** calculation via SQL queries (opt-in with `--data-profile`)
-5. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
-6. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
-7. **Web Dashboard** for data visualization (React + TailwindCSS)
-8. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
-9. **High Performance**: Uses fast Catalog Statistics (O(1)) for row counts instead of full table scans
+1. **dbt-profiler Style Metrics** calculation via SQL queries (opt-in with `--data-profile`)
+2. **Schema Comparison**: Compare table structures and database objects across different environments (e.g., UAT vs Prod)
+3. **Schema Objects Profiling**: Profiles Stored Procedures, Views, and Triggers for comprehensive database monitoring
+4. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
+5. **Table Inventory Collection**: Automatically discovers and records all tables per schema for drift detection
+6. **Automatic Schema Discovery** from source databases (information_schema)
+7. **Multi-Database Support**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), and MySQL
+8. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
+9. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
+10. **Web Dashboard** for data visualization (React + TailwindCSS)
+11. **Control-M Integration**: Production-ready wrapper script for enterprise job scheduling
+12. **Full Stack Docker**: Complete containerized environment including Grafana, ClickHouse, and Postgres Metrics
+13. **High Performance**: Uses fast Catalog Statistics (O(1)) for row counts instead of full table scans
 
 ## 📊 Profiled Metrics
 
@@ -234,10 +238,10 @@ By default (without feature flags), DataProfiler collects **table inventory** on
 
 ```bash
 # Collect table inventory only (default behavior)
-python main.py -d mssql --schema prod --app order-svc --env production
+python main.py -d mssql --schema prod --app user-service --env production
 
 # Collect table inventory from PostgreSQL (default database)
-python main.py --app user-service --env uat --schema public
+python main.py --schema uat --app user-service --env uat 
 ```
 
 ### Data Profiling (`--data-profile`)
@@ -246,23 +250,62 @@ Use `--data-profile` to enable column-level statistics. Requires `--table`:
 
 ```bash
 # Profile 'users' table from PostgreSQL
-python main.py --table users --data-profile
+python main.py --data-profile --table users
 
 # Profile multiple tables
-python main.py -t users,orders,products --data-profile
+python main.py --data-profile -t users,products
 
 # Profile from specific schema
-python main.py --table users --data-profile --schema prod
+python main.py --data-profile --table users --schema prod
 
 # Profile from MSSQL
-python main.py --table users --data-profile -d mssql
+python main.py --data-profile -d mssql --table users
 
 # Profile from MySQL
-python main.py --table users --data-profile -d mysql
+python main.py --data-profile -d mysql --table users
 
 # Profile with Application & Environment context
-python main.py -t users,orders --data-profile -d mssql --app user-service --env uat --metrics-backend postgresql
+python main.py --data-profile -d mssql -t users,products --app user-service --env uat --metrics-backend postgresql
 ```
+
+### Auto-Increment Analysis
+
+Requires `--data-profile`:
+
+```bash
+# Include auto-increment overflow analysis
+python main.py --data-profile --auto-increment --table users
+python main.py --data-profile --auto-increment -d mssql --table users   
+
+# Custom lookback period for growth calculation
+python main.py --data-profile --auto-increment --table users  --lookback-days 14
+```
+
+### Schema Profiling
+
+```bash
+# Profile schema for User Service in Production
+python main.py --profile-schema --table users --app user-service --env production
+
+# Profile same table in UAT
+python main.py --profile-schema --table users --app user-service --env uat
+
+# Profile multiple table schemas
+python main.py --profile-schema -t users,products  --app user-service --env production
+
+# Comparison is done via Grafana Dashboard (Table Schema Comparison)
+```
+
+### Schema Objects Profiling
+
+Schema objects (Stored Procedures, Views, Triggers) are profiled automatically when connecting to a database with metrics storage enabled.
+
+```bash
+# Profile schema objects (and table inventory)
+python main.py --app user-service --env production --schema prod
+```
+
+View the results in the **Schema Objects Comparison Dashboard**.
 
 ### Output Formats
 
@@ -295,7 +338,7 @@ python main.py -t users,orders --data-profile --format csv --output profiles/rep
 ### Additional Options
 
 ```bash
-# Skip storing to ClickHouse
+# Skip storing to Metrics DB
 python main.py --table users --no-store
 
 # Verbose logging
@@ -320,11 +363,11 @@ Choose which source database to profile:
 python main.py --table users --data-profile
 
 # Profile from MSSQL
-python main.py --table users --data-profile -d mssql
-python main.py --table orders --data-profile --database-type mssql
+python main.py --data-profile -d mssql --table users
+python main.py --data-profile --database-type mssql --table users
 
 # MSSQL with auto-increment analysis
-python main.py --table users --data-profile -d mssql --auto-increment
+python main.py --data-profile --auto-increment -d mssql --table users
 ```
 
 ### Metrics Backend Selection (`--metrics-backend`)
@@ -344,47 +387,7 @@ python main.py --table users
 python main.py --table users --metrics-backend clickhouse
 
 # Combine: Profile MSSQL, store in PostgreSQL
-python main.py --table orders -d mssql --metrics-backend postgresql
-```
-
-### Auto-Increment Analysis
-
-Requires `--data-profile`:
-
-```bash
-# Include auto-increment overflow analysis
-python main.py --table users --data-profile --auto-increment
-python main.py --table users --data-profile -d mssql --auto-increment
-
-# Custom lookback period for growth calculation
-python main.py --table users --data-profile --auto-increment --lookback-days 14
-```
-
-### Schema Profiling
-
-```bash
-# Profile schema for User Service in Production
-python main.py --table users --profile-schema --app user-service --env production
-
-# Profile same table in UAT
-python main.py --table users --profile-schema --app user-service --env uat
-
-# Profile multiple table schemas
-python main.py -t users,orders --profile-schema --app user-service --env production
-
-# Comparison is done via Grafana Dashboard (Table Schema Comparison)
-```
-
-### Schema Objects Comparison
-
-Schema objects (Stored Procedures, Views, Triggers) are profiled automatically when connecting to a database with metrics storage enabled.
-
-```bash
-# Profile schema objects (and table inventory)
-python main.py --app user-service --env production --schema prod
-```
-
-View the results in the **Schema Objects Comparison Dashboard**.
+python main.py -d mssql --table orders --metrics-backend postgresql
 ```
 
 ### Complete Example: Profile MSSQL with PostgreSQL Metrics Backend
@@ -406,14 +409,27 @@ export PG_METRICS_USER=postgres
 export PG_METRICS_PASSWORD='password123'
 
 # Run profiler
-python main.py --table users \
+python main.py
+  --data-profile \
+  --auto-increment \
   -d mssql \
+  --table users \
   --metrics-backend postgresql \
   --app user-service \
   --env production \
   --schema prod \
-  --auto-increment
+
 ```
+
+## 📤 Exporting Dashboards
+
+If you need to export the Grafana dashboards for importing into another Grafana instance (stripping backend-specific suffixes like `(PostgreSQL)` or `(ClickHouse)` from titles), you can use the provided export script:
+
+```bash
+python scripts/export_dashboards.py
+```
+
+This will create a `grafana/dashboards_exported` directory containing the sanitized JSON files.
 
 ## 📁 Project Structure
 
@@ -509,7 +525,7 @@ pytest --cov=src --cov-report=term-missing
 
 ## 🔍 End-to-End Manual Testing
 
-To manually verify all functions (MSSQL, PostgreSQL) with a full workflow:
+For example, to manually verify all functions for MSSQL with a full workflow:
 
 ### 1. Setup Environment
 
@@ -524,6 +540,7 @@ export MSSQL_SCHEMA=dbo
 
 # Initialize MSSQL Database
 python init-scripts/mssql/init-mssql.py
+python init-scripts/mssql/init-mssql-schema-objects.py
 ```
 
 ### 2. Generate Sample Data
@@ -540,20 +557,20 @@ You can run the profiler using `main.py` directly:
 
 ```bash
 # Profile MSSQL (UAT) -> Store in PostgreSQL
-python main.py -t users,products -d mssql --app user-service --env uat --schema uat --data-profile --auto-increment --profile-schema --metrics-backend postgresql
+python main.py --data-profile --auto-increment --profile-schema -d mssql -t users,products --app user-service --env uat --schema uat  --metrics-backend postgresql
 
 # Profile MSSQL (Prod) -> Store in PostgreSQL
-python main.py -t users,products -d mssql --app user-service --env prod --schema prod --data-profile --auto-increment --profile-schema --metrics-backend postgresql
+python main.py --data-profile --auto-increment --profile-schema -d mssql -t users,products --app user-service --env prod --schema prod --metrics-backend postgresql
 ```
 
 Or using the `scripts/run_profiler.sh` wrapper script:
 
 ```bash
 # Profile MSSQL (UAT)
-scripts/run_profiler.sh -t users,products --data-profile --auto-increment --profile-schema --app user-service --env uat --schema uat --database-type mssql --metrics-backend postgresql
+scripts/run_profiler.sh --data-profile --auto-increment --profile-schema --database-type mssql -t users,products --app user-service --env uat --schema uat --metrics-backend postgresql
 
 # Profile MSSQL (Prod)
-scripts/run_profiler.sh -t users,products --data-profile --auto-increment --profile-schema --app user-service --env prod --schema prod --database-type mssql --metrics-backend postgresql
+scripts/run_profiler.sh --data-profile --auto-increment --profile-schema --database-type mssql -t users,products --app user-service --env prod --schema prod --metrics-backend postgresql
 ```
 
 This workflow verifies:
@@ -564,7 +581,7 @@ This workflow verifies:
 - Auto-increment analysis
 - Storing metrics in PostgreSQL
 
-## ⏰ Control-M Integration
+## CLI Wrapper
 
 DataProfiler includes a wrapper script for running as a scheduled job in **Control-M** or similar job schedulers.
 
@@ -594,8 +611,8 @@ scripts/run_profiler.sh --metrics-backend postgresql
 scripts/run_profiler.sh --table users
 
 # Specify multiple tables
-scripts/run_profiler.sh --table users,orders,products
-scripts/run_profiler.sh -t users,orders
+scripts/run_profiler.sh --table users,products
+scripts/run_profiler.sh -t users,products
 
 # Override schema (ignores PROFILER_SCHEMA env var)
 scripts/run_profiler.sh --schema uat
@@ -669,7 +686,7 @@ Refer to the **[Configuration](#%EF%B8%8F-configuration)** section for the requi
 | `2`  | Execution error (profiler failed)                            |
 | `3`  | Python environment error                                     |
 
-### Control-M Job Examples
+### Examples
 
 #### Example 1: PostgreSQL + ClickHouse Metrics
 
@@ -687,7 +704,7 @@ CLICKHOUSE_PORT=8123
 CLICKHOUSE_USER=default
 CLICKHOUSE_PASSWORD='password123'
 
-PROFILER_TABLE=users,orders
+PROFILER_TABLE=users,products
 PROFILER_APP=user-service
 PROFILER_ENV=uat
 PROFILER_DATA_PROFILE=true
@@ -728,6 +745,14 @@ PROFILER_AUTO_INCREMENT=true
 # Command:
 scripts/run_profiler.sh
 ```
+
+#### Using Docker (Alternative)
+
+```bash
+# Run profiler inside backend container
+docker-compose exec backend python main.py --table users --data-profile --app user-service --env production --auto-increment
+```
+
 
 ### Logging
 
@@ -795,12 +820,19 @@ docker compose up -d mssql
 
 # Wait ~30 seconds for startup, then initialize database
 python init-scripts/mssql/init-mssql.py
+python init-scripts/mssql/init-mssql-schema-objects.py
 
 # Test profiler
 python main.py --table users -d mssql --no-store
 ```
 
 > **Note**: Azure SQL Edge doesn't run init scripts automatically like PostgreSQL. Use the Python script to create test databases.
+
+### Stop Services
+
+```bash
+docker-compose down -v  # Stop and remove volumes
+```
 
 ### Sample Data & Testing
 
@@ -813,7 +845,7 @@ Docker automatically initializes sample data with two distinct schemas: **`prod`
 | **`users`**    | `uat`  | **80**  | New hires, different salary ranges, more NULLs (simulated drift) |
 | **`products`** | `uat`  | **90**  | New catalog items, missing categories (simulated drift)          |
 
-#### 1. Generate Additional Sample Data
+#### Generate Additional Sample Data
 
 To add more test data for auto-increment growth rate calculation:
 
@@ -850,43 +882,12 @@ python init-scripts/mssql/generate-mssql-data.py --stats-only
 python init-scripts/mysql/generate-mysql-data.py --schema prod --users 100
 ```
 
-#### 2. Run Data Profiler
-
-Profile tables with application and environment context:
-
-```bash
-# Activate virtual environment
-source venv/bin/activate
-
-# Profile 'users' table for UAT environment (using 'uat' schema)
-python main.py --table users --data-profile --app user-service --env uat --schema uat
-
-# Profile 'users' table for Production environment (using 'prod' schema)
-python main.py --table users --data-profile --app user-service --env production --schema prod
-
-# Profile multiple tables with auto-increment overflow analysis
-python main.py -t users,products --data-profile --app user-service --env production --schema prod --auto-increment
-```
-
-#### 3. Using Docker (Alternative)
-
-```bash
-# Run profiler inside backend container
-docker-compose exec backend python main.py --table users --data-profile --app user-service --env production --auto-increment
-```
-
 #### 4. View Results
 
 - **React Dashboard**: http://localhost:8080
 - **Grafana Dashboard**: http://localhost:3000
 
 > **Tip**: Run the profiler multiple times after inserting new data to enable `Days Until Full` calculation for auto-increment columns.
-
-### Stop Services
-
-```bash
-docker-compose down -v  # Stop and remove volumes
-```
 
 ## 📊 Dashboard Development
 

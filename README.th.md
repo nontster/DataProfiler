@@ -17,8 +17,12 @@ DataProfiler ทำหน้าที่:
 5. **เก็บผลลัพธ์ได้ยืดหยุ่น**: เลือกระหว่าง ClickHouse หรือ PostgreSQL
 6. **Export หลายรูปแบบ**: Markdown, JSON, CSV, Console Table
 7. **Web Dashboard** สำหรับ data visualization (React + TailwindCSS)
-8. **วิเคราะห์ความเสี่ยง Auto-Increment Overflow** พร้อมทำนายการเติบโตด้วย Linear Regression
-9. **High Performance**: ใช้ Catalog Statistics (O(1)) ในการนับจำนวนแถวแทนการ scan ทั้ง table
+8. **Auto-Increment Overflow Risk Analysis**: วิเคราะห์ความเสี่ยงและทำนายการเติบโตด้วย Linear Regression
+9. **Schema Objects Profiling**: เก็บ Metadata ของ Stored Procedures, Views, และ Triggers เพื่อเฝ้าระวังการเปลี่ยนแปลง
+10. **Schema Comparison**: เปรียบเทียบโครงสร้าง Table และ Database Objects ระหว่าง Environment (เช่น UAT เทียบ Prod)
+11. **Control-M Integration**: พร้อมใช้งานกับ Enterprise Job Scheduler ด้วย Wrapper Script
+12. **Full Stack Docker**: สภาพแวดล้อมพร้อมใช้ (Grafana, ClickHouse, Postgres Metrics)
+13. **High Performance**: ใช้ Catalog Statistics (O(1)) ในการนับจำนวนแถวแทนการ scan ทั้ง table
 
 ## 📊 ข้อมูลที่ Profile
 
@@ -449,6 +453,16 @@ python main.py --table orders \
   --schema prod \
   --auto-increment
 ```
+
+## 📤 การ Export Dashboards
+
+หากต้องการ Export Grafana Dashboards เพื่อนำไป Import ใน Grafana อื่น (โดยตัดคำระบุ Backend เช่น `(PostgreSQL)` หรือ `(ClickHouse)` ออกจากชื่อ), สามารถใช้สคริปต์ดังนี้:
+
+```bash
+python scripts/export_dashboards.py
+```
+
+สคริปต์จะสร้างโฟลเดอร์ `grafana/dashboards_exported` ที่บรรจุไฟล์ JSON ที่ถูกปรับแก้แล้ว
 
 ## 📁 Project Structure
 

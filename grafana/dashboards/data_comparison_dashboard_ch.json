@@ -36,7 +36,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "# Data Comparison Dashboard\nCompare data profile metrics between two environments side-by-side",
+        "content": "# Data Comparison Dashboard (ClickHouse)\nCompare data profile metrics between two environments side-by-side",
         "mode": "markdown"
       },
       "pluginVersion": "10.0.0",
@@ -1563,7 +1563,7 @@
   "timepicker": {},
   "timezone": "",
   "title": "Data Comparison Dashboard (ClickHouse)",
-  "uid": "data-comparison-dashboard",
+  "uid": "data-comparison-dashboard-ch",
   "version": 1,
   "weekStart": ""
 }
