@@ -1,0 +1,1209 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "# Schema Objects Comparison Dashboard\nCompare stored procedures, views, and triggers between two environments — detect drift in definitions, missing objects, and extra objects",
+        "mode": "markdown"
+      },
+      "pluginVersion": "10.0.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 50,
+      "panels": [],
+      "title": "📊 Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 4
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as objects\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Objects in ${env1}",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 4
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) as objects\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Objects in ${env2}",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 5
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 4
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_objs AS (\n  SELECT object_type, object_name, definition_hash\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n    )\n),\nenv2_objs AS (\n  SELECT object_type, object_name, definition_hash\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n    )\n)\nSELECT COUNT(*) as differences\nFROM (\n  SELECT e1.object_name FROM env1_objs e1\n  LEFT JOIN env2_objs e2 ON e1.object_type = e2.object_type AND e1.object_name = e2.object_name\n  WHERE e2.object_name IS NULL\n  UNION ALL\n  SELECT e2.object_name FROM env2_objs e2\n  LEFT JOIN env1_objs e1 ON e2.object_type = e1.object_type AND e2.object_name = e1.object_name\n  WHERE e1.object_name IS NULL\n  UNION ALL\n  SELECT e1.object_name FROM env1_objs e1\n  JOIN env2_objs e2 ON e1.object_type = e2.object_type AND e1.object_name = e2.object_name\n  WHERE e1.definition_hash != e2.definition_hash\n) diffs",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Differences",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 4
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  COALESCE(SUM(CASE WHEN object_type = 'PROCEDURE' THEN 1 ELSE 0 END), 0) as \"${env1}\",\n  0 as \"${env2}\"\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n  )\nUNION ALL\nSELECT 0,\n  COALESCE(SUM(CASE WHEN object_type = 'PROCEDURE' THEN 1 ELSE 0 END), 0)\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Stored Procedures",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "yellow",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 4
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  COALESCE(SUM(CASE WHEN object_type = 'VIEW' THEN 1 ELSE 0 END), 0) as \"${env1}\",\n  0 as \"${env2}\"\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n  )\nUNION ALL\nSELECT 0,\n  COALESCE(SUM(CASE WHEN object_type = 'VIEW' THEN 1 ELSE 0 END), 0)\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Views",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "orange",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 4
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  COALESCE(SUM(CASE WHEN object_type = 'TRIGGER' THEN 1 ELSE 0 END), 0) as \"${env1}\",\n  0 as \"${env2}\"\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n  )\nUNION ALL\nSELECT 0,\n  COALESCE(SUM(CASE WHEN object_type = 'TRIGGER' THEN 1 ELSE 0 END), 0)\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n  )",
+          "refId": "A"
+        }
+      ],
+      "title": "Triggers",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      },
+      "id": 51,
+      "panels": [],
+      "title": "🔍 Object-by-Object Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "⚠️ Definition Changed": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "❌ Missing in Env1": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "❌ Missing in Env2": {
+                        "color": "orange",
+                        "index": 1
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "object_name"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 220
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "object_type"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_objs AS (\n  SELECT object_type, object_name, definition_hash, language, return_type, parameter_list, event, timing, columns\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n    )\n),\nenv2_objs AS (\n  SELECT object_type, object_name, definition_hash, language, return_type, parameter_list, event, timing, columns\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n    )\n)\nSELECT\n  COALESCE(e1.object_type, e2.object_type) as object_type,\n  COALESCE(e1.object_name, e2.object_name) as object_name,\n  CASE\n    WHEN e1.object_name IS NULL THEN '❌ Missing in ${env1}'\n    WHEN e2.object_name IS NULL THEN '❌ Missing in ${env2}'\n    WHEN e1.definition_hash != e2.definition_hash THEN '⚠️ Definition Changed'\n    ELSE '✅ Match'\n  END as status,\n  COALESCE(e1.definition_hash, '') as \"${env1} Hash\",\n  COALESCE(e2.definition_hash, '') as \"${env2} Hash\",\n  COALESCE(e1.language, e2.language, '') as language,\n  COALESCE(e1.return_type, e2.return_type, '') as return_type,\n  COALESCE(e1.parameter_list, e2.parameter_list, '') as parameters\nFROM env1_objs e1\nFULL OUTER JOIN env2_objs e2\n  ON e1.object_type = e2.object_type AND e1.object_name = e2.object_name\nORDER BY COALESCE(e1.object_type, e2.object_type), COALESCE(e1.object_name, e2.object_name)",
+          "refId": "A"
+        }
+      ],
+      "title": "All Schema Objects Comparison: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 52,
+      "panels": [],
+      "title": "⚙️ Stored Procedures Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "⚠️ Definition Changed": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "❌ Only in ${env1}": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "❌ Only in ${env2}": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 24
+      },
+      "id": 20,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_procs AS (\n  SELECT object_name, definition_hash, language, return_type, parameter_list\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND object_type = 'PROCEDURE'\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n    )\n),\nenv2_procs AS (\n  SELECT object_name, definition_hash, language, return_type, parameter_list\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND object_type = 'PROCEDURE'\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n    )\n)\nSELECT\n  COALESCE(e1.object_name, e2.object_name) as procedure_name,\n  CASE\n    WHEN e1.object_name IS NULL THEN '❌ Only in ${env2}'\n    WHEN e2.object_name IS NULL THEN '❌ Only in ${env1}'\n    WHEN e1.definition_hash != e2.definition_hash THEN '⚠️ Definition Changed'\n    ELSE '✅ Match'\n  END as status,\n  COALESCE(e1.language, '') as \"${env1} Language\",\n  COALESCE(e2.language, '') as \"${env2} Language\",\n  COALESCE(e1.return_type, '') as \"${env1} Return Type\",\n  COALESCE(e2.return_type, '') as \"${env2} Return Type\",\n  COALESCE(e1.parameter_list, '') as \"${env1} Parameters\",\n  COALESCE(e2.parameter_list, '') as \"${env2} Parameters\",\n  COALESCE(e1.definition_hash, '') as \"${env1} Hash\",\n  COALESCE(e2.definition_hash, '') as \"${env2} Hash\"\nFROM env1_procs e1\nFULL OUTER JOIN env2_procs e2 ON e1.object_name = e2.object_name\nORDER BY COALESCE(e1.object_name, e2.object_name)",
+          "refId": "A"
+        }
+      ],
+      "title": "Stored Procedures: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 53,
+      "panels": [],
+      "title": "👁️ Views Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "⚠️ Definition Changed": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "❌ Only in ${env1}": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "❌ Only in ${env2}": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 35
+      },
+      "id": 21,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_views AS (\n  SELECT object_name, definition_hash, is_materialized, columns\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND object_type = 'VIEW'\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n    )\n),\nenv2_views AS (\n  SELECT object_name, definition_hash, is_materialized, columns\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND object_type = 'VIEW'\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n    )\n)\nSELECT\n  COALESCE(e1.object_name, e2.object_name) as view_name,\n  CASE\n    WHEN e1.object_name IS NULL THEN '❌ Only in ${env2}'\n    WHEN e2.object_name IS NULL THEN '❌ Only in ${env1}'\n    WHEN e1.definition_hash != e2.definition_hash THEN '⚠️ Definition Changed'\n    ELSE '✅ Match'\n  END as status,\n  CASE WHEN COALESCE(e1.is_materialized, false) THEN 'Yes' ELSE 'No' END as \"${env1} Materialized\",\n  CASE WHEN COALESCE(e2.is_materialized, false) THEN 'Yes' ELSE 'No' END as \"${env2} Materialized\",\n  COALESCE(e1.columns, '') as \"${env1} Columns\",\n  COALESCE(e2.columns, '') as \"${env2} Columns\",\n  COALESCE(e1.definition_hash, '') as \"${env1} Hash\",\n  COALESCE(e2.definition_hash, '') as \"${env2} Hash\"\nFROM env1_views e1\nFULL OUTER JOIN env2_views e2 ON e1.object_name = e2.object_name\nORDER BY COALESCE(e1.object_name, e2.object_name)",
+          "refId": "A"
+        }
+      ],
+      "title": "Views: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 45
+      },
+      "id": 54,
+      "panels": [],
+      "title": "⚡ Triggers Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "✅ Match": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "⚠️ Definition Changed": {
+                        "color": "yellow",
+                        "index": 3
+                      },
+                      "❌ Only in ${env1}": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "❌ Only in ${env2}": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "id": 22,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH env1_trigs AS (\n  SELECT object_name, definition_hash, parent_table, event, timing\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env1:singlequote}\n    AND object_type = 'TRIGGER'\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env1:singlequote}\n    )\n),\nenv2_trigs AS (\n  SELECT object_name, definition_hash, parent_table, event, timing\n  FROM schema_objects\n  WHERE application = ${application:singlequote}\n    AND environment = ${env2:singlequote}\n    AND object_type = 'TRIGGER'\n    AND scan_time = (\n      SELECT MAX(scan_time) FROM schema_objects\n      WHERE application = ${application:singlequote}\n        AND environment = ${env2:singlequote}\n    )\n)\nSELECT\n  COALESCE(e1.object_name, e2.object_name) as trigger_name,\n  CASE\n    WHEN e1.object_name IS NULL THEN '❌ Only in ${env2}'\n    WHEN e2.object_name IS NULL THEN '❌ Only in ${env1}'\n    WHEN e1.definition_hash != e2.definition_hash THEN '⚠️ Definition Changed'\n    ELSE '✅ Match'\n  END as status,\n  COALESCE(e1.parent_table, '') as \"${env1} Table\",\n  COALESCE(e2.parent_table, '') as \"${env2} Table\",\n  COALESCE(e1.timing, '') as \"${env1} Timing\",\n  COALESCE(e2.timing, '') as \"${env2} Timing\",\n  COALESCE(e1.event, '') as \"${env1} Event\",\n  COALESCE(e2.event, '') as \"${env2} Event\",\n  COALESCE(e1.definition_hash, '') as \"${env1} Hash\",\n  COALESCE(e2.definition_hash, '') as \"${env2} Hash\"\nFROM env1_trigs e1\nFULL OUTER JOIN env2_trigs e2 ON e1.object_name = e2.object_name\nORDER BY COALESCE(e1.object_name, e2.object_name)",
+          "refId": "A"
+        }
+      ],
+      "title": "Triggers: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 56
+      },
+      "id": 55,
+      "panels": [],
+      "title": "📋 Object Details by Environment",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 0,
+        "y": 57
+      },
+      "id": 30,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  object_type,\n  object_name,\n  language,\n  return_type,\n  parameter_list as parameters,\n  event,\n  timing,\n  definition_hash\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env1:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env1:singlequote}\n  )\nORDER BY object_type, object_name",
+          "refId": "A"
+        }
+      ],
+      "title": "All Objects: ${env1}",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 57
+      },
+      "id": 31,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": true,
+          "enablePagination": true,
+          "fields": "",
+          "reducer": [
+            "count"
+          ],
+          "show": true
+        },
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "10.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  object_type,\n  object_name,\n  language,\n  return_type,\n  parameter_list as parameters,\n  event,\n  timing,\n  definition_hash\nFROM schema_objects\nWHERE application = ${application:singlequote}\n  AND environment = ${env2:singlequote}\n  AND scan_time = (\n    SELECT MAX(scan_time) FROM schema_objects\n    WHERE application = ${application:singlequote}\n      AND environment = ${env2:singlequote}\n  )\nORDER BY object_type, object_name",
+          "refId": "A"
+        }
+      ],
+      "title": "All Objects: ${env2}",
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 38,
+  "tags": [
+    "schema-objects",
+    "comparison",
+    "postgresql"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "default",
+          "value": "default"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data Source",
+        "multi": false,
+        "name": "DS_PROFILER_METRICS",
+        "options": [],
+        "query": "postgres",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "user-service",
+          "value": "user-service"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT application FROM schema_objects ORDER BY application",
+        "includeAll": false,
+        "label": "Application",
+        "name": "application",
+        "options": [],
+        "query": "SELECT DISTINCT application FROM schema_objects ORDER BY application",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "uat",
+          "value": "uat"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT environment FROM schema_objects WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 1",
+        "name": "env1",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM schema_objects WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "production",
+          "value": "production"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT environment FROM schema_objects WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 2",
+        "name": "env2",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM schema_objects WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Schema Objects Comparison Dashboard",
+  "uid": "schema-objects-comparison-pg",
+  "version": 1
+}

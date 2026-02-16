@@ -1,0 +1,1540 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": 0,
+  "links": [],
+  "panels": [
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "# Data Comparison Dashboard\nCompare data profile metrics between two environments - using PostgreSQL backend",
+        "mode": "markdown"
+      },
+      "pluginVersion": "12.3.1",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 3
+      },
+      "id": 50,
+      "panels": [],
+      "title": "📊 Environment Summary",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 4
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT max(row_count) FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Row Count",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 4
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT max(row_count) FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Row Count",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 4
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "first"
+          ],
+          "fields": "/^profiled_at$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Profiled At",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 4
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "first"
+          ],
+          "fields": "/^profiled_at$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Profiled At",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 101,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^database_host$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Database Host",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 102,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [],
+          "fields": "/^database_host$/",
+          "values": true
+        },
+        "showPercentChange": false,
+        "textMode": "value",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Database Host",
+      "type": "stat"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 11
+      },
+      "id": 51,
+      "panels": [],
+      "title": "📈 Not Null Proportion Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Not Null"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Not Null"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.6,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.not_null_proportion as \"${env1} Not Null\", e2.not_null_proportion as \"${env2} Not Null\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Not Null Proportion: ${env1} vs ${env2}",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 52,
+      "panels": [],
+      "title": "📊 Distinct Proportion Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Distinct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Distinct"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "id": 11,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.6,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.distinct_proportion as \"${env1} Distinct\", e2.distinct_proportion as \"${env2} Distinct\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Distinct Proportion: ${env1} vs ${env2}",
+      "type": "barchart"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 53,
+      "panels": [],
+      "title": "📋 Column Details Comparison",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Not Null"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Not Null"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Distinct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Distinct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "not_null_diff"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Δ Not Null"
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": -0.05
+                    },
+                    {
+                      "color": "transparent",
+                      "value": -0.01
+                    },
+                    {
+                      "color": "transparent",
+                      "value": 0.01
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.05
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "distinct_diff"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Δ Distinct"
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "yellow",
+                      "value": -0.05
+                    },
+                    {
+                      "color": "transparent",
+                      "value": -0.01
+                    },
+                    {
+                      "color": "transparent",
+                      "value": 0.01
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.05
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Min"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Min"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Max"
+            },
+            "properties": []
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Max"
+            },
+            "properties": []
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 20,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "column_name"
+          }
+        ]
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.not_null_proportion as \"${env1} Not Null\", e2.not_null_proportion as \"${env2} Not Null\", (e2.not_null_proportion - e1.not_null_proportion) as not_null_diff, e1.distinct_proportion as \"${env1} Distinct\", e2.distinct_proportion as \"${env2} Distinct\", (e2.distinct_proportion - e1.distinct_proportion) as distinct_diff, e1.min_value as \"${env1} Min\", e2.min_value as \"${env2} Min\", e1.max_value as \"${env1} Max\", e2.max_value as \"${env2} Max\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "refId": "A"
+        }
+      ],
+      "title": "Column Metrics Comparison: ${env1} vs ${env2}",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 46
+      },
+      "id": 60,
+      "panels": [],
+      "title": "⚠️ Auto-Increment Overflow Monitoring",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 0,
+        "y": 47
+      },
+      "id": 61,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT max(usage_percentage) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Max Usage %",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 6,
+        "y": 47
+      },
+      "id": 62,
+      "options": {
+        "minVizHeight": 75,
+        "minVizWidth": 75,
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true,
+        "sizing": "auto"
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT max(usage_percentage) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Max Usage %",
+      "type": "gauge"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "Need more data"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "d"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 12,
+        "y": 47
+      },
+      "id": 63,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT min(days_until_full) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND days_until_full IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "title": "${env1} Days Until Full",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "match": "null",
+                "result": {
+                  "text": "Need more data"
+                }
+              },
+              "type": "special"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": 0
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "green",
+                "value": 90
+              }
+            ]
+          },
+          "unit": "d"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 6,
+        "x": 18,
+        "y": 47
+      },
+      "id": 64,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "min"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "SELECT min(days_until_full) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND days_until_full IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "title": "${env2} Days Until Full",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "footer": {
+              "reducers": []
+            },
+            "inspect": false
+          },
+          "mappings": [
+            {
+              "options": {
+                "CRITICAL": {
+                  "color": "red",
+                  "index": 0,
+                  "text": "🔴 CRITICAL"
+                },
+                "OK": {
+                  "color": "green",
+                  "index": 2,
+                  "text": "🟢 OK"
+                },
+                "WARNING": {
+                  "color": "yellow",
+                  "index": 1,
+                  "text": "🟡 WARNING"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Usage %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 6
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Usage %"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 6
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env1} Days Until Full"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "d"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "${env2} Days Until Full"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "d"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 53
+      },
+      "id": 65,
+      "options": {
+        "cellHeight": "sm",
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "env1_usage"
+          }
+        ]
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
+          },
+          "format": "table",
+          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.current_value as \"${env1} Current\", e2.current_value as \"${env2} Current\", e1.usage_percentage as \"${env1} Usage %\", e2.usage_percentage as \"${env2} Usage %\", e1.days_until_full as \"${env1} Days Until Full\", e2.days_until_full as \"${env2} Days Until Full\", e1.alert_status as \"${env1} Status\", e2.alert_status as \"${env2} Status\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY COALESCE(e1.usage_percentage, e2.usage_percentage) DESC NULLS LAST",
+          "refId": "A"
+        }
+      ],
+      "title": "Auto-Increment Comparison: ${env1} vs ${env2}",
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "refresh": "",
+  "schemaVersion": 42,
+  "tags": [
+    "dataprofiler",
+    "comparison",
+    "postgresql"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": false,
+          "text": "default",
+          "value": "default"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data Source",
+        "multi": false,
+        "name": "DS_PROFILER_METRICS",
+        "options": [],
+        "query": "postgres",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {
+          "text": "user-service",
+          "value": "user-service"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT application FROM data_profiles ORDER BY application",
+        "includeAll": false,
+        "label": "Application",
+        "name": "application",
+        "options": [],
+        "query": "SELECT DISTINCT application FROM data_profiles ORDER BY application",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "uat",
+          "value": "uat"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 1",
+        "name": "env1",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "production",
+          "value": "production"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "includeAll": false,
+        "label": "Environment 2",
+        "name": "env2",
+        "options": [],
+        "query": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "users",
+          "value": "users"
+        },
+        "datasource": {
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
+        },
+        "definition": "SELECT DISTINCT table_name FROM data_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "includeAll": false,
+        "label": "Table",
+        "name": "table_name",
+        "options": [],
+        "query": "SELECT DISTINCT table_name FROM data_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Data Comparison Dashboard",
+  "uid": "data-comparison-dashboard-pg",
+  "version": 2
+}

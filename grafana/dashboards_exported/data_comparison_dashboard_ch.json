@@ -18,16 +18,13 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 0,
+  "id": null,
   "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
       "gridPos": {
-        "h": 3,
+        "h": 2,
         "w": 24,
         "x": 0,
         "y": 0
@@ -39,10 +36,10 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "# Environment Comparison Dashboard (PostgreSQL)\nCompare data profile metrics between two environments - using PostgreSQL backend",
+        "content": "# Data Comparison Dashboard\nCompare data profile metrics between two environments side-by-side",
         "mode": "markdown"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "title": "",
       "transparent": true,
       "type": "text"
@@ -53,7 +50,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 3
+        "y": 2
       },
       "id": 50,
       "panels": [],
@@ -62,8 +59,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -76,7 +73,7 @@
             "steps": [
               {
                 "color": "blue",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -87,7 +84,7 @@
         "h": 4,
         "w": 6,
         "x": 0,
-        "y": 4
+        "y": 3
       },
       "id": 1,
       "options": {
@@ -95,7 +92,6 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -103,19 +99,18 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT max(row_count) FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "queryType": "sql",
+          "rawSql": "SELECT max(row_count) FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -124,8 +119,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -138,7 +133,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -149,7 +144,7 @@
         "h": 4,
         "w": 6,
         "x": 6,
-        "y": 4
+        "y": 3
       },
       "id": 2,
       "options": {
@@ -157,7 +152,6 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -165,19 +159,18 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT max(row_count) FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "queryType": "sql",
+          "rawSql": "SELECT max(row_count) FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -186,8 +179,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -200,7 +193,7 @@
             "steps": [
               {
                 "color": "blue",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -211,7 +204,7 @@
         "h": 4,
         "w": 6,
         "x": 12,
-        "y": 4
+        "y": 3
       },
       "id": 3,
       "options": {
@@ -219,7 +212,6 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "first"
@@ -227,19 +219,18 @@
           "fields": "/^profiled_at$/",
           "values": true
         },
-        "showPercentChange": false,
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "queryType": "sql",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -248,8 +239,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -262,7 +253,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -273,7 +264,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 4
+        "y": 3
       },
       "id": 4,
       "options": {
@@ -281,7 +272,6 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "first"
@@ -289,19 +279,18 @@
           "fields": "/^profiled_at$/",
           "values": true
         },
-        "showPercentChange": false,
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT max(scan_time) as profiled_at FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "queryType": "sql",
+          "rawSql": "SELECT max(scan_time) as profiled_at FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -310,8 +299,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -324,7 +313,7 @@
             "steps": [
               {
                 "color": "blue",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -335,7 +324,7 @@
         "h": 3,
         "w": 12,
         "x": 0,
-        "y": 8
+        "y": 7
       },
       "id": 101,
       "options": {
@@ -343,25 +332,23 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [],
           "fields": "/^database_host$/",
           "values": true
         },
-        "showPercentChange": false,
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
           "format": "table",
-          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "rawSql": "SELECT DISTINCT database_host FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
           "refId": "A"
         }
       ],
@@ -370,8 +357,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -384,7 +371,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -395,7 +382,7 @@
         "h": 3,
         "w": 12,
         "x": 12,
-        "y": 8
+        "y": 7
       },
       "id": 102,
       "options": {
@@ -403,25 +390,23 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [],
           "fields": "/^database_host$/",
           "values": true
         },
-        "showPercentChange": false,
         "textMode": "value",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
           "format": "table",
-          "rawSql": "SELECT DISTINCT database_host FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
+          "rawSql": "SELECT DISTINCT database_host FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} LIMIT 1",
           "refId": "A"
         }
       ],
@@ -434,7 +419,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 11
+        "y": 10
       },
       "id": 51,
       "panels": [],
@@ -443,8 +428,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -481,7 +466,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           },
@@ -491,9 +476,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Not Null"
+              "options": "env1_not_null"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1}"
+              },
               {
                 "id": "color",
                 "value": {
@@ -506,9 +495,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Not Null"
+              "options": "env2_not_null"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2}"
+              },
               {
                 "id": "color",
                 "value": {
@@ -524,7 +517,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 12
+        "y": 11
       },
       "id": 10,
       "options": {
@@ -542,22 +535,21 @@
         "showValue": "auto",
         "stacking": "none",
         "tooltip": {
-          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         },
         "xTickLabelRotation": 0,
         "xTickLabelSpacing": 0
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, not_null_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.not_null_proportion as \"${env1} Not Null\", e2.not_null_proportion as \"${env2} Not Null\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "queryType": "sql",
+          "rawSql": "SELECT e1.column_name, e1.not_null_proportion as env1_not_null, e2.not_null_proportion as env2_not_null FROM (SELECT column_name, not_null_proportion FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e1 FULL OUTER JOIN (SELECT column_name, not_null_proportion FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e2 ON e1.column_name = e2.column_name ORDER BY coalesce(e1.column_name, e2.column_name)",
           "refId": "A"
         }
       ],
@@ -570,7 +562,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 21
       },
       "id": 52,
       "panels": [],
@@ -579,8 +571,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -617,7 +609,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           },
@@ -627,9 +619,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Distinct"
+              "options": "env1_distinct"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1}"
+              },
               {
                 "id": "color",
                 "value": {
@@ -642,9 +638,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Distinct"
+              "options": "env2_distinct"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2}"
+              },
               {
                 "id": "color",
                 "value": {
@@ -660,7 +660,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 23
+        "y": 22
       },
       "id": 11,
       "options": {
@@ -678,22 +678,21 @@
         "showValue": "auto",
         "stacking": "none",
         "tooltip": {
-          "hideZeros": false,
           "mode": "multi",
           "sort": "none"
         },
         "xTickLabelRotation": 0,
         "xTickLabelSpacing": 0
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, distinct_proportion FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, e1.distinct_proportion as \"${env1} Distinct\", e2.distinct_proportion as \"${env2} Distinct\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "queryType": "sql",
+          "rawSql": "SELECT e1.column_name, e1.distinct_proportion as env1_distinct, e2.distinct_proportion as env2_distinct FROM (SELECT column_name, distinct_proportion FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e1 FULL OUTER JOIN (SELECT column_name, distinct_proportion FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e2 ON e1.column_name = e2.column_name ORDER BY coalesce(e1.column_name, e2.column_name)",
           "refId": "A"
         }
       ],
@@ -706,7 +705,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 32
       },
       "id": 53,
       "panels": [],
@@ -715,8 +714,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -728,9 +727,6 @@
             "cellOptions": {
               "type": "auto"
             },
-            "footer": {
-              "reducers": []
-            },
             "inspect": false
           },
           "mappings": [],
@@ -739,7 +735,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -748,9 +744,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Not Null"
+              "options": "env1_not_null"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1} Not Null"
+              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -760,9 +760,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Not Null"
+              "options": "env2_not_null"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2} Not Null"
+              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -772,9 +776,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Distinct"
+              "options": "env1_distinct"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1} Distinct"
+              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -784,9 +792,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Distinct"
+              "options": "env2_distinct"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2} Distinct"
+              },
               {
                 "id": "unit",
                 "value": "percentunit"
@@ -821,7 +833,7 @@
                   "steps": [
                     {
                       "color": "red",
-                      "value": 0
+                      "value": null
                     },
                     {
                       "color": "yellow",
@@ -872,7 +884,7 @@
                   "steps": [
                     {
                       "color": "red",
-                      "value": 0
+                      "value": null
                     },
                     {
                       "color": "yellow",
@@ -898,30 +910,50 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Min"
+              "options": "env1_min"
             },
-            "properties": []
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1} Min"
+              }
+            ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Min"
+              "options": "env2_min"
             },
-            "properties": []
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2} Min"
+              }
+            ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Max"
+              "options": "env1_max"
             },
-            "properties": []
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1} Max"
+              }
+            ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Max"
+              "options": "env2_max"
             },
-            "properties": []
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2} Max"
+              }
+            ]
           }
         ]
       },
@@ -929,11 +961,17 @@
         "h": 12,
         "w": 24,
         "x": 0,
-        "y": 34
+        "y": 33
       },
       "id": 20,
       "options": {
-        "cellHeight": "sm",
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
         "showHeader": true,
         "sortBy": [
           {
@@ -942,15 +980,16 @@
           }
         ]
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, not_null_proportion, distinct_proportion, min_value, max_value FROM data_profiles WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.not_null_proportion as \"${env1} Not Null\", e2.not_null_proportion as \"${env2} Not Null\", (e2.not_null_proportion - e1.not_null_proportion) as not_null_diff, e1.distinct_proportion as \"${env1} Distinct\", e2.distinct_proportion as \"${env2} Distinct\", (e2.distinct_proportion - e1.distinct_proportion) as distinct_diff, e1.min_value as \"${env1} Min\", e2.min_value as \"${env2} Min\", e1.max_value as \"${env1} Max\", e2.max_value as \"${env2} Max\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY 1",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT coalesce(e1.column_name, e2.column_name) as column_name, coalesce(e1.data_type, e2.data_type) as data_type, e1.not_null_proportion as env1_not_null, e2.not_null_proportion as env2_not_null, (e2.not_null_proportion - e1.not_null_proportion) as not_null_diff, e1.distinct_proportion as env1_distinct, e2.distinct_proportion as env2_distinct, (e2.distinct_proportion - e1.distinct_proportion) as distinct_diff, e1.min as env1_min, e2.min as env2_min, e1.max as env1_max, e2.max as env2_max FROM (SELECT column_name, data_type, not_null_proportion, distinct_proportion, min, max FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e1 FULL OUTER JOIN (SELECT column_name, data_type, not_null_proportion, distinct_proportion, min, max FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e2 ON e1.column_name = e2.column_name ORDER BY coalesce(e1.column_name, e2.column_name)",
           "refId": "A"
         }
       ],
@@ -963,7 +1002,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 46
+        "y": 45
       },
       "id": 60,
       "panels": [],
@@ -972,8 +1011,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -988,7 +1027,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               },
               {
                 "color": "yellow",
@@ -1008,12 +1047,10 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 47
+        "y": 46
       },
       "id": 61,
       "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -1023,18 +1060,17 @@
           "values": false
         },
         "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
+        "showThresholdMarkers": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT max(usage_percentage) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
+          "queryType": "sql",
+          "rawSql": "SELECT max(usage_percentage) FROM \"default\".\"auto_increment_metrics\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -1043,8 +1079,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1059,7 +1095,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               },
               {
                 "color": "yellow",
@@ -1079,12 +1115,10 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 47
+        "y": 46
       },
       "id": 62,
       "options": {
-        "minVizHeight": 75,
-        "minVizWidth": 75,
         "orientation": "auto",
         "reduceOptions": {
           "calcs": [
@@ -1094,18 +1128,17 @@
           "values": false
         },
         "showThresholdLabels": false,
-        "showThresholdMarkers": true,
-        "sizing": "auto"
+        "showThresholdMarkers": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT max(usage_percentage) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
+          "queryType": "sql",
+          "rawSql": "SELECT max(usage_percentage) FROM \"default\".\"auto_increment_metrics\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote}",
           "refId": "A"
         }
       ],
@@ -1114,8 +1147,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1138,7 +1171,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": 0
+                "value": null
               },
               {
                 "color": "yellow",
@@ -1158,7 +1191,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 47
+        "y": 46
       },
       "id": 63,
       "options": {
@@ -1166,7 +1199,6 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "min"
@@ -1174,19 +1206,17 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
+        "textMode": "auto"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT min(days_until_full) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND days_until_full IS NOT NULL",
+          "queryType": "sql",
+          "rawSql": "SELECT min(days_until_full) FROM \"default\".\"auto_increment_metrics\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} AND days_until_full IS NOT NULL",
           "refId": "A"
         }
       ],
@@ -1195,8 +1225,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1219,7 +1249,7 @@
             "steps": [
               {
                 "color": "red",
-                "value": 0
+                "value": null
               },
               {
                 "color": "yellow",
@@ -1239,7 +1269,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 47
+        "y": 46
       },
       "id": 64,
       "options": {
@@ -1247,7 +1277,6 @@
         "graphMode": "none",
         "justifyMode": "auto",
         "orientation": "auto",
-        "percentChangeColorMode": "standard",
         "reduceOptions": {
           "calcs": [
             "min"
@@ -1255,19 +1284,17 @@
           "fields": "",
           "values": false
         },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
+        "textMode": "auto"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "SELECT min(days_until_full) FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND days_until_full IS NOT NULL",
+          "queryType": "sql",
+          "rawSql": "SELECT min(days_until_full) FROM \"default\".\"auto_increment_metrics\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} AND days_until_full IS NOT NULL",
           "refId": "A"
         }
       ],
@@ -1276,8 +1303,8 @@
     },
     {
       "datasource": {
-        "type": "postgres",
-        "uid": "${DS_DATAPROFILER_POSTGRES}"
+        "type": "datasource",
+        "uid": "${DS_PROFILER_METRICS}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1288,9 +1315,6 @@
             "align": "auto",
             "cellOptions": {
               "type": "auto"
-            },
-            "footer": {
-              "reducers": []
             },
             "inspect": false
           },
@@ -1321,7 +1345,7 @@
             "steps": [
               {
                 "color": "green",
-                "value": 0
+                "value": null
               }
             ]
           }
@@ -1330,9 +1354,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Usage %"
+              "options": "env1_usage"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1} Usage %"
+              },
               {
                 "id": "unit",
                 "value": "percent"
@@ -1346,9 +1374,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Usage %"
+              "options": "env2_usage"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2} Usage %"
+              },
               {
                 "id": "unit",
                 "value": "percent"
@@ -1362,9 +1394,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env1} Days Until Full"
+              "options": "env1_days"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env1} Days Until Full"
+              },
               {
                 "id": "unit",
                 "value": "d"
@@ -1374,9 +1410,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "${env2} Days Until Full"
+              "options": "env2_days"
             },
             "properties": [
+              {
+                "id": "displayName",
+                "value": "${env2} Days Until Full"
+              },
               {
                 "id": "unit",
                 "value": "d"
@@ -1389,11 +1429,17 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 52
       },
       "id": 65,
       "options": {
-        "cellHeight": "sm",
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
         "showHeader": true,
         "sortBy": [
           {
@@ -1402,15 +1448,16 @@
           }
         ]
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "10.0.0",
       "targets": [
         {
           "datasource": {
-            "type": "postgres",
-            "uid": "${DS_DATAPROFILER_POSTGRES}"
+            "type": "datasource",
+            "uid": "${DS_PROFILER_METRICS}"
           },
-          "format": "table",
-          "rawSql": "WITH e1 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC), e2 AS (SELECT DISTINCT ON (column_name) column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM auto_increment_metrics WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY column_name, scan_time DESC) SELECT COALESCE(e1.column_name, e2.column_name) as column_name, COALESCE(e1.data_type, e2.data_type) as data_type, e1.current_value as \"${env1} Current\", e2.current_value as \"${env2} Current\", e1.usage_percentage as \"${env1} Usage %\", e2.usage_percentage as \"${env2} Usage %\", e1.days_until_full as \"${env1} Days Until Full\", e2.days_until_full as \"${env2} Days Until Full\", e1.alert_status as \"${env1} Status\", e2.alert_status as \"${env2} Status\" FROM e1 FULL OUTER JOIN e2 ON e1.column_name = e2.column_name ORDER BY COALESCE(e1.usage_percentage, e2.usage_percentage) DESC NULLS LAST",
+          "format": 1,
+          "queryType": "sql",
+          "rawSql": "SELECT coalesce(e1.column_name, e2.column_name) as column_name, coalesce(e1.data_type, e2.data_type) as data_type, e1.current_value as env1_current, e2.current_value as env2_current, e1.usage_percentage as env1_usage, e2.usage_percentage as env2_usage, e1.days_until_full as env1_days, e2.days_until_full as env2_days, e1.alert_status as env1_status, e2.alert_status as env2_status FROM (SELECT column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM \"default\".\"auto_increment_metrics\" WHERE application = ${application:singlequote} AND environment = ${env1:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e1 FULL OUTER JOIN (SELECT column_name, data_type, current_value, usage_percentage, days_until_full, alert_status FROM \"default\".\"auto_increment_metrics\" WHERE application = ${application:singlequote} AND environment = ${env2:singlequote} AND table_name = ${table_name:singlequote} ORDER BY scan_time DESC LIMIT 1 BY column_name) e2 ON e1.column_name = e2.column_name ORDER BY coalesce(e1.usage_percentage, e2.usage_percentage) DESC",
           "refId": "A"
         }
       ],
@@ -1418,93 +1465,110 @@
       "type": "table"
     }
   ],
-  "preload": false,
-  "refresh": "",
-  "schemaVersion": 42,
+  "schemaVersion": 38,
+  "style": "dark",
   "tags": [
+    "clickhouse",
     "dataprofiler",
-    "comparison",
-    "postgresql"
+    "comparison"
   ],
   "templating": {
     "list": [
       {
         "current": {
-          "text": "user-service",
-          "value": "user-service"
+          "selected": false,
+          "text": "default",
+          "value": "default"
         },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data Source",
+        "multi": false,
+        "name": "DS_PROFILER_METRICS",
+        "options": [],
+        "query": "grafana-clickhouse-datasource",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      },
+      {
+        "current": {},
         "datasource": {
-          "type": "postgres",
-          "uid": "${DS_DATAPROFILER_POSTGRES}"
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
         },
-        "definition": "SELECT DISTINCT application FROM data_profiles ORDER BY application",
+        "definition": "SELECT DISTINCT application FROM \"default\".\"data_profiles\" ORDER BY application",
+        "hide": 0,
         "includeAll": false,
         "label": "Application",
+        "multi": false,
         "name": "application",
         "options": [],
-        "query": "SELECT DISTINCT application FROM data_profiles ORDER BY application",
+        "query": "SELECT DISTINCT application FROM \"default\".\"data_profiles\" ORDER BY application",
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
-        "current": {
-          "text": "uat",
-          "value": "uat"
-        },
+        "current": {},
         "datasource": {
-          "type": "postgres",
-          "uid": "${DS_DATAPROFILER_POSTGRES}"
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
         },
-        "definition": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "definition": "SELECT DISTINCT environment FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "hide": 0,
         "includeAll": false,
         "label": "Environment 1",
+        "multi": false,
         "name": "env1",
         "options": [],
-        "query": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "query": "SELECT DISTINCT environment FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
-        "current": {
-          "text": "production",
-          "value": "production"
-        },
+        "current": {},
         "datasource": {
-          "type": "postgres",
-          "uid": "${DS_DATAPROFILER_POSTGRES}"
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
         },
-        "definition": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "definition": "SELECT DISTINCT environment FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
+        "hide": 0,
         "includeAll": false,
         "label": "Environment 2",
+        "multi": false,
         "name": "env2",
         "options": [],
-        "query": "SELECT DISTINCT environment FROM data_profiles WHERE application = ${application:singlequote} ORDER BY environment",
+        "query": "SELECT DISTINCT environment FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} ORDER BY environment",
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       },
       {
-        "current": {
-          "text": "users",
-          "value": "users"
-        },
+        "current": {},
         "datasource": {
-          "type": "postgres",
-          "uid": "${DS_DATAPROFILER_POSTGRES}"
+          "type": "datasource",
+          "uid": "${DS_PROFILER_METRICS}"
         },
-        "definition": "SELECT DISTINCT table_name FROM data_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "definition": "SELECT DISTINCT table_name FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "hide": 0,
         "includeAll": false,
         "label": "Table",
+        "multi": false,
         "name": "table_name",
         "options": [],
-        "query": "SELECT DISTINCT table_name FROM data_profiles WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
+        "query": "SELECT DISTINCT table_name FROM \"default\".\"data_profiles\" WHERE application = ${application:singlequote} AND (environment = ${env1:singlequote} OR environment = ${env2:singlequote}) ORDER BY table_name",
         "refresh": 1,
         "regex": "",
+        "skipUrlSync": false,
         "sort": 1,
         "type": "query"
       }
@@ -1516,7 +1580,8 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Environment Comparison Dashboard (PostgreSQL)",
-  "uid": "env-comparison-dashboard-pg",
-  "version": 2
+  "title": "Data Comparison Dashboard",
+  "uid": "data-comparison-dashboard-ch",
+  "version": 1,
+  "weekStart": ""
 }
