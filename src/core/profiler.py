@@ -138,7 +138,7 @@ def extract_profiling_results(scan_results: dict) -> list[dict]:
     return records
 
 
-def run_profiler(table_name: str, database_type: str = 'postgresql', schema: Optional[str] = None) -> Optional[int]:
+def run_profiler(table_name: str, database_type: str = 'postgresql', schema: Optional[str] = None, debug: bool = False) -> Optional[int]:
     """
     Run the data profiler for a specific table.
     
@@ -146,6 +146,7 @@ def run_profiler(table_name: str, database_type: str = 'postgresql', schema: Opt
         table_name: Name of the table to profile
         database_type: Type of database (postgresql, mssql, mysql)
         schema: Optional schema/database name
+        debug: Enable debug logging for Soda scan
         
     Returns:
         Number of column profiles saved, or None if failed
@@ -198,6 +199,8 @@ def run_profiler(table_name: str, database_type: str = 'postgresql', schema: Opt
     logger.info("Running Soda Core scan...")
     try:
         scan = Scan()
+        if debug:
+            scan.set_verbose(True)
         
         # Select data source based on database type
         if db_type in ('postgresql', 'postgres'):

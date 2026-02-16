@@ -344,6 +344,9 @@ python main.py --table users --no-store
 # Verbose logging
 python main.py --table users -v
 
+# Debug logging (include SQL queries)
+python main.py --table users --soda-debug
+
 # Show help
 python main.py --help
 ```

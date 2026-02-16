@@ -367,6 +367,9 @@ python main.py --table users --no-store
 # Verbose logging
 python main.py --table users -v
 
+# Debug logging (รวม SQL queries)
+python main.py --table users --soda-debug
+
 # ดู help
 python main.py --help
 ```

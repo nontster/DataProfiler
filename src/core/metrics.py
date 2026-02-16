@@ -106,32 +106,38 @@ def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', s
     
     try:
         if db_type in ('postgresql', 'postgres'):
-            cur.execute("""
+            query = """
                 SELECT COALESCE(c.reltuples, 0)::bigint
                 FROM pg_class c
                 JOIN pg_namespace n ON n.oid = c.relnamespace
                 WHERE c.relname = %s AND n.nspname = %s
-            """, (table_name, target_schema))
+            """
+            logger.debug(f"Executing catalog row count query:\n{query}")
+            cur.execute(query, (table_name, target_schema))
             result = cur.fetchone()
             count = result[0] if result else 0
         
         elif db_type in ('mysql',):
-            cur.execute("""
+            query = """
                 SELECT COALESCE(TABLE_ROWS, 0)
                 FROM information_schema.tables
                 WHERE TABLE_NAME = %s AND TABLE_SCHEMA = %s
-            """, (table_name, target_schema))
+            """
+            logger.debug(f"Executing catalog row count query:\n{query}")
+            cur.execute(query, (table_name, target_schema))
             result = cur.fetchone()
             count = result[0] if result else 0
         
         elif db_type in ('mssql', 'sqlserver'):
-            cur.execute("""
+            query = """
                 SELECT COALESCE(SUM(p.rows), 0)
                 FROM sys.partitions p
                 JOIN sys.tables t ON t.object_id = p.object_id
                 JOIN sys.schemas s ON s.schema_id = t.schema_id
                 WHERE t.name = %s AND s.name = %s AND p.index_id IN (0, 1)
-            """, (table_name, target_schema))
+            """
+            logger.debug(f"Executing catalog row count query:\n{query}")
+            cur.execute(query, (table_name, target_schema))
             result = cur.fetchone()
             count = result[0] if result else 0
     
@@ -144,7 +150,9 @@ def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', s
         logger.debug(f"Catalog returned 0 for '{target_schema}.{table_name}', falling back to SELECT COUNT(*)")
         oq, cq = get_quote_char(database_type)
         try:
-            cur.execute(f'SELECT COUNT(*) FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}')
+            query = f'SELECT COUNT(*) FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}'
+            logger.debug(f"Executing fallback count query: {query}")
+            cur.execute(query)
             count = cur.fetchone()[0]
         except Exception as e:
             logger.error(f"Fallback COUNT(*) also failed for '{target_schema}.{table_name}': {e}")
@@ -234,6 +242,7 @@ def calculate_column_metrics(
         FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
     '''
     
+    logger.debug(f"Executing base metrics query for {column_name}:\n{base_query}")
     cur.execute(base_query)
     base_result = cur.fetchone()
     not_null_count = base_result[0]
@@ -271,6 +280,7 @@ def calculate_column_metrics(
                         CAST(MAX({oq}{column_name}{cq}) AS NVARCHAR(MAX))
                     FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
+            logger.debug(f"Executing min/max query for {column_name}:\n{minmax_query}")
             cur.execute(minmax_query)
             minmax_result = cur.fetchone()
             min_value = minmax_result[0]
@@ -322,6 +332,7 @@ def calculate_column_metrics(
                         STDEV({oq}{column_name}{cq})
                     FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
+            logger.debug(f"Executing numeric metrics query for {column_name}:\n{numeric_query}")
             cur.execute(numeric_query)
             numeric_result = cur.fetchone()
             avg = numeric_result[0]

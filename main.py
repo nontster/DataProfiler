@@ -155,6 +155,12 @@ Examples:
         help='Run data profiling (column-level statistics). Requires --table.'
     )
 
+    parser.add_argument(
+        '--soda-debug',
+        action='store_true',
+        help='Enable DEBUG logging for Soda Core'
+    )
+
     return parser.parse_args()
 
 
@@ -214,7 +220,8 @@ def run_profiler(
     lookback_days: int = 7,
     database_type: str = 'postgresql',
     metrics_backend: Optional[str] = None,
-    schema: Optional[str] = None
+    schema: Optional[str] = None,
+    debug: bool = False
 ) -> Optional[int]:
     """
     Run the data profiler for a specific table.
@@ -634,6 +641,10 @@ def main():
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
+    if args.soda_debug:
+        logging.getLogger("soda").setLevel(logging.DEBUG)
+        logging.getLogger("src.core.metrics").setLevel(logging.DEBUG)
+    
     # Validate configuration
     Config.validate()
     
@@ -750,7 +761,9 @@ def main():
                     lookback_days=args.lookback_days,
                     database_type=args.database_type,
                     metrics_backend=metrics_backend,
-                    schema=args.schema
+                    schema=args.schema,
+                    # Pass the debug flag to trigger scan.set_verbose(True)
+                    debug=args.soda_debug
                 )
                 
                 # Run auto-increment analysis if requested
