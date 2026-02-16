@@ -126,8 +126,8 @@ def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', s
         
         elif db_type in ('mssql', 'sqlserver'):
             cur.execute("""
-                SELECT COALESCE(SUM(p.row_count), 0)
-                FROM sys.dm_db_partition_stats p
+                SELECT COALESCE(SUM(p.rows), 0)
+                FROM sys.partitions p
                 JOIN sys.tables t ON t.object_id = p.object_id
                 JOIN sys.schemas s ON s.schema_id = t.schema_id
                 WHERE t.name = %s AND s.name = %s AND p.index_id IN (0, 1)

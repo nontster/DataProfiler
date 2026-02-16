@@ -16,7 +16,8 @@ from src.exceptions import TableNotFoundError, DatabaseConnectionError
 logger = logging.getLogger(__name__)
 
 # Data types not supported for profiling
-UNSUPPORTED_TYPES = [
+# Data types not supported for profiling
+POSTGRES_UNSUPPORTED_TYPES = [
     'timestamp', 
     'timestamp without time zone', 
     'date', 
@@ -24,18 +25,54 @@ UNSUPPORTED_TYPES = [
     'boolean'
 ]
 
+MSSQL_UNSUPPORTED_TYPES = [
+    'timestamp',  # binary rowversion
+    'ntext',
+    'text',
+    'image',
+    'date',       # date types might need specific handling or be supported
+    'time',
+    'datetime2',
+    'datetimeoffset',
+    'smalldatetime',
+    'xml',
+    'sql_variant',
+    'geometry',
+    'geography',
+    'hierarchyid'
+]
 
-def is_profile_supported(pg_type: str) -> bool:
+# Map database types to their unsupported list
+UNSUPPORTED_TYPES_MAP = {
+    'postgresql': POSTGRES_UNSUPPORTED_TYPES,
+    'postgres': POSTGRES_UNSUPPORTED_TYPES,
+    'mssql': MSSQL_UNSUPPORTED_TYPES,
+    'sqlserver': MSSQL_UNSUPPORTED_TYPES,
+    'mysql': []  # Add MySQL unsupported types if needed
+}
+
+
+def is_profile_supported(col_type: str, db_type: str = 'postgresql') -> bool:
     """
-    Check if a PostgreSQL data type is supported for profiling.
+    Check if a data type is supported for profiling for the given database type.
     
     Args:
-        pg_type: PostgreSQL data type name
+        col_type: Data type name
+        db_type: Database type (postgresql, mssql, etc.)
         
     Returns:
         bool: True if type is supported
     """
-    return pg_type not in UNSUPPORTED_TYPES
+    # Normalize db_type
+    db_type = db_type.lower()
+    
+    # Normalize col_type for case-insensitive comparison
+    col_type = col_type.lower().strip()
+    
+    # Get unsupported list for this db type, default to Postgres if unknown
+    unsupported_list = UNSUPPORTED_TYPES_MAP.get(db_type, POSTGRES_UNSUPPORTED_TYPES)
+    
+    return col_type not in unsupported_list
 
 
 def generate_sodacl_yaml(table_name: str, columns: list[dict]) -> str:
@@ -140,8 +177,8 @@ def run_profiler(table_name: str, database_type: str = 'postgresql', schema: Opt
         return 0
     
     # Step 3: Filter supported columns
-    profile_columns = [c for c in all_columns if is_profile_supported(c['type'])]
-    skipped_columns = [c for c in all_columns if not is_profile_supported(c['type'])]
+    profile_columns = [c for c in all_columns if is_profile_supported(c['type'], db_type)]
+    skipped_columns = [c for c in all_columns if not is_profile_supported(c['type'], db_type)]
     
     if skipped_columns:
         logger.info(f"Skipping {len(skipped_columns)} unsupported columns: "
