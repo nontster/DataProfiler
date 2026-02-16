@@ -464,6 +464,10 @@ python scripts/export_dashboards.py
 
 สคริปต์จะสร้างโฟลเดอร์ `grafana/dashboards_exported` ที่บรรจุไฟล์ JSON ที่ถูกปรับแก้แล้ว
 
+**ฟีเจอร์หลัก:**
+*   **Dynamic Data Source:** ระบุประเภท Data Source อัตโนมัติจากชื่อไฟล์ (`_ch` -> ClickHouse, `_pg` -> PostgreSQL) และตั้งเป็นค่าเริ่มต้น
+*   **Import Flexibility:** เพิ่มตัวแปร `DS_PROFILER_METRICS` (Template Variable) ทำให้สามารถเลือก Data Source ปลายทางได้ตอน Import
+
 ## 📁 Project Structure
 
 ```
@@ -786,6 +790,41 @@ flowchart LR
 4. **Result Storage** - บันทึกผลลัพธ์ลง ClickHouse table `data_profiles`
 5. **Auto-Increment Analysis** - วิเคราะห์ auto-increment columns ด้วย Linear Regression
 6. **Overflow Prediction** - ทำนายและบันทึกความเสี่ยงลง `autoincrement_profiles`
+
+## 🐳 Docker Standalone Image
+
+คุณสามารถรัน DataProfiler เป็น Docker container แบบ standalone ได้ ซึ่งเหมาะสำหรับ CI/CD pipelines หรือ environment ที่ไม่ต้องการ full stack
+
+### Pull Image
+
+```bash
+docker pull nontster/data-profiler:latest
+```
+
+> **หมายเหตุ:** Image รองรับทั้ง `linux/amd64` และ `linux/arm64`
+
+### Run Container
+
+สามารถส่ง environment variables ไปยัง container โดยตรงเพื่อกำหนดค่าการเชื่อมต่อ
+
+```bash
+# ตัวอย่าง: Profile MSSQL และเก็บ metrics ลง PostgreSQL
+docker run --rm \
+  -e MSSQL_HOST=host.docker.internal \
+  -e MSSQL_PORT=1433 \
+  -e MSSQL_DATABASE=testdb \
+  -e MSSQL_USER=sa \
+  -e MSSQL_PASSWORD='YourStrong@Password123' \
+  -e MSSQL_SCHEMA=dbo \
+  -e METRICS_BACKEND=postgresql \
+  -e PG_METRICS_HOST=host.docker.internal \
+  -e PG_METRICS_PORT=5433 \
+  -e PG_METRICS_DATABASE=profiler_metrics \
+  -e PG_METRICS_USER=postgres \
+  -e PG_METRICS_PASSWORD='password123' \
+  nontster/data-profiler \
+  --data-profile -d mssql -t users,products --app user-service --env uat
+```
 
 ## 🐳 Docker Full Stack Environment
 

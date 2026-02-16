@@ -431,6 +431,10 @@ python scripts/export_dashboards.py
 
 This will create a `grafana/dashboards_exported` directory containing the sanitized JSON files.
 
+**Key Features:**
+*   **Dynamic Data Source:** Identifies the data source type from the filename (`_ch` -> ClickHouse, `_pg` -> PostgreSQL) and sets it as the default.
+*   **Import Flexibility:** Injects a `DS_PROFILER_METRICS` template variable, allowing you to select the target data source during import.
+
 ## 📁 Project Structure
 
 ```
@@ -763,6 +767,41 @@ profiler_<CTM_ORDERID>.log
 ```
 
 Control-M variables `CTM_JOBNAME` and `CTM_ORDERID` are automatically used for job identification in logs.
+
+## 🐳 Docker Standalone Image
+    
+You can run DataProfiler as a standalone Docker container, useful for CI/CD pipelines or running in environments where you don't need the full stack.
+
+### Pull Image
+
+```bash
+docker pull nontster/data-profiler:latest
+```
+
+> **Note:** The image supports `linux/amd64` and `linux/arm64`.
+
+### Run Container
+
+You can pass environment variables directly to the container to configure the connection.
+
+```bash
+# Example: Profile MSSQL and store metrics in PostgreSQL
+docker run --rm \
+  -e MSSQL_HOST=host.docker.internal \
+  -e MSSQL_PORT=1433 \
+  -e MSSQL_DATABASE=testdb \
+  -e MSSQL_USER=sa \
+  -e MSSQL_PASSWORD='YourStrong@Password123' \
+  -e MSSQL_SCHEMA=dbo \
+  -e METRICS_BACKEND=postgresql \
+  -e PG_METRICS_HOST=host.docker.internal \
+  -e PG_METRICS_PORT=5433 \
+  -e PG_METRICS_DATABASE=profiler_metrics \
+  -e PG_METRICS_USER=postgres \
+  -e PG_METRICS_PASSWORD='password123' \
+  nontster/data-profiler \
+  --data-profile -d mssql -t users,products --app user-service --env uat
+```
 
 ## 🐳 Docker Full Stack Environment
 

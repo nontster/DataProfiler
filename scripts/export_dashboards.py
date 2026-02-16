@@ -3,21 +3,114 @@ import json
 import os
 import glob
 
-def sanitize_dashboard(dashboard_json):
+def add_datasource_variable(dashboard_json, filename):
     """
-    Recursively remove '(PostgreSQL)' and '(ClickHouse)' from string values in the JSON.
+    Add a datasource template variable to the dashboard.
+    Determines the datasource type (query) based on the filename suffix.
     """
-    if isinstance(dashboard_json, dict):
-        return {k: sanitize_dashboard(v) for k, v in dashboard_json.items()}
-    elif isinstance(dashboard_json, list):
-        return [sanitize_dashboard(i) for i in dashboard_json]
-    elif isinstance(dashboard_json, str):
-        # Remove target strings
-        sanitized = dashboard_json.replace(" (PostgreSQL)", "").replace(" (ClickHouse)", "")
-        sanitized = sanitized.replace("(PostgreSQL)", "").replace("(ClickHouse)", "")
-        return sanitized
+    
+    # Determine datasource type based on filename suffix
+    # Default to prometheus as a placeholder if neither matches, or maybe just 'datasource'
+    ds_query = "datasource" 
+    if filename.endswith("_ch.json"):
+        ds_query = "grafana-clickhouse-datasource"
+    elif filename.endswith("_pg.json"):
+        ds_query = "postgres"
+    
+    ds_variable = {
+        "current": {
+            "selected": False,
+            "text": "default",
+            "value": "default"
+        },
+        "hide": 0,
+        "includeAll": False,
+        "label": "Data Source",
+        "multi": False,
+        "name": "DS_PROFILER_METRICS",
+        "options": [],
+        "query": ds_query,
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": False,
+        "type": "datasource"
+    }
+
+    if "templating" not in dashboard_json:
+        dashboard_json["templating"] = {"list": []}
+    
+    if "list" not in dashboard_json["templating"]:
+        dashboard_json["templating"]["list"] = []
+
+    # Check if variable already exists
+    for var in dashboard_json["templating"]["list"]:
+        if var.get("name") == "DS_PROFILER_METRICS":
+            # Update the query type if it exists but might be wrong? 
+            # Better to just update it.
+            var["query"] = ds_query
+            return dashboard_json
+
+    # Prepend the datasource variable
+    dashboard_json["templating"]["list"].insert(0, ds_variable)
+    return dashboard_json
+
+
+def replace_datasource_recursive(data):
+    """
+    Recursively replace datasource references with the template variable.
+    """
+    if isinstance(data, dict):
+        new_data = {}
+        for k, v in data.items():
+            if k == "datasource" and isinstance(v, dict) and "uid" in v and v["uid"] != "-- Grafana --":
+                 # Replace the datasource object value
+                 new_data[k] = {
+                     "type": "datasource",
+                     "uid": "${DS_PROFILER_METRICS}"
+                 }
+            elif k == "datasource" and isinstance(v, str) and v != "-- Grafana --" and "${" not in v:
+                 # Legacy string data source handling
+                 new_data[k] = "${DS_PROFILER_METRICS}"
+            else:
+                 new_data[k] = replace_datasource_recursive(v)
+        return new_data
+    elif isinstance(data, list):
+        return [replace_datasource_recursive(i) for i in data]
     else:
-        return dashboard_json
+        return data
+
+
+def sanitize_dashboard(dashboard_json, filename):
+    """
+    Process dashboard JSON to:
+    1. Sanitize strings (remove backend suffixes).
+    2. Inject dynamic datasource variable with type based on filename.
+    3. Update datasource references.
+    """
+    # Helper for string sanitization
+    def clean_strings(data):
+        if isinstance(data, dict):
+            return {k: clean_strings(v) for k, v in data.items()}
+        elif isinstance(data, list):
+            return [clean_strings(i) for i in data]
+        elif isinstance(data, str):
+            sanitized = data.replace(" (PostgreSQL)", "").replace(" (ClickHouse)", "")
+            sanitized = sanitized.replace("(PostgreSQL)", "").replace("(ClickHouse)", "")
+            return sanitized
+        else:
+            return data
+
+    # 1. Clean strings first
+    cleaned_data = clean_strings(dashboard_json)
+    
+    # 2. Add datasource variable
+    with_var = add_datasource_variable(cleaned_data, filename)
+    
+    # 3. Replace datasource references
+    final_data = replace_datasource_recursive(with_var)
+    
+    return final_data
+
 
 def export_dashboards():
     source_dir = os.path.join(os.path.dirname(__file__), "../grafana/dashboards")
@@ -44,14 +137,7 @@ def export_dashboards():
                 dashboard_data = json.load(f)
             
             # Sanitize the dashboard data
-            sanitized_data = sanitize_dashboard(dashboard_data)
-            
-            # Modify the UID to be generic if needed, or leave as is? 
-            # The prompt didn't specify changing UIDs, but it might be good practice if importing to the same Grafana instance.
-            # For now, I'll stick to the specific requirement: removing the backend text.
-
-             # Add a tag or modify title to indicate it is an export? 
-            # The prompt just said "export dashboard for import".
+            sanitized_data = sanitize_dashboard(dashboard_data, filename)
             
             output_path = os.path.join(output_dir, filename)
             with open(output_path, 'w', encoding='utf-8') as f:
