@@ -86,6 +86,16 @@ MYSQL_MINMAX_TYPES = MYSQL_NUMERIC_TYPES + [
     'date', 'datetime', 'timestamp', 'time', 'year'
 ]
 
+# Oracle numeric types
+ORACLE_NUMERIC_TYPES = [
+    'number', 'float', 'binary_float', 'binary_double', 'integer', 'int', 'smallint', 'decimal'
+]
+
+# Oracle min/max supported types
+ORACLE_MINMAX_TYPES = ORACLE_NUMERIC_TYPES + [
+    'date', 'timestamp', 'timestamp with time zone', 'timestamp with local time zone', 'interval year to month', 'interval day to second'
+]
+
 
 def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', schema: Optional[str] = None) -> int:
     """Get approximate row count from catalog statistics (O(1), no table scan).
@@ -140,6 +150,17 @@ def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', s
             cur.execute(query, (table_name, target_schema))
             result = cur.fetchone()
             count = result[0] if result else 0
+            
+        elif db_type in ('oracle',):
+            query = """
+                SELECT NUM_ROWS 
+                FROM ALL_TABLES 
+                WHERE TABLE_NAME = :1 AND OWNER = :2
+            """
+            logger.debug(f"Executing catalog row count query:\n{query}")
+            cur.execute(query, (table_name.upper(), target_schema.upper()))
+            result = cur.fetchone()
+            count = result[0] if result and result[0] is not None else 0
     
     except Exception as e:
         logger.warning(f"Catalog row count query failed for '{target_schema}.{table_name}': {e}")
@@ -151,6 +172,9 @@ def get_row_count(table_name: str, database_type: DatabaseType = 'postgresql', s
         oq, cq = get_quote_char(database_type)
         try:
             query = f'SELECT COUNT(*) FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}'
+            if db_type == 'oracle':
+                 query = f'SELECT COUNT(*) FROM {target_schema.upper()}.{table_name.upper()}'
+            
             logger.debug(f"Executing fallback count query: {query}")
             cur.execute(query)
             count = cur.fetchone()[0]
@@ -176,6 +200,8 @@ def is_numeric_type(data_type: str, database_type: DatabaseType = 'postgresql') 
         numeric_types = MSSQL_NUMERIC_TYPES
     elif db_type in ('mysql',):
         numeric_types = MYSQL_NUMERIC_TYPES
+    elif db_type in ('oracle',):
+        numeric_types = ORACLE_NUMERIC_TYPES
     else:
         numeric_types = POSTGRES_NUMERIC_TYPES
     
@@ -195,6 +221,8 @@ def is_minmax_supported(data_type: str, database_type: DatabaseType = 'postgresq
         supported_types = MSSQL_MINMAX_TYPES
     elif db_type in ('mysql',):
         supported_types = MYSQL_MINMAX_TYPES
+    elif db_type in ('oracle',):
+        supported_types = ORACLE_MINMAX_TYPES
     else:
         supported_types = POSTGRES_MINMAX_TYPES
     
@@ -229,6 +257,11 @@ def calculate_column_metrics(
     target_schema = schema or get_schema(database_type) or ('public' if database_type == 'postgresql' else 'dbo')
     oq, cq = get_quote_char(database_type)
     db_type = database_type.lower()
+    
+    if db_type == 'oracle':
+        table_name = table_name.upper()
+        if target_schema:
+            target_schema = target_schema.upper()
     
     # Build the metrics query
     is_numeric = is_numeric_type(data_type, database_type)
@@ -271,6 +304,15 @@ def calculate_column_metrics(
                     SELECT 
                         CAST(MIN({oq}{column_name}{cq}) AS CHAR),
                         CAST(MAX({oq}{column_name}{cq}) AS CHAR)
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
+                '''
+            elif db_type in ('oracle',):
+                # Oracle min/max logic
+                # Cast to string safely
+                minmax_query = f'''
+                    SELECT 
+                        TO_CHAR(MIN({oq}{column_name}{cq})),
+                        TO_CHAR(MAX({oq}{column_name}{cq}))
                     FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
                 '''
             else:  # MSSQL
@@ -319,6 +361,15 @@ def calculate_column_metrics(
                     SELECT 
                         AVG({oq}{column_name}{cq}),
                         NULL, -- Median not supported
+                        STDDEV_POP({oq}{column_name}{cq}),
+                        STDDEV_SAMP({oq}{column_name}{cq})
+                    FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}
+                '''
+            elif db_type in ('oracle',):
+                numeric_query = f'''
+                    SELECT 
+                        AVG({oq}{column_name}{cq}),
+                        MEDIAN({oq}{column_name}{cq}),
                         STDDEV_POP({oq}{column_name}{cq}),
                         STDDEV_SAMP({oq}{column_name}{cq})
                     FROM {oq}{target_schema}{cq}.{oq}{table_name}{cq}

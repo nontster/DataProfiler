@@ -1294,6 +1294,428 @@ class MySQLSchemaExtractor(SchemaExtractor):
         return triggers
 
 
+
+class OracleSchemaExtractor(SchemaExtractor):
+    """Extract schema from Oracle databases."""
+    
+    def __init__(self, connection):
+        """
+        Initialize with an oracledb connection.
+        
+        Args:
+            connection: Active oracledb connection
+        """
+        self.connection = connection
+        self.host = Config.ORACLE_HOST
+        # Oracle uses service name usually, but we keep the structure generic
+        self.database = Config.ORACLE_SERVICE_NAME
+    
+    def extract_table_schema(
+        self,
+        table_name: str,
+        schema_name: Optional[str] = None
+    ) -> TableSchema:
+        """Extract complete schema for an Oracle table."""
+        schema_name = (schema_name or Config.ORACLE_SCHEMA or 'USER').upper()
+        
+        schema = TableSchema(
+            table_name=table_name,
+            database_host=self.host,
+            database_name=self.database,
+            schema_name=schema_name,
+        )
+        
+        schema.columns = self._extract_columns(table_name, schema_name)
+        schema.primary_key = self._extract_primary_key(table_name, schema_name)
+        schema.indexes = self._extract_indexes(table_name, schema_name)
+        schema.foreign_keys = self._extract_foreign_keys(table_name, schema_name)
+        schema.check_constraints = self._extract_check_constraints(table_name, schema_name)
+        
+        logger.info(f"Extracted schema for {schema_name}.{table_name}: "
+                   f"{len(schema.columns)} columns, {len(schema.indexes)} indexes, "
+                   f"{len(schema.foreign_keys)} FKs")
+        
+        return schema
+    
+    def _extract_columns(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> dict[str, ColumnSchema]:
+        """Extract column definitions."""
+        query = """
+            SELECT 
+                column_name,
+                data_type,
+                nullable,
+                data_default,
+                data_length,
+                data_precision,
+                data_scale
+            FROM all_tab_columns
+            WHERE owner = :1 AND table_name = :2
+            ORDER BY column_id
+        """
+        
+        columns = {}
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name.upper()))
+            for row in cursor.fetchall():
+                col_name, data_type, nullable, default, max_len, precision, scale = row
+                
+                # Format type
+                full_type = data_type.lower()
+                if max_len and data_type in ('VARCHAR2', 'CHAR', 'NVARCHAR2', 'NCHAR'):
+                    full_type = f"{full_type}({max_len})"
+                elif precision and data_type in ('NUMBER',):
+                    full_type = f"{full_type}({precision},{scale or 0})"
+                
+                # Handle default value (Oracle returns it as LONG sometimes or string)
+                default_val = str(default) if default is not None else None
+                
+                columns[col_name] = ColumnSchema(
+                    name=col_name,
+                    data_type=full_type,
+                    is_nullable=(nullable == 'Y'),
+                    default_value=default_val,
+                    max_length=max_len,
+                    numeric_precision=precision,
+                    numeric_scale=scale,
+                )
+        finally:
+            cursor.close()
+        
+        return columns
+    
+    def _extract_primary_key(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> Optional[tuple[str, ...]]:
+        """Extract primary key columns."""
+        query = """
+            SELECT ALL_CONS_COLUMNS.COLUMN_NAME
+            FROM ALL_CONSTRAINTS
+            JOIN ALL_CONS_COLUMNS ON ALL_CONSTRAINTS.CONSTRAINT_NAME = ALL_CONS_COLUMNS.CONSTRAINT_NAME
+                AND ALL_CONSTRAINTS.OWNER = ALL_CONS_COLUMNS.OWNER
+            WHERE ALL_CONSTRAINTS.CONSTRAINT_TYPE = 'P'
+                AND ALL_CONSTRAINTS.OWNER = :1
+                AND ALL_CONSTRAINTS.TABLE_NAME = :2
+            ORDER BY ALL_CONS_COLUMNS.POSITION
+        """
+        
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name.upper()))
+            columns = [row[0] for row in cursor.fetchall()]
+            return tuple(columns) if columns else None
+        finally:
+            cursor.close()
+    
+    def _extract_indexes(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> list[IndexSchema]:
+        """Extract index definitions (excluding PK)."""
+        # First find PK constraint name to exclude its index
+        pk_query = """
+            SELECT INDEX_NAME FROM ALL_CONSTRAINTS 
+            WHERE OWNER = :1 AND TABLE_NAME = :2 AND CONSTRAINT_TYPE = 'P'
+        """
+        
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(pk_query, (schema_name, table_name.upper()))
+            pk_idx_row = cursor.fetchone()
+            pk_index = pk_idx_row[0] if pk_idx_row else None
+            
+            # Fetch indexes
+            query = """
+                SELECT 
+                    ai.INDEX_NAME,
+                    aic.COLUMN_NAME,
+                    ai.UNIQUENESS,
+                    ai.INDEX_TYPE
+                FROM ALL_INDEXES ai
+                JOIN ALL_IND_COLUMNS aic ON ai.INDEX_NAME = aic.INDEX_NAME AND ai.OWNER = aic.INDEX_OWNER
+                WHERE ai.OWNER = :1 AND ai.TABLE_NAME = :2
+                ORDER BY ai.INDEX_NAME, aic.COLUMN_POSITION
+            """
+            
+            cursor.execute(query, (schema_name, table_name.upper()))
+            
+            indexes_map = {}
+            for row in cursor.fetchall():
+                idx_name, col_name, uniqueness, idx_type = row
+                
+                # Skip PK index
+                if idx_name == pk_index:
+                    continue
+                    
+                if idx_name not in indexes_map:
+                    indexes_map[idx_name] = {
+                        'columns': [],
+                        'unique': uniqueness == 'UNIQUE',
+                        'type': idx_type
+                    }
+                indexes_map[idx_name]['columns'].append(col_name)
+            
+            indexes = []
+            for name, info in indexes_map.items():
+                indexes.append(IndexSchema(
+                    name=name,
+                    columns=tuple(info['columns']),
+                    is_unique=info['unique'],
+                    index_type=info['type']
+                ))
+            return indexes
+            
+        finally:
+            cursor.close()
+    
+    def _extract_foreign_keys(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> list[ForeignKeySchema]:
+        """Extract foreign key definitions."""
+        query = """
+            SELECT 
+                ac.CONSTRAINT_NAME,
+                acc.COLUMN_NAME,
+                r_ac.OWNER AS REF_OWNER,
+                r_ac.TABLE_NAME AS REF_TABLE,
+                ac.DELETE_RULE
+            FROM ALL_CONSTRAINTS ac
+            JOIN ALL_CONS_COLUMNS acc ON ac.CONSTRAINT_NAME = acc.CONSTRAINT_NAME 
+                AND ac.OWNER = acc.OWNER
+            JOIN ALL_CONSTRAINTS r_ac ON ac.R_CONSTRAINT_NAME = r_ac.CONSTRAINT_NAME 
+                AND ac.R_OWNER = r_ac.OWNER
+            WHERE ac.CONSTRAINT_TYPE = 'R'
+                AND ac.OWNER = :1
+                AND ac.TABLE_NAME = :2
+            ORDER BY ac.CONSTRAINT_NAME, acc.POSITION
+        """
+        
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name.upper()))
+            
+            fk_map = {}
+            for row in cursor.fetchall():
+                name, col, ref_owner, ref_table, del_rule = row
+                
+                if name not in fk_map:
+                    fk_map[name] = {
+                        'columns': [],
+                        'ref_table': f"{ref_owner}.{ref_table}" if ref_owner != schema_name else ref_table,
+                        'del_rule': del_rule,
+                        # Getting referenced columns in Oracle is tricky without joining ALL_CONS_COLUMNS for remote constraint too.
+                        # For simplicity in this iteration, we might assume same order or fetch separately.
+                        # Let's fetch referenced columns separately.
+                    }
+                fk_map[name]['columns'].append(col)
+            
+            # Populate referenced columns
+            foreign_keys = []
+            for name, info in fk_map.items():
+                # Get referenced columns
+                ref_query = """
+                    SELECT acc.COLUMN_NAME
+                    FROM ALL_CONSTRAINTS ac
+                    JOIN ALL_CONSTRAINTS r_ac ON ac.R_CONSTRAINT_NAME = r_ac.CONSTRAINT_NAME
+                        AND ac.R_OWNER = r_ac.OWNER
+                    JOIN ALL_CONS_COLUMNS acc ON r_ac.CONSTRAINT_NAME = acc.CONSTRAINT_NAME
+                        AND r_ac.OWNER = acc.OWNER
+                    WHERE ac.CONSTRAINT_NAME = :1 AND ac.OWNER = :2
+                    ORDER BY acc.POSITION
+                """
+                cursor.execute(ref_query, (name, schema_name))
+                ref_cols = [r[0] for r in cursor.fetchall()]
+                
+                foreign_keys.append(ForeignKeySchema(
+                    name=name,
+                    columns=tuple(info['columns']),
+                    referenced_table=info['ref_table'],
+                    referenced_columns=tuple(ref_cols),
+                    on_delete=info['del_rule'],
+                    on_update='NO ACTION' # Oracle doesn't standardly support ON UPDATE CASCADE
+                ))
+                
+            return foreign_keys
+        finally:
+            cursor.close()
+    
+    def _extract_check_constraints(
+        self,
+        table_name: str,
+        schema_name: str
+    ) -> list[CheckConstraintSchema]:
+        """Extract check constraint definitions."""
+        query = """
+            SELECT CONSTRAINT_NAME, SEARCH_CONDITION_VC
+            FROM ALL_CONSTRAINTS
+            WHERE OWNER = :1 AND TABLE_NAME = :2 AND CONSTRAINT_TYPE = 'C'
+        """
+        
+        constraints = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name, table_name.upper()))
+            for row in cursor.fetchall():
+                name, expression = row
+                # Filter out "IS NOT NULL" checks which are standard
+                if expression and "IS NOT NULL" not in str(expression):
+                    constraints.append(CheckConstraintSchema(
+                        name=name,
+                        expression=str(expression),
+                    ))
+        finally:
+            cursor.close()
+        
+        return constraints
+    
+    def extract_stored_procedures(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[StoredProcedureSchema]:
+        """Extract stored procedures from Oracle."""
+        schema_name = (schema_name or Config.ORACLE_SCHEMA or 'USER').upper()
+        # Note: Oracle source is in ALL_SOURCE
+        query = """
+            SELECT OBJECT_NAME, OBJECT_TYPE
+            FROM ALL_OBJECTS
+            WHERE OWNER = :1 AND OBJECT_TYPE IN ('PROCEDURE', 'FUNCTION')
+            ORDER BY OBJECT_NAME
+        """
+        
+        procedures = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, obj_type = row
+                
+                # Fetch definition
+                src_query = """
+                    SELECT TEXT FROM ALL_SOURCE 
+                    WHERE OWNER = :1 AND NAME = :2 AND TYPE = :3 
+                    ORDER BY LINE
+                """
+                cursor2 = self.connection.cursor()
+                try:
+                    cursor2.execute(src_query, (schema_name, name, obj_type))
+                    definition = "".join([r[0] for r in cursor2.fetchall()])
+                finally:
+                    cursor2.close()
+                
+                procedures.append(StoredProcedureSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    language='plsql',
+                    parameter_list='', # Parsing args in Oracle is complex
+                    return_type='',
+                    definition_hash=_md5_hash(definition),
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract stored procedures: {e}")
+        finally:
+            cursor.close()
+        
+        return procedures
+    
+    def extract_views(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[ViewSchema]:
+        """Extract views from Oracle."""
+        schema_name = (schema_name or Config.ORACLE_SCHEMA or 'USER').upper()
+        query = """
+            SELECT VIEW_NAME, TEXT
+            FROM ALL_VIEWS
+            WHERE OWNER = :1
+            ORDER BY VIEW_NAME
+        """
+        
+        views = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, definition = row
+                definition = str(definition) if definition else ''
+                
+                # Get columns
+                col_query = """
+                    SELECT COLUMN_NAME FROM ALL_TAB_COLUMNS 
+                    WHERE OWNER = :1 AND TABLE_NAME = :2 
+                    ORDER BY COLUMN_ID
+                """
+                cursor2 = self.connection.cursor()
+                try:
+                    cursor2.execute(col_query, (schema_name, name))
+                    cols = ','.join([r[0] for r in cursor2.fetchall()])
+                finally:
+                    cursor2.close()
+                
+                views.append(ViewSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    definition_hash=_md5_hash(definition),
+                    is_materialized=False,
+                    columns=cols,
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract views: {e}")
+        finally:
+            cursor.close()
+        
+        return views
+    
+    def extract_triggers(
+        self,
+        schema_name: Optional[str] = None
+    ) -> list[TriggerSchema]:
+        """Extract triggers from Oracle."""
+        schema_name = (schema_name or Config.ORACLE_SCHEMA or 'USER').upper()
+        query = """
+            SELECT 
+                TRIGGER_NAME,
+                TABLE_NAME,
+                TRIGGERING_EVENT,
+                TRIGGER_TYPE,
+                TRIGGER_BODY
+            FROM ALL_TRIGGERS
+            WHERE OWNER = :1
+            ORDER BY TRIGGER_NAME
+        """
+        
+        triggers = []
+        cursor = self.connection.cursor()
+        try:
+            cursor.execute(query, (schema_name,))
+            for row in cursor.fetchall():
+                name, table, event, timing, body = row
+                body = str(body) if body else ''
+                
+                triggers.append(TriggerSchema(
+                    name=name,
+                    schema_name=schema_name,
+                    table_name=table,
+                    event=event,
+                    timing=timing,
+                    definition_hash=_md5_hash(body),
+                ))
+        except Exception as e:
+            logger.warning(f"Could not extract triggers: {e}")
+        finally:
+            cursor.close()
+        
+        return triggers
+
+
 def get_schema_extractor(database_type: str, connection) -> SchemaExtractor:
     """
     Factory function to get appropriate schema extractor.
@@ -1311,5 +1733,7 @@ def get_schema_extractor(database_type: str, connection) -> SchemaExtractor:
         return MSSQLSchemaExtractor(connection)
     elif database_type == 'mysql':
         return MySQLSchemaExtractor(connection)
+    elif database_type == 'oracle':
+        return OracleSchemaExtractor(connection)
     else:
         raise ValueError(f"Unsupported database type: {database_type}")

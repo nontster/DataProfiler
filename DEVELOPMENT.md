@@ -365,6 +365,14 @@ docker-compose build backend && docker-compose up -d backend
 docker-compose down -v
 ```
 
+### Release Build
+
+To build the container image for both `arm64` and `amd64` architectures and push to Docker Hub:
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t nontster/data-profiler:latest -t nontster/data-profiler:1.0.2 --push .
+```
+
 ---
 
 ## 📚 References

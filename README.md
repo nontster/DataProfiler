@@ -14,7 +14,7 @@ DataProfiler provides:
 4. **Auto-Increment Overflow Risk Analysis** with growth prediction using Linear Regression
 5. **Table Inventory Collection**: Automatically discovers and records all tables per schema for drift detection
 6. **Automatic Schema Discovery** from source databases (information_schema)
-7. **Multi-Database Support**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), and MySQL
+7. **Multi-Database Support**: PostgreSQL, Microsoft SQL Server (Azure SQL Edge), MySQL, and Oracle (21c XE+)
 8. **Flexible Metrics Storage**: Choose between ClickHouse or PostgreSQL for storing results
 9. **Multiple Export Formats**: Markdown, JSON, CSV, Console Table
 10. **Web Dashboard** for data visualization (React + TailwindCSS)
@@ -76,7 +76,7 @@ DataProfiler includes **Auto-Increment Column Overflow Risk Analysis** to predic
 | `int`      | 2,147,483,647             | -2.1B to 2.1B                       |
 | `bigint`   | 9,223,372,036,854,775,807 | -9.2 quintillion to 9.2 quintillion |
 
-> **Note**: Supports both PostgreSQL SERIAL/BIGSERIAL/IDENTITY columns and MSSQL IDENTITY columns.
+> **Note**: Supports PostgreSQL SERIAL/BIGSERIAL/IDENTITY, MSSQL IDENTITY, and Oracle IDENTITY columns.
 
 ## 🏗️ Schema Profiling & Comparison
 
@@ -116,12 +116,14 @@ This allows you to detect added, removed, or modified objects between environmen
 - Python 3.10+
 - PostgreSQL and/or Microsoft SQL Server (Azure SQL Edge for ARM64/M1)
 - MySQL (v8.0+)
+- Oracle Database (19c/21c XE+)
 - ClickHouse
 - Dependencies:
   - `psycopg2` - PostgreSQL adapter
   - `pymssql` - MSSQL adapter
   - `clickhouse-connect` - ClickHouse client
   - `mysql-connector-python` - MySQL adapter
+  - `oracledb` - Oracle adapter
   - `soda-core-postgres` - Soda Core for PostgreSQL
   - `soda-core-sqlserver` - Soda Core for SQL Server
   - `jinja2` - Template engine
@@ -184,6 +186,13 @@ MYSQL_PORT=3306
 MYSQL_DATABASE=prod
 MYSQL_USER=user
 MYSQL_PASSWORD=password123
+
+# Oracle Configuration
+ORACLE_HOST=localhost
+ORACLE_PORT=1521
+ORACLE_SERVICE_NAME=XEPDB1
+ORACLE_USER=PROD
+ORACLE_PASSWORD=password123
 
 # ClickHouse Configuration
 CLICKHOUSE_HOST=localhost
@@ -263,6 +272,9 @@ python main.py --data-profile -d mssql --table users
 
 # Profile from MySQL
 python main.py --data-profile -d mysql --table users
+
+# Profile from Oracle
+python main.py --data-profile -d oracle --table users --schema PROD
 
 # Profile with Application & Environment context
 python main.py --data-profile -d mssql -t users,products --app user-service --env uat --metrics-backend postgresql
@@ -360,6 +372,7 @@ Choose which source database to profile:
 | `postgresql` | PostgreSQL (default) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
 | `mssql`      | Microsoft SQL Server | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
 | `mysql`      | MySQL                | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, etc. |
+| `oracle`     | Oracle Database      | `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE_NAME`|
 
 ```bash
 # Profile from PostgreSQL (default)
@@ -371,6 +384,9 @@ python main.py --data-profile --database-type mssql --table users
 
 # MSSQL with auto-increment analysis
 python main.py --data-profile --auto-increment -d mssql --table users
+
+# Oracle with auto-increment analysis
+python main.py --data-profile --auto-increment -d oracle --table users --schema PROD
 ```
 
 ### Metrics Backend Selection (`--metrics-backend`)
@@ -850,6 +866,7 @@ The React dashboard will display which backend is active in the header.
 - **PostgreSQL**: User: `postgres`, Pass: `password123`
 - **MSSQL**: User: `sa`, Pass: `YourStrong@Password123`
 - **MySQL**: User: `user`, Pass: `password123`
+- **Oracle**: User: `PROD` / `UAT`, Pass: `password123`
 - **ClickHouse**: User: `default`, Pass: `password123`
 
 ### Starting MSSQL (Azure SQL Edge)
@@ -869,6 +886,19 @@ python main.py --table users -d mssql --no-store
 ```
 
 > **Note**: Azure SQL Edge doesn't run init scripts automatically like PostgreSQL. Use the Python script to create test databases.
+
+### Starting Oracle (21c XE)
+
+Oracle runs as a container with pre-configured `PROD` and `UAT` users.
+
+```bash
+# Start Oracle container
+docker compose up -d oracle
+
+# Wait for startup (can take 1-2 minutes)
+# Test connection
+python main.py -d oracle --schema PROD
+```
 
 ### Stop Services
 
@@ -919,9 +949,15 @@ python init-scripts/mssql/generate-mssql-data.py --users 500 --products 200 --sc
 # Show current statistics only
 python init-scripts/mssql/generate-mssql-data.py --stats-only
 
-# For MySQL:
 # Add 100 new users to MySQL (specify schema: prod, uat, or public)
 python init-scripts/mysql/generate-mysql-data.py --schema prod --users 100
+
+# For Oracle:
+# Add 100 new users to Oracle (PROD schema)
+python init-scripts/oracle/generate-oracle-data.py --schema PROD --users 100
+
+# Add 50 new products to Oracle (UAT schema)
+python init-scripts/oracle/generate-oracle-data.py --schema UAT --products 50
 ```
 
 #### 4. View Results

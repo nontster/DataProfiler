@@ -1,0 +1,143 @@
+2026-02-17 14:12:17 - INFO - Tables to process: users, products (2 table(s))
+2026-02-17 14:12:17 - INFO - Initializing metrics backend: postgresql
+2026-02-17 14:12:17 - INFO - ✅ PostgreSQL metrics tables are ready (data_profiles, auto_increment_metrics)
+2026-02-17 14:12:17 - INFO - ✅ PostgreSQL table 'table_inventory' is ready
+2026-02-17 14:12:17 - INFO - ✅ Metrics backend 'postgresql' initialized successfully
+2026-02-17 14:12:17 - INFO - Found 3 tables in schema 'PROD'
+2026-02-17 14:12:17 - INFO - Discovered 3 tables in schema 'PROD'
+2026-02-17 14:12:17 - INFO - ✅ Inserted 3 tables into inventory [user-service/prod/PROD]
+2026-02-17 14:12:17 - INFO - Profiling schema objects [user-service/prod] (schema: PROD)
+2026-02-17 14:12:17 - INFO - Found 8 schema objects: 2 procedures, 3 views, 3 triggers
+2026-02-17 14:12:17 - INFO - ✅ PostgreSQL table 'schema_objects' is ready
+2026-02-17 14:12:17 - INFO - ✅ Inserted 8 schema objects (2 procedures, 3 views, 3 triggers) [user-service/prod]
+2026-02-17 14:12:17 - INFO - ✅ Schema objects profile stored: 8 objects
+2026-02-17 14:12:17 - INFO - Schema objects profiling completed: 8 objects
+2026-02-17 14:12:17 - INFO - Database connection established for schema profiling
+2026-02-17 14:12:17 - INFO - 
+============================================================
+2026-02-17 14:12:17 - INFO - Processing table: users
+2026-02-17 14:12:17 - INFO - ============================================================
+2026-02-17 14:12:17 - INFO - Profiling schema for 'users' [user-service/prod] (schema: PROD)
+2026-02-17 14:12:17 - INFO - Extracted schema for PROD.users: 7 columns, 3 indexes, 0 FKs
+2026-02-17 14:12:17 - INFO - ✅ PostgreSQL table 'schema_profiles' is ready
+2026-02-17 14:12:17 - INFO - ✅ Inserted 7 schema profiles [user-service/prod]
+2026-02-17 14:12:17 - INFO - ✅ Schema profile stored: 7 columns
+2026-02-17 14:12:17 - INFO - Schema profiling completed for 'users': 7 columns
+2026-02-17 14:12:17 - INFO - Starting profiler for table: 'users' [user-service/prod] (database: oracle, schema: PROD, metrics: postgresql)
+2026-02-17 14:12:17 - INFO - Discovering schema for 'users'...
+2026-02-17 14:12:18 - INFO - Found 7 columns in table 'PROD.users'
+2026-02-17 14:12:18 - INFO - Found 7 columns to profile
+2026-02-17 14:12:18 - INFO - Calculating metrics for 7 columns...
+2026-02-17 14:12:18 - INFO - Table 'users' has 20 rows
+2026-02-17 14:12:18 - INFO - ✅ Inserted 7 profiles to PostgreSQL [user-service/prod]
+2026-02-17 14:12:18 - INFO - ✅ Results stored in PostgreSQL (data_profiles)
+2026-02-17 14:12:18 - INFO - 
+🔍 Auto-increment analysis for 'users' (database: oracle, schema: PROD, metrics: postgresql)...
+2026-02-17 14:12:18 - INFO - Profiling auto-increment columns for table: users
+2026-02-17 14:12:18 - INFO - Found 1 IDENTITY columns in 'users'
+2026-02-17 14:12:18 - INFO -   ID: 0.0000% used, status=OK, days_until_full=None
+2026-02-17 14:12:18 - INFO - ✅ Inserted 1 auto-increment profiles to PostgreSQL [user-service/prod]
+2026-02-17 14:12:18 - INFO - ✅ Auto-increment results stored in PostgreSQL
+2026-02-17 14:12:18 - INFO - Profiling completed for 'users': 7 columns profiled
+2026-02-17 14:12:18 - INFO - 
+============================================================
+2026-02-17 14:12:18 - INFO - Processing table: products
+2026-02-17 14:12:18 - INFO - ============================================================
+2026-02-17 14:12:18 - INFO - Profiling schema for 'products' [user-service/prod] (schema: PROD)
+2026-02-17 14:12:18 - INFO - Extracted schema for PROD.products: 6 columns, 2 indexes, 0 FKs
+2026-02-17 14:12:18 - INFO - ✅ PostgreSQL table 'schema_profiles' is ready
+2026-02-17 14:12:18 - INFO - ✅ Inserted 6 schema profiles [user-service/prod]
+2026-02-17 14:12:18 - INFO - ✅ Schema profile stored: 6 columns
+2026-02-17 14:12:18 - INFO - Schema profiling completed for 'products': 6 columns
+2026-02-17 14:12:18 - INFO - Starting profiler for table: 'products' [user-service/prod] (database: oracle, schema: PROD, metrics: postgresql)
+2026-02-17 14:12:18 - INFO - Discovering schema for 'products'...
+2026-02-17 14:12:18 - INFO - Found 6 columns in table 'PROD.products'
+2026-02-17 14:12:18 - INFO - Found 6 columns to profile
+2026-02-17 14:12:18 - INFO - Calculating metrics for 6 columns...
+2026-02-17 14:12:18 - INFO - Table 'products' has 6 rows
+2026-02-17 14:12:19 - INFO - ✅ Inserted 6 profiles to PostgreSQL [user-service/prod]
+2026-02-17 14:12:19 - INFO - ✅ Results stored in PostgreSQL (data_profiles)
+2026-02-17 14:12:19 - INFO - 
+🔍 Auto-increment analysis for 'products' (database: oracle, schema: PROD, metrics: postgresql)...
+2026-02-17 14:12:19 - INFO - Profiling auto-increment columns for table: products
+2026-02-17 14:12:19 - INFO - Found 1 IDENTITY columns in 'products'
+2026-02-17 14:12:19 - INFO -   ID: 0.0000% used, status=OK, days_until_full=None
+2026-02-17 14:12:19 - INFO - ✅ Inserted 1 auto-increment profiles to PostgreSQL [user-service/prod]
+2026-02-17 14:12:19 - INFO - ✅ Auto-increment results stored in PostgreSQL
+2026-02-17 14:12:19 - INFO - Profiling completed for 'products': 6 columns profiled
+2026-02-17 14:12:19 - INFO - Schema profiling connection closed
+2026-02-17 14:12:19 - INFO - 
+============================================================
+2026-02-17 14:12:19 - INFO - SUMMARY: 2 table(s) processed, 13 total columns profiled
+2026-02-17 14:12:19 - INFO - ============================================================
+
+================================================================================
+  Data Profile: users
+  Profiled at: 2026-02-17 14:12:18
+  Row count: 20
+================================================================================
+
+Column               Type            Not Null   Distinct   Unique  Min          Max         
+--------------------------------------------------------------------------------------------
+ID                   number          1.00       1.00       Yes     1            20          
+USERNAME             varchar2        1.00       1.00       Yes     N/A          N/A         
+EMAIL                varchar2        1.00       1.00       Yes     N/A          N/A         
+AGE                  number          1.00       1.00       Yes     28           55          
+SALARY               number          0.95       0.95       Yes     55000        130000      
+IS_ACTIVE            number          1.00       0.10       No      0            1           
+CREATED_AT           timestamp(6)    1.00       1.00       Yes     N/A          N/A         
+
+---------------------------Numeric Column Statistics----------------------------
+Column               Avg             Median          Std Dev (Pop)   Std Dev (Sam)  
+--------------------------------------------------------------------------------
+ID                   10.5000         10.5000         5.7663          5.9161         
+AGE                  40.3000         40.0000         7.3082          7.4981         
+SALARY               86105.2632      86000.0000      19598.3209      20135.3607     
+IS_ACTIVE            0.9000          1.0000          0.3000          0.3078         
+
+
+============================================================
+AUTO-INCREMENT OVERFLOW RISK ANALYSIS
+============================================================
+
+🟢 users.ID (number)
+   Current: 21 / 9,223,372,036,854,775,807
+   Usage: 0.000000%
+   Days until full: N/A (need more data)
+============================================================
+
+
+================================================================================
+  Data Profile: products
+  Profiled at: 2026-02-17 14:12:19
+  Row count: 6
+================================================================================
+
+Column               Type            Not Null   Distinct   Unique  Min          Max         
+--------------------------------------------------------------------------------------------
+ID                   number          1.00       1.00       Yes     1            6           
+NAME                 varchar2        1.00       1.00       Yes     N/A          N/A         
+CATEGORY             varchar2        1.00       0.67       No      N/A          N/A         
+PRICE                number          1.00       1.00       Yes     18.99        1499.99     
+STOCK_QUANTITY       number          1.00       1.00       Yes     30           500         
+IS_AVAILABLE         number          1.00       0.17       No      1            1           
+
+---------------------------Numeric Column Statistics----------------------------
+Column               Avg             Median          Std Dev (Pop)   Std Dev (Sam)  
+--------------------------------------------------------------------------------
+ID                   3.5000          3.5000          1.7078          1.8708         
+PRICE                484.8233        169.9900        564.6652        618.5598       
+STOCK_QUANTITY       152.5000        67.5000         164.8674        180.6032       
+IS_AVAILABLE         1.0000          1.0000          N/A             N/A            
+
+
+============================================================
+AUTO-INCREMENT OVERFLOW RISK ANALYSIS
+============================================================
+
+🟢 products.ID (number)
+   Current: 21 / 9,223,372,036,854,775,807
+   Usage: 0.000000%
+   Days until full: N/A (need more data)
+============================================================
+

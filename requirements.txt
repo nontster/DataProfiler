@@ -5,6 +5,7 @@ soda-core-sqlserver>=3.0.0
 soda-core-mysql>=3.0.0
 mysql-connector-python>=8.0.0
 pymssql>=2.2.0
+oracledb>=2.0.0
 jinja2>=3.0.0
 python-dotenv>=1.0.0
 setuptools>=80.9.0

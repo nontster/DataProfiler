@@ -123,7 +123,7 @@ Examples:
 
     parser.add_argument(
         '-d', '--database-type',
-        choices=['postgresql', 'mssql', 'mysql'],
+        choices=['postgresql', 'mssql', 'mysql', 'oracle'],
         default='postgresql',
         help='Database type to profile (default: postgresql)'
     )
@@ -418,6 +418,11 @@ def get_database_connection(database_type: str):
         from src.db.mysql import get_mysql_connection
         return get_mysql_connection()
     else:
+        # Check if oracle before defaulting to mssql or raise error if unknown
+        if database_type == 'oracle':
+            from src.db.oracle import get_oracle_connection
+            return get_oracle_connection()
+        
         from src.db.mssql import get_mssql_connection
         return get_mssql_connection()
 

@@ -44,6 +44,14 @@ class Config:
     MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'prod')
     MYSQL_USER = os.getenv('MYSQL_USER', 'user')
     MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'password123')
+
+    # Oracle Configuration
+    ORACLE_HOST = os.getenv('ORACLE_HOST', 'localhost')
+    ORACLE_PORT = int(os.getenv('ORACLE_PORT', 1521))
+    ORACLE_SERVICE_NAME = os.getenv('ORACLE_SERVICE_NAME', 'XEPDB1')
+    ORACLE_USER = os.getenv('ORACLE_USER', 'PROD')
+    ORACLE_PASSWORD = os.getenv('ORACLE_PASSWORD', 'password123')
+    ORACLE_SCHEMA = os.getenv('ORACLE_SCHEMA', 'PROD')
     
     # Metrics Storage Configuration
     METRICS_BACKEND = os.getenv('METRICS_BACKEND', 'postgresql')  # 'postgresql' or 'clickhouse'
@@ -112,5 +120,16 @@ class Config:
             'database': cls.MYSQL_DATABASE,
             'user': cls.MYSQL_USER,
             'password': cls.MYSQL_PASSWORD,
+        }
+
+    @classmethod
+    def get_oracle_config(cls) -> dict:
+        """Get Oracle configuration as dictionary."""
+        return {
+            'host': cls.ORACLE_HOST,
+            'port': cls.ORACLE_PORT,
+            'service_name': cls.ORACLE_SERVICE_NAME,
+            'user': cls.ORACLE_USER,
+            'password': cls.ORACLE_PASSWORD,
         }
 

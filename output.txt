@@ -1,0 +1,18 @@
+2026-02-17 13:34:54 - INFO - Tables to process:  (0 table(s))
+2026-02-17 13:34:54 - INFO - Initializing metrics backend: postgresql
+2026-02-17 13:34:54 - INFO - ✅ PostgreSQL metrics tables are ready (data_profiles, auto_increment_metrics)
+2026-02-17 13:34:54 - INFO - ✅ PostgreSQL table 'table_inventory' is ready
+2026-02-17 13:34:54 - INFO - ✅ Metrics backend 'postgresql' initialized successfully
+2026-02-17 13:34:54 - INFO - DEBUG: schema=PROD, Config.SCHEMA=PROD, target=PROD
+2026-02-17 13:34:54 - INFO - DEBUG: Host=localhost, Port=21521, Service=FREEPDB1
+2026-02-17 13:34:54 - INFO - Found 2 tables in schema 'PROD'
+2026-02-17 13:34:54 - INFO - Discovered 2 tables in schema 'PROD'
+2026-02-17 13:34:54 - INFO - ✅ Inserted 2 tables into inventory [default/development/PROD]
+2026-02-17 13:34:54 - INFO - Profiling schema objects [default/development] (schema: PROD)
+2026-02-17 13:34:54 - INFO - Found 0 schema objects: 0 procedures, 0 views, 0 triggers
+2026-02-17 13:34:54 - INFO - No schema objects found — skipping storage
+2026-02-17 13:34:54 - INFO - No schema objects found in this schema
+2026-02-17 13:34:54 - INFO - 
+============================================================
+2026-02-17 13:34:54 - INFO - SUMMARY: 0 table(s) processed, 0 total columns profiled
+2026-02-17 13:34:54 - INFO - ============================================================

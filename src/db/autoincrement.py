@@ -12,7 +12,9 @@ from abc import ABC, abstractmethod
 from src.db.postgres import get_postgres_connection
 from src.db.mssql import get_mssql_connection
 from src.db.mysql import get_mysql_connection
+from src.db.oracle import get_oracle_connection
 from src.config import Config
+
 from src.exceptions import DatabaseConnectionError
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,15 @@ MYSQL_TYPE_MAX_VALUES = {
     'int': 2147483647,
     'integer': 2147483647,
     'bigint': 9223372036854775807,
+}
+
+
+# Maximum values for Oracle integer types
+# Cap at BIGINT max for compatibility with Postgres/metrics storage
+ORACLE_TYPE_MAX_VALUES = {
+    'number': 9223372036854775807, 
+    'integer': 9223372036854775807,
+    'smallint': 9223372036854775807,
 }
 
 
@@ -488,6 +499,123 @@ class MySQLAutoIncrementDetector(AutoIncrementDetector):
         return result
 
 
+class OracleAutoIncrementDetector(AutoIncrementDetector):
+    """Oracle implementation using ALL_TAB_IDENTITY_COLS and ALL_SEQUENCES."""
+    
+    def __init__(self, schema: str = None):
+        self.schema = schema or Config.ORACLE_SCHEMA or 'USER'
+    
+    def get_autoincrement_columns(self, table_name: str) -> list[dict]:
+        try:
+            conn = get_oracle_connection()
+            cur = conn.cursor()
+            
+            target_schema = self.schema.upper()
+            target_table = table_name.upper()
+
+            # Find IDENTITY columns with data type
+            query = """
+                SELECT c.column_name, tc.data_type, c.sequence_name
+                FROM all_tab_identity_cols c
+                JOIN all_tab_columns tc 
+                  ON c.owner = tc.owner 
+                  AND c.table_name = tc.table_name 
+                  AND c.column_name = tc.column_name
+                WHERE c.owner = :1 AND c.table_name = :2
+                ORDER BY c.column_name
+            """
+            
+            cur.execute(query, (target_schema, target_table))
+            rows = cur.fetchall()
+            
+            result = []
+            for row in rows:
+                col_name, data_type, seq_name = row
+                
+                result.append({
+                    'column_name': col_name,
+                    'data_type': data_type.lower(),
+                    'sequence_name': seq_name, # Sequence name is maintained by Oracle for ID columns
+                })
+                logger.debug(f"Found Oracle IDENTITY: {col_name} -> {seq_name}")
+            
+            cur.close()
+            conn.close()
+            
+            logger.info(f"Found {len(result)} IDENTITY columns in '{table_name}'")
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error discovering Oracle IDENTITY columns: {e}")
+            raise DatabaseConnectionError(f"Failed to discover Oracle IDENTITY columns: {e}")
+
+    def get_current_value(self, sequence_name: str) -> Optional[int]:
+        """
+        Get last_number from ALL_SEQUENCES.
+        """
+        try:
+            conn = get_oracle_connection()
+            cur = conn.cursor()
+            
+            # sequence_name from all_tab_identity_cols is usually strictly correct case
+            # but usually usually upper.
+            
+            query = """
+                SELECT last_number
+                FROM all_sequences
+                WHERE sequence_name = :1 AND sequence_owner = :2
+            """
+            # Guess owner is same as schema
+            target_schema = self.schema.upper()
+            
+            cur.execute(query, (sequence_name, target_schema))
+            row = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if row:
+                return int(row[0])
+            return 0
+        except Exception as e:
+            logger.error(f"Error getting Oracle sequence value: {e}")
+            return None
+
+    def get_all_autoincrement_info(self, table_name: str, schema: str = None) -> list[dict]:
+        detector = self
+        if schema and schema.upper() != self.schema.upper():
+             detector = OracleAutoIncrementDetector(schema=schema)
+             
+        columns = detector.get_autoincrement_columns(table_name)
+        
+        result = []
+        for col in columns:
+            current_value = detector.get_current_value(col['sequence_name'])
+            data_type = col['data_type']
+            # Oracle NUMBER is huge, just use big generic max
+            max_value = ORACLE_TYPE_MAX_VALUES.get(data_type, ORACLE_TYPE_MAX_VALUES['number'])
+            
+            if current_value is not None:
+                usage_percentage = (current_value / max_value) * 100
+                remaining = max_value - current_value
+            else:
+                usage_percentage = 0.0
+                remaining = max_value
+                current_value = 0
+            
+            result.append({
+                'table_name': table_name,
+                'column_name': col['column_name'],
+                'data_type': data_type,
+                'sequence_name': col['sequence_name'],
+                'current_value': current_value,
+                'max_type_value': max_value,
+                'usage_percentage': round(usage_percentage, 6),
+                'remaining_values': remaining,
+            })
+        
+        return result
+
+
 def get_autoincrement_detector(database_type: str = 'postgresql') -> AutoIncrementDetector:
     """
     Factory function to get the appropriate auto-increment detector.
@@ -507,6 +635,7 @@ def get_autoincrement_detector(database_type: str = 'postgresql') -> AutoIncreme
         'mssql': MSSQLAutoIncrementDetector,
         'sqlserver': MSSQLAutoIncrementDetector,
         'mysql': MySQLAutoIncrementDetector,
+        'oracle': OracleAutoIncrementDetector,
     }
     
     detector_class = detectors.get(database_type.lower())

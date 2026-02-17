@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 # Install system dependencies required for building wheels
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
