@@ -268,7 +268,21 @@ PG_METRICS_PASSWORD=your_password
 
 > ⚠️ **สำคัญ:** ไฟล์ `.env` ถูก ignore โดย git อยู่แล้ว ไม่ต้องกังวลเรื่อง commit credentials
 
-### 2. Soda Core Configuration
+### 2. Oracle Configuration (Optional)
+
+หากใช้งาน Oracle เป็น source database หรือ metrics storage ให้เพิ่มค่าเหล่านี้ในไฟล์ `.env`:
+
+```bash
+# Oracle Configuration
+ORACLE_HOST=localhost
+ORACLE_PORT=1521
+ORACLE_SERVICE=orcl
+ORACLE_USER=system
+ORACLE_PASSWORD=oracle
+ORACLE_SCHEMA=public
+```
+
+### 3. Soda Core Configuration
 
 แก้ไขไฟล์ `configuration.yml` สำหรับ Soda Core:
 
@@ -383,6 +397,7 @@ python main.py --help
 | `postgresql` | PostgreSQL (ค่าเริ่มต้น) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
 | `mssql`      | Microsoft SQL Server     | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
 | `mysql`      | MySQL                    | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, etc. |
+| `oracle`     | Oracle                   | `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE`, etc. |
 
 ```bash
 # Profile จาก PostgreSQL (ค่าเริ่มต้น)

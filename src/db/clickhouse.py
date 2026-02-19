@@ -121,6 +121,14 @@ def insert_profiles(
             source_host = Config.MSSQL_HOST
             source_database = Config.MSSQL_DATABASE
             source_schema = Config.MSSQL_SCHEMA
+        elif database_type == 'mysql':
+            source_host = Config.MYSQL_HOST
+            source_database = Config.MYSQL_DATABASE
+            source_schema = Config.MYSQL_DATABASE
+        elif database_type == 'oracle':
+            source_host = Config.ORACLE_HOST
+            source_database = Config.ORACLE_SERVICE
+            source_schema = Config.ORACLE_SCHEMA
         else:
             source_host = Config.POSTGRES_HOST
             source_database = Config.POSTGRES_DATABASE
@@ -254,6 +262,14 @@ def insert_autoincrement_profiles(
             source_host = Config.MSSQL_HOST
             source_database = Config.MSSQL_DATABASE
             source_schema = Config.MSSQL_SCHEMA
+        elif database_type == 'mysql':
+            source_host = Config.MYSQL_HOST
+            source_database = Config.MYSQL_DATABASE
+            source_schema = Config.MYSQL_DATABASE
+        elif database_type == 'oracle':
+            source_host = Config.ORACLE_HOST
+            source_database = Config.ORACLE_SERVICE
+            source_schema = Config.ORACLE_SCHEMA
         else:
             source_host = Config.POSTGRES_HOST
             source_database = Config.POSTGRES_DATABASE
@@ -652,6 +668,9 @@ def insert_table_inventory(
         elif database_type in ('mysql',):
             source_host = Config.MYSQL_HOST
             source_database = Config.MYSQL_DATABASE
+        elif database_type in ('oracle',):
+            source_host = Config.ORACLE_HOST
+            source_database = Config.ORACLE_SERVICE
         else:
             source_host = Config.POSTGRES_HOST
             source_database = Config.POSTGRES_DATABASE

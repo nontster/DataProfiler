@@ -305,6 +305,27 @@ class Config:
 
 ---
 
+## 🚦 Database Support Status
+
+| Database   | Connection | Metrics Storage | Schema Profiling | Auto-Increment | Notes |
+| :--- | :---: | :---: | :---: | :---: | :--- |
+| **PostgreSQL** | ✅ | ✅ | ✅ | ✅ | Full support |
+| **MSSQL**      | ✅ | ❌ | ✅ | ✅ | Metrics storage via Postgres/ClickHouse |
+| **MySQL**      | ✅ | ❌ | ✅ | ✅ | Median not supported |
+| **Oracle**     | ❌ | ✅ | ❌ | ❌ | Configuration support only (for storage) |
+
+### Oracle Support Details
+
+Oracle support is currently limited to **configuration and metrics storage** logic. This means:
+
+1. You **can** configure Oracle connection details in `.env`.
+2. The system **can** map these details to the `database_host` and `database_name` fields when storing metrics.
+3. You **cannot** yet profile an Oracle database (source) because the `OracleConnector` and `OracleSchemaExtractor` are not implemented.
+
+To add full Oracle support, follow the [Adding a New Database](#-adding-a-new-database) guide.
+
+---
+
 ## 🧪 Testing
 
 ```bash
