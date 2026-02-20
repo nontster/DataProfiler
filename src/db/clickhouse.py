@@ -127,7 +127,7 @@ def insert_profiles(
             source_schema = Config.MYSQL_DATABASE
         elif database_type == 'oracle':
             source_host = Config.ORACLE_HOST
-            source_database = Config.ORACLE_SERVICE
+            source_database = Config.ORACLE_SERVICE_NAME
             source_schema = Config.ORACLE_SCHEMA
         else:
             source_host = Config.POSTGRES_HOST
@@ -268,7 +268,7 @@ def insert_autoincrement_profiles(
             source_schema = Config.MYSQL_DATABASE
         elif database_type == 'oracle':
             source_host = Config.ORACLE_HOST
-            source_database = Config.ORACLE_SERVICE
+            source_database = Config.ORACLE_SERVICE_NAME
             source_schema = Config.ORACLE_SCHEMA
         else:
             source_host = Config.POSTGRES_HOST
@@ -670,7 +670,7 @@ def insert_table_inventory(
             source_database = Config.MYSQL_DATABASE
         elif database_type in ('oracle',):
             source_host = Config.ORACLE_HOST
-            source_database = Config.ORACLE_SERVICE
+            source_database = Config.ORACLE_SERVICE_NAME
         else:
             source_host = Config.POSTGRES_HOST
             source_database = Config.POSTGRES_DATABASE

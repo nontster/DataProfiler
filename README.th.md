@@ -276,7 +276,7 @@ PG_METRICS_PASSWORD=your_password
 # Oracle Configuration
 ORACLE_HOST=localhost
 ORACLE_PORT=1521
-ORACLE_SERVICE=orcl
+ORACLE_SERVICE_NAME=orcl
 ORACLE_USER=system
 ORACLE_PASSWORD=oracle
 ORACLE_SCHEMA=public
@@ -397,7 +397,7 @@ python main.py --help
 | `postgresql` | PostgreSQL (ค่าเริ่มต้น) | `POSTGRES_HOST`, `POSTGRES_PORT`, etc.             |
 | `mssql`      | Microsoft SQL Server     | `MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_DATABASE`, etc. |
 | `mysql`      | MySQL                    | `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, etc. |
-| `oracle`     | Oracle                   | `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE`, etc. |
+| `oracle`     | Oracle                   | `ORACLE_HOST`, `ORACLE_PORT`, `ORACLE_SERVICE_NAME`, etc. |
 
 ```bash
 # Profile จาก PostgreSQL (ค่าเริ่มต้น)

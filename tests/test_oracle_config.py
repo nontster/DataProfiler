@@ -12,14 +12,14 @@ class TestOracleConfig(unittest.TestCase):
     def setUp(self):
         self.patcher = patch.dict(os.environ, {
             'ORACLE_HOST': 'oracle-test-host',
-            'ORACLE_SERVICE': 'oracle-test-service',
+            'ORACLE_SERVICE_NAME': 'oracle-test-service',
             'ORACLE_SCHEMA': 'oracle-test-schema'
         })
         self.patcher.start()
         
         # Reload/Update config to pick up env vars
         Config.ORACLE_HOST = 'oracle-test-host'
-        Config.ORACLE_SERVICE = 'oracle-test-service'
+        Config.ORACLE_SERVICE_NAME = 'oracle-test-service'
         Config.ORACLE_SCHEMA = 'oracle-test-schema'
         
         # Dummy profile data

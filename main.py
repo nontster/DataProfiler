@@ -566,7 +566,7 @@ def run_schema_objects_profiler(
             db_name = Config.MYSQL_DATABASE or ''
         elif database_type == 'oracle':
             db_host = Config.ORACLE_HOST or ''
-            db_name = Config.ORACLE_SERVICE or ''
+            db_name = Config.ORACLE_SERVICE_NAME or ''
         
         schema_name = schema or 'public'
         

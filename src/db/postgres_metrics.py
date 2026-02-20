@@ -56,7 +56,7 @@ def init_postgres_metrics() -> bool:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS data_profiles (
                 id SERIAL PRIMARY KEY,
-                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scan_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 
                 -- Multi-tenancy columns
                 application VARCHAR(255) DEFAULT 'default',
@@ -99,7 +99,7 @@ def init_postgres_metrics() -> bool:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS auto_increment_metrics (
                 id SERIAL PRIMARY KEY,
-                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scan_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 
                 -- Multi-tenancy columns
                 application VARCHAR(255) DEFAULT 'default',
@@ -188,7 +188,7 @@ def insert_profiles_pg(
             source_schema = Config.MYSQL_DATABASE
         elif database_type == 'oracle':
             source_host = Config.ORACLE_HOST
-            source_database = Config.ORACLE_SERVICE
+            source_database = Config.ORACLE_SERVICE_NAME
             source_schema = Config.ORACLE_SCHEMA
         else:
             source_host = Config.POSTGRES_HOST
@@ -280,7 +280,7 @@ def insert_autoincrement_profiles_pg(
             source_schema = Config.MYSQL_DATABASE
         elif database_type == 'oracle':
             source_host = Config.ORACLE_HOST
-            source_database = Config.ORACLE_SERVICE
+            source_database = Config.ORACLE_SERVICE_NAME
             source_schema = Config.ORACLE_SCHEMA
         else:
             source_host = Config.POSTGRES_HOST
@@ -414,7 +414,7 @@ def init_schema_profiles_pg() -> bool:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_profiles (
                 id SERIAL PRIMARY KEY,
-                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scan_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 
                 -- Multi-tenancy
                 application VARCHAR(255) DEFAULT 'default',
@@ -570,7 +570,7 @@ def init_schema_objects_pg() -> bool:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS schema_objects (
                 id SERIAL PRIMARY KEY,
-                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scan_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 
                 -- Multi-tenancy
                 application VARCHAR(255) DEFAULT 'default',
@@ -724,7 +724,7 @@ def init_table_inventory_pg() -> bool:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS table_inventory (
                 id SERIAL PRIMARY KEY,
-                scan_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                scan_time TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                 
                 -- Multi-tenancy
                 application VARCHAR(255) DEFAULT 'default',
@@ -797,7 +797,7 @@ def insert_table_inventory_pg(
             source_database = Config.MYSQL_DATABASE
         elif database_type in ('oracle',):
             source_host = Config.ORACLE_HOST
-            source_database = Config.ORACLE_SERVICE
+            source_database = Config.ORACLE_SERVICE_NAME
         else:
             source_host = Config.POSTGRES_HOST
             source_database = Config.POSTGRES_DATABASE
